@@ -1,0 +1,10 @@
+{
+  "name": "OmniBiz",
+  "short_name": "OmniBiz",
+  "description": "One platform. Many people. Many businesses. One connected ecosystem.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1c1e3a",
+  "theme_color": "#40263a",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

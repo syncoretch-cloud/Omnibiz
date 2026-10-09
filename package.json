@@ -1,0 +1,21 @@
+{
+  "name": "omnibiz",
+  "private": true,
+  "version": "0.1.0",
+  "description": "OmniBiz — one platform connecting people, businesses, jobs and products.",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "seed": "npm run seed --workspace server",
+    "build": "npm run build --workspace web",
+    "start": "npm run start --workspace server",
+    "test": "npm test --workspace server",
+    "typecheck": "npm run typecheck --workspace server && npm run typecheck --workspace web"
+  },
+  "engines": {
+    "node": ">=23.6"
+  }
+}

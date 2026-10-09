@@ -1,0 +1,115 @@
+import { useState } from 'react';
+import { Link, useSearchParams } from 'react-router';
+import { Icon } from '../components/Icon.tsx';
+import { JobCard } from '../components/Cards.tsx';
+import { Empty, Input, LoadMore, PageTitle, Select, Spinner, Tabs } from '../components/ui.tsx';
+import { useApi, usePaged } from '../lib/hooks.ts';
+import { qs } from '../lib/api.ts';
+import type { Json } from '../lib/api.ts';
+import { useSession } from '../lib/session.tsx';
+import { STAGE_LABEL, label, timeAgo } from '../lib/format.ts';
+
+type Tab = 'recommended' | 'latest' | 'nearby' | 'saved' | 'applied';
+
+function Filters({ value, onChange }: { value: Record<string, string>; onChange: (v: Record<string, string>) => void }) {
+  const { meta } = useSession();
+  const [q, setQ] = useState(value.q ?? '');
+  const set = (k: string, v: string) => onChange({ ...value, [k]: v });
+  return (
+    <div className="card card-pad stack-sm">
+      <form className="row" onSubmit={(e) => { e.preventDefault(); set('q', q); }}>
+        <div className="input-icon grow"><Icon name="search" /><Input placeholder="Job title, skill or company" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+        <button className="btn btn-primary">Search</button>
+      </form>
+      <div className="grid-4">
+        <Select value={value.industry ?? ''} onChange={(e) => set('industry', e.target.value)} placeholder="All industries" options={(meta?.industries ?? []).map((c) => ({ value: c.slug, label: c.name }))} aria-label="Industry" />
+        <Select value={value.city ?? ''} onChange={(e) => set('city', e.target.value)} placeholder="Any location" options={(meta?.cities ?? []).map((c) => c.name)} aria-label="Location" />
+        <Select value={value.employment_type ?? ''} onChange={(e) => set('employment_type', e.target.value)} placeholder="Any type" options={(meta?.employment_types ?? []).map((t) => ({ value: t, label: label(t) }))} aria-label="Employment type" />
+        <Select value={value.posted_within ?? ''} onChange={(e) => set('posted_within', e.target.value)} placeholder="Any time" options={[{ value: '1', label: 'Past 24 hours' }, { value: '7', label: 'Past week' }, { value: '30', label: 'Past month' }]} aria-label="Date posted" />
+        <Input type="number" min={0} placeholder="Min. salary (TZS)" value={value.min_salary ?? ''} onChange={(e) => set('min_salary', e.target.value)} aria-label="Minimum salary" />
+        <Input placeholder="Skill, e.g. React" value={value.skill ?? ''} onChange={(e) => set('skill', e.target.value)} aria-label="Skill" />
+        <Select value={value.sort ?? ''} onChange={(e) => set('sort', e.target.value)} placeholder="Newest first" options={[{ value: 'relevance', label: 'Most relevant' }, { value: 'salary', label: 'Highest salary' }, { value: 'deadline', label: 'Closing soon' }]} aria-label="Sort" />
+        <label className="checkbox" style={{ alignItems: 'center' }}><input type="checkbox" checked={value.remote === '1'} onChange={(e) => set('remote', e.target.checked ? '1' : '')} /> Remote only</label>
+      </div>
+    </div>
+  );
+}
+
+function JobList({ path, emptyTitle, emptyText }: { path: string; emptyTitle: string; emptyText?: string }) {
+  const list = usePaged(path);
+  return (
+    <div className="stack">
+      {list.extra?.total != null && list.items.length > 0 && <div className="small muted">{list.extra.total} job{list.extra.total === 1 ? '' : 's'}</div>}
+      {list.extra?.needs_location && <div className="card"><Empty icon="mapPin" title="Set your location">Add your city in <Link to="/settings/account">settings</Link> to see nearby jobs.</Empty></div>}
+      {list.items.map((j: Json) => <JobCard key={j.id} j={j} match={j.match} />)}
+      {!list.loading && !list.items.length && !list.extra?.needs_location && <div className="card"><Empty icon="briefcase" title={emptyTitle}>{emptyText}</Empty></div>}
+      <LoadMore hasMore={list.hasMore} loading={list.loading} onClick={list.loadMore} />
+    </div>
+  );
+}
+
+function Applied() {
+  const { data, loading } = useApi('/jobs/applied');
+  if (loading) return <Spinner block />;
+  if (!data?.items.length) return <div className="card"><Empty icon="send" title="No applications yet">When you apply for jobs, you can track every stage here.</Empty></div>;
+  const steps = ['applied', 'reviewing', 'shortlisted', 'interview', 'final_review', 'accepted'];
+  return (
+    <div className="stack">
+      {data.items.map(({ application: a, job: j }: Json) => {
+        const idx = steps.indexOf(a.stage);
+        return (
+          <Link key={a.id} to={`/jobs/${j.id}`} className="card card-link card-pad stack-sm">
+            <div className="row-between">
+              <div>
+                <div className="bold">{j.title}</div>
+                <div className="small muted">{j.company?.display_name} · applied {timeAgo(a.created_at)}</div>
+              </div>
+              <span className={`chip ${a.stage === 'accepted' ? 'chip-success' : a.stage === 'rejected' || a.stage === 'withdrawn' ? 'chip-danger' : 'chip-info'}`}>{STAGE_LABEL[a.stage]}</span>
+            </div>
+            {idx >= 0 && (
+              <>
+                <div className="steps">{steps.map((s, i) => <div key={s} className={`step ${i <= idx ? 'done' : ''}`} title={STAGE_LABEL[s]} />)}</div>
+                <div className="xsmall muted">Stage {idx + 1} of {steps.length} · updated {timeAgo(a.updated_at)}</div>
+              </>
+            )}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+export default function Jobs() {
+  const { can } = useSession();
+  const [params, setParams] = useSearchParams();
+  const personal = can('apply_jobs');
+  const tab = (params.get('tab') as Tab) ?? (personal ? 'recommended' : 'latest');
+  const filters = Object.fromEntries([...params.entries()].filter(([k]) => k !== 'tab'));
+  const hasFilters = Object.values(filters).some(Boolean);
+  const setTab = (t: Tab) => setParams({ tab: t });
+
+  const tabs: { id: Tab; label: string }[] = [
+    ...(personal ? [{ id: 'recommended' as Tab, label: 'Recommended' }] : []),
+    { id: 'latest', label: hasFilters ? 'Search results' : 'Latest' },
+    { id: 'nearby', label: 'Nearby' },
+    { id: 'saved', label: 'Saved' },
+    ...(personal ? [{ id: 'applied' as Tab, label: 'Applied' }] : []),
+  ];
+
+  return (
+    <main className="page page-mid">
+      <PageTitle title="Jobs" subtitle="Opportunities matched to your skills, education and location." />
+      <div className="stack">
+        {(tab === 'latest' || tab === 'recommended') && (
+          <Filters value={filters} onChange={(v) => setParams({ tab: 'latest', ...Object.fromEntries(Object.entries(v).filter(([, x]) => x)) })} />
+        )}
+        <Tabs tabs={tabs} value={tab} onChange={setTab} />
+        {tab === 'recommended' && <JobList path="/jobs/recommended" emptyTitle="No recommendations yet" emptyText="Add skills, education and preferred locations to your CV to get matched." />}
+        {tab === 'latest' && <JobList path={`/jobs${qs(filters)}`} emptyTitle="No jobs found" emptyText="Try removing some filters." />}
+        {tab === 'nearby' && <JobList path="/jobs/nearby" emptyTitle="No jobs near you yet" />}
+        {tab === 'saved' && <JobList path="/jobs/saved" emptyTitle="No saved jobs" emptyText="Tap the bookmark on any job to save it for later." />}
+        {tab === 'applied' && <Applied />}
+      </div>
+    </main>
+  );
+}

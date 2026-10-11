@@ -282,7 +282,7 @@ export default function JobDetail() {
               </>
             )}
             <h3>Requirements</h3>
-            <div className="grid-2">
+            <div className="grid-2" style={{ ['--min' as string]: '180px' }}>
               <div><div className="section-title">Education</div><div>{j.education_req === 'none' ? 'No minimum' : label(j.education_req)}{j.education_field ? ` in ${j.education_field}` : ''}</div></div>
               <div><div className="section-title">Experience</div><div>{j.experience_years ? `${j.experience_years}+ years` : 'Entry level welcome'}</div></div>
             </div>

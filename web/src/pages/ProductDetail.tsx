@@ -43,7 +43,7 @@ export default function ProductDetail() {
       <div className="layout-2">
         <div className="stack">
           <div className="card card-pad">
-            <div className="grid-2" style={{ gap: 24 }}>
+            <div className="product-hero">
               <div>
                 <div className="gallery-main">
                   {p.media.length ? (/\.(mp4|webm)$/i.test(p.media[img]) ? <video src={p.media[img]} controls style={{ width: '100%', height: '100%' }} /> : <img src={p.media[img]} alt={p.name} />) : <Artwork variant="tile" {...productArt(p)} />}
@@ -144,7 +144,7 @@ export default function ProductDetail() {
             </Link>
             <Link to={`/u/${p.seller?.username}`} className="btn btn-outline btn-sm">Visit store</Link>
           </div>
-          {p.location && <MapView className="map map-sm" center={[p.location.lat, p.location.lng]} zoom={13} pins={[{ id: p.id, lat: p.location.lat, lng: p.location.lng, title: p.seller?.display_name ?? '', color: '#be185d', letter: '•' }]} />}
+          {p.location && <MapView className="map map-sm" center={[p.location.lat, p.location.lng]} zoom={13} pins={[{ id: p.id, lat: p.location.lat, lng: p.location.lng, title: p.seller?.display_name ?? '', color: '#6d324f', letter: '•' }]} />}
           <div className="banner banner-info small"><Icon name="shield" />Pay only after confirming with the seller. Report anything suspicious.</div>
         </aside>
       </div>

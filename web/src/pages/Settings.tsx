@@ -16,7 +16,7 @@ function ImageUpload({ value, onChange, round, text }: { value?: string | null; 
   const act = useAction();
   const [busy, setBusy] = useState(false);
   return (
-    <div className="row">
+    <div className="row-wrap" style={{ gap: 10 }}>
       <div style={{ width: round ? 72 : 160, height: 72, borderRadius: round ? '50%' : 10, overflow: 'hidden', background: 'var(--surface-2)', flexShrink: 0 }}>
         {value && <img src={value} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
       </div>

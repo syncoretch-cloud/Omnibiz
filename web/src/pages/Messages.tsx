@@ -57,7 +57,7 @@ function Thread({ id, onSent }: { id: number; onSent: () => void }) {
     <>
       <div className="card-header">
         <div className="row">
-          <Link to="/messages" className="btn btn-ghost btn-icon btn-sm show-mobile" aria-label="Back"><Icon name="arrowLeft" /></Link>
+          <Link to="/messages" className="btn btn-ghost btn-icon btn-sm thread-back" aria-label="Back"><Icon name="arrowLeft" /></Link>
           <Link to={`/u/${other?.username}`} className="row" style={{ color: 'inherit' }}>
             <Avatar user={other} size={36} />
             <div><div className="bold small row" style={{ gap: 4 }}>{other?.display_name}<Verified show={other?.verified} /></div><div className="xsmall muted">{other?.headline ?? other?.city}</div></div>

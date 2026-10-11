@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Icon } from '../components/Icon.tsx';
 import { Artwork, jobArt, postArt, productArt } from '../components/Artwork.tsx';
-import { Avatar, Empty, Spinner, Verified } from '../components/ui.tsx';
+import { Avatar, Empty, Portal, Spinner, Verified } from '../components/ui.tsx';
 import { CommentsList, RichText } from '../components/PostCard.tsx';
 import { del, post } from '../lib/api.ts';
 import type { Json } from '../lib/api.ts';
@@ -216,18 +216,20 @@ export default function Reels() {
         {!loading && !items.length && <div className="reel"><div className="card"><Empty icon="reels" title="No reels yet">Follow businesses and people to fill your reels.</Empty></div></div>}
       </div>
       {comments && (
-        <div className="modal-backdrop" style={{ background: 'transparent', backdropFilter: 'none' }} onMouseDown={(e) => e.target === e.currentTarget && setComments(null)}>
-          <div className="reel-sheet glass" role="dialog" aria-label="Comments">
-            <div className="modal-head"><h3>Comments</h3><button className="icon-btn" onClick={() => setComments(null)} aria-label="Close"><Icon name="x" /></button></div>
-            <div className="sheet-body"><CommentsList postId={comments.id} added={added} onCount={() => {}} /></div>
-            {can('interact') && (
-              <form className="composer-bar" onSubmit={sendComment}>
-                <input className="input search-input" placeholder="Add a comment…" value={text} onChange={(e) => setText(e.target.value)} maxLength={2000} autoFocus />
-                <button className="btn btn-primary btn-icon" disabled={!text.trim()} aria-label="Post comment"><Icon name="send" /></button>
-              </form>
-            )}
+        <Portal>
+          <div className="modal-backdrop" style={{ background: 'transparent', backdropFilter: 'none' }} onMouseDown={(e) => e.target === e.currentTarget && setComments(null)}>
+            <div className="reel-sheet glass" role="dialog" aria-label="Comments">
+              <div className="modal-head"><h3>Comments</h3><button className="icon-btn" onClick={() => setComments(null)} aria-label="Close"><Icon name="x" /></button></div>
+              <div className="sheet-body"><CommentsList postId={comments.id} added={added} onCount={() => {}} /></div>
+              {can('interact') && (
+                <form className="composer-bar" onSubmit={sendComment}>
+                  <input className="input search-input" placeholder="Add a comment…" value={text} onChange={(e) => setText(e.target.value)} maxLength={2000} autoFocus />
+                  <button className="btn btn-primary btn-icon" disabled={!text.trim()} aria-label="Post comment"><Icon name="send" /></button>
+                </form>
+              )}
+            </div>
           </div>
-        </div>
+        </Portal>
       )}
     </>
   );

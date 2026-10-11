@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Icon } from './Icon.tsx';
 import { Artwork, postArt } from './Artwork.tsx';
-import { Avatar, Dropdown, Verified } from './ui.tsx';
+import { Avatar, Dropdown, Portal, Verified } from './ui.tsx';
 import { ReportDialog } from './Report.tsx';
 import { del, get, post } from '../lib/api.ts';
 import type { Json } from '../lib/api.ts';
@@ -250,16 +250,18 @@ export function PostCard({ post: initial, onRemoved, showReason = false, expandC
 
       {reporting && <ReportDialog targetType="post" targetId={p.id} onClose={() => setReporting(false)} />}
       {reposting && (
-        <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setReposting(false)}>
-          <div className="modal">
-            <div className="modal-head"><h3>Repost</h3><button className="icon-btn" onClick={() => setReposting(false)} aria-label="Close"><Icon name="x" /></button></div>
-            <div className="modal-body stack">
-              {can('create_posts') && <textarea className="textarea" placeholder="Add your thoughts (optional)" value={repostText} onChange={(e) => setRepostText(e.target.value)} maxLength={2000} />}
-              <div style={{ borderRadius: 18, overflow: 'hidden' }}><Artwork variant="wide" {...postArt(c)} /></div>
+        <Portal>
+          <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setReposting(false)}>
+            <div className="modal">
+              <div className="modal-head"><h3>Repost</h3><button className="icon-btn" onClick={() => setReposting(false)} aria-label="Close"><Icon name="x" /></button></div>
+              <div className="modal-body stack">
+                {can('create_posts') && <textarea className="textarea" placeholder="Add your thoughts (optional)" value={repostText} onChange={(e) => setRepostText(e.target.value)} maxLength={2000} />}
+                <div style={{ borderRadius: 18, overflow: 'hidden' }}><Artwork variant="wide" {...postArt(c)} /></div>
+              </div>
+              <div className="modal-foot"><button className="btn btn-ghost" onClick={() => setReposting(false)}>Cancel</button><button className="btn btn-primary" onClick={repost}>Repost</button></div>
             </div>
-            <div className="modal-foot"><button className="btn btn-ghost" onClick={() => setReposting(false)}>Cancel</button><button className="btn btn-primary" onClick={repost}>Repost</button></div>
           </div>
-        </div>
+        </Portal>
       )}
     </article>
   );

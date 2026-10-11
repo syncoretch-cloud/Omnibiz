@@ -35,7 +35,7 @@ function Assistant() {
           <input className="input search-input" placeholder="Ask about your performance…" value={q} onChange={(e) => setQ(e.target.value)} />
           <button className="btn btn-primary" disabled={busy || !q.trim()}>Ask</button>
         </form>
-        <div className="row-wrap">{examples.map((e) => <button key={e} className="chip" onClick={() => ask(e)}>{e}</button>)}</div>
+        <div className="row-wrap">{examples.map((e) => <button key={e} className="chip chip-wrap" onClick={() => ask(e)}>{e}</button>)}</div>
         {busy && <Spinner />}
         {answer && !busy && (
           <div className="stack-sm">

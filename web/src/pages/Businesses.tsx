@@ -92,7 +92,7 @@ export default function Businesses() {
   const list = usePaged(view === 'list' ? listPath : null, 'businesses');
 
   return (
-    <main className="page">
+    <main className="page page-wide">
       <PageTitle
         title="Businesses"
         subtitle="Discover companies, wholesalers and retailers — near you or anywhere."
@@ -133,7 +133,7 @@ export default function Businesses() {
         ) : (
           <>
             {list.extra?.total != null && <div className="small muted">{list.extra.total} business{list.extra.total === 1 ? '' : 'es'}{near ? ' within 50 km' : ''}</div>}
-            <div className="grid-3">{list.items.map((b: Json) => <BusinessCard key={b.id} b={b} />)}</div>
+            <div className="grid-3" style={{ ['--n' as string]: '5' }}>{list.items.map((b: Json) => <BusinessCard key={b.id} b={b} />)}</div>
             {!list.loading && !list.items.length && <div className="card"><Empty icon="building" title="No businesses found">Try a different category or location.</Empty></div>}
             <LoadMore hasMore={list.hasMore} loading={list.loading} onClick={list.loadMore} />
           </>

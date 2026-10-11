@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { Icon } from './Icon.tsx';
 import { Artwork, postArt } from './Artwork.tsx';
-import { Avatar, Ring, Verified } from './ui.tsx';
+import { Avatar, Portal, Ring, Verified } from './ui.tsx';
 import { del, post } from '../lib/api.ts';
 import type { Json } from '../lib/api.ts';
 import { useApi } from '../lib/hooks.ts';
@@ -95,51 +95,53 @@ export function StoryViewer({ stories, start, onClose, onSeen }: { stories: Json
   });
 
   return (
-    <div className="story-viewer" onMouseDown={(e) => e.target === e.currentTarget && onClose()} role="dialog" aria-label={`Story from ${story.user.display_name}`}>
-      <button className="btn btn-glass btn-icon story-close" onClick={onClose} aria-label="Close"><Icon name="x" /></button>
-      <div style={{ position: 'relative' }}>
-        {si > 0 && <button className="btn btn-glass btn-icon story-nav" style={{ left: -64 }} onClick={() => { setSi(si - 1); setIi(0); }} aria-label="Previous story"><Icon name="chevronLeft" /></button>}
-        {si < stories.length - 1 && <button className="btn btn-glass btn-icon story-nav" style={{ right: -64 }} onClick={() => { setSi(si + 1); setIi(0); }} aria-label="Next story"><Icon name="chevronRight" /></button>}
-        <div className="story-frame" key={si}>
-          {media ? (/\.(mp4|webm)$/i.test(media) ? <video src={media} autoPlay muted playsInline /> : <img src={media} alt="" />) : <Artwork variant="story" {...postArt(item)} />}
-          <div className="story-top">
-            <div className={`story-bars${paused ? ' paused' : ''}`}>
-              {story.items.map((it: Json, k: number) => (
-                <i key={it.id} className={k < ii ? 'done' : k === ii ? 'now' : ''}>
-                  <b key={k === ii ? `${si}-${ii}` : k} style={{ ['--dur' as string]: `${STORY_MS}ms` }} onAnimationEnd={k === ii ? next : undefined} />
-                </i>
-              ))}
-            </div>
-            <div className="row">
-              <Link to={`/u/${story.user.username}`} onClick={onClose}><Avatar user={story.user} size={34} /></Link>
-              <div className="grow small" style={{ lineHeight: 1.2 }}>
-                <Link to={`/u/${story.user.username}`} onClick={onClose} className="bold" style={{ color: '#fff6ee' }}>{story.user.display_name}</Link> <Verified show={story.user.verified} />
-                <span style={{ opacity: 0.75 }}> · {timeAgo(item.created_at)}</span>
-                {story.suggested && <div className="xsmall" style={{ opacity: 0.75 }}>Suggested for you</div>}
+    <Portal>
+      <div className="story-viewer" onMouseDown={(e) => e.target === e.currentTarget && onClose()} role="dialog" aria-label={`Story from ${story.user.display_name}`}>
+        <button className="btn btn-glass btn-icon story-close" onClick={onClose} aria-label="Close"><Icon name="x" /></button>
+        <div style={{ position: 'relative' }}>
+          {si > 0 && <button className="btn btn-glass btn-icon story-nav" style={{ left: -64 }} onClick={() => { setSi(si - 1); setIi(0); }} aria-label="Previous story"><Icon name="chevronLeft" /></button>}
+          {si < stories.length - 1 && <button className="btn btn-glass btn-icon story-nav" style={{ right: -64 }} onClick={() => { setSi(si + 1); setIi(0); }} aria-label="Next story"><Icon name="chevronRight" /></button>}
+          <div className="story-frame" key={si}>
+            {media ? (/\.(mp4|webm)$/i.test(media) ? <video src={media} autoPlay muted playsInline /> : <img src={media} alt="" />) : <Artwork variant="story" {...postArt(item)} />}
+            <div className="story-top">
+              <div className={`story-bars${paused ? ' paused' : ''}`}>
+                {story.items.map((it: Json, k: number) => (
+                  <i key={it.id} className={k < ii ? 'done' : k === ii ? 'now' : ''}>
+                    <b key={k === ii ? `${si}-${ii}` : k} style={{ ['--dur' as string]: `${STORY_MS}ms` }} onAnimationEnd={k === ii ? next : undefined} />
+                  </i>
+                ))}
               </div>
-              <button className="icon-btn" style={{ color: '#fff6ee' }} onClick={() => setPaused((p) => !p)} aria-label={paused ? 'Play' : 'Pause'}><Icon name={paused ? 'play' : 'pause'} /></button>
+              <div className="row">
+                <Link to={`/u/${story.user.username}`} onClick={onClose}><Avatar user={story.user} size={34} /></Link>
+                <div className="grow small" style={{ lineHeight: 1.2 }}>
+                  <Link to={`/u/${story.user.username}`} onClick={onClose} className="bold" style={{ color: '#fff6ee' }}>{story.user.display_name}</Link> <Verified show={story.user.verified} />
+                  <span style={{ opacity: 0.75 }}> · {timeAgo(item.created_at)}</span>
+                  {story.suggested && <div className="xsmall" style={{ opacity: 0.75 }}>Suggested for you</div>}
+                </div>
+                <button className="icon-btn" style={{ color: '#fff6ee' }} onClick={() => setPaused((p) => !p)} aria-label={paused ? 'Play' : 'Pause'}><Icon name={paused ? 'play' : 'pause'} /></button>
+              </div>
             </div>
+            <div className="story-zone left" {...zone('left')} />
+            <div className="story-zone right" {...zone('right')} />
+            {media && item.body && <div className="story-caption clamp-3">{item.body}</div>}
+            {(item.data?.product_id || item.data?.job_id) && (
+              <Link to={item.data.product_id ? `/marketplace/${item.data.product_id}?src=story` : `/jobs/${item.data.job_id}?src=story`} onClick={onClose} className="btn btn-glass" style={{ position: 'absolute', zIndex: 6, left: '50%', transform: 'translateX(-50%)', bottom: 78 }}>
+                <Icon name={item.data.product_id ? 'bag' : 'briefcase'} />{item.data.product_id ? 'View product' : 'View vacancy'}
+              </Link>
+            )}
+            <form className="story-bottom" onSubmit={sendReply}>
+              {story.user.id !== me?.user.id ? (
+                <>
+                  <input placeholder={`Reply to ${story.user.display_name}…`} value={reply} onChange={(e) => setReply(e.target.value)} onFocus={() => setPaused(true)} onBlur={() => !reply && setPaused(false)} maxLength={1000} />
+                  <button type="button" className={`btn btn-icon ${isLiked ? 'btn-primary' : 'btn-glass'}`} onClick={like} aria-label="Like"><Icon name="heart" fill={isLiked} /></button>
+                  <button className="btn btn-glass btn-icon" aria-label="Send" disabled={!reply.trim()}><Icon name="send" /></button>
+                </>
+              ) : <Link to={`/posts/${item.id}`} onClick={onClose} className="btn btn-glass btn-sm"><Icon name="eye" />{item.like_count} likes · {item.comment_count} comments</Link>}
+            </form>
           </div>
-          <div className="story-zone left" {...zone('left')} />
-          <div className="story-zone right" {...zone('right')} />
-          {media && item.body && <div className="story-caption clamp-3">{item.body}</div>}
-          {(item.data?.product_id || item.data?.job_id) && (
-            <Link to={item.data.product_id ? `/marketplace/${item.data.product_id}?src=story` : `/jobs/${item.data.job_id}?src=story`} onClick={onClose} className="btn btn-glass" style={{ position: 'absolute', zIndex: 6, left: '50%', transform: 'translateX(-50%)', bottom: 78 }}>
-              <Icon name={item.data.product_id ? 'bag' : 'briefcase'} />{item.data.product_id ? 'View product' : 'View vacancy'}
-            </Link>
-          )}
-          <form className="story-bottom" onSubmit={sendReply}>
-            {story.user.id !== me?.user.id ? (
-              <>
-                <input placeholder={`Reply to ${story.user.display_name}…`} value={reply} onChange={(e) => setReply(e.target.value)} onFocus={() => setPaused(true)} onBlur={() => !reply && setPaused(false)} maxLength={1000} />
-                <button type="button" className={`btn btn-icon ${isLiked ? 'btn-primary' : 'btn-glass'}`} onClick={like} aria-label="Like"><Icon name="heart" fill={isLiked} /></button>
-                <button className="btn btn-glass btn-icon" aria-label="Send" disabled={!reply.trim()}><Icon name="send" /></button>
-              </>
-            ) : <Link to={`/posts/${item.id}`} onClick={onClose} className="btn btn-glass btn-sm"><Icon name="eye" />{item.like_count} likes · {item.comment_count} comments</Link>}
-          </form>
         </div>
       </div>
-    </div>
+    </Portal>
   );
 }
 

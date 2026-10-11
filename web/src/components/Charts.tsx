@@ -120,7 +120,7 @@ export function BarList({ rows, valueLabel }: { rows: { label: React.ReactNode; 
   const max = Math.max(1, ...rows.map((r) => r.value));
   if (!rows.length) return <div className="small muted">No data yet.</div>;
   return (
-    <div role="list" aria-label={valueLabel}>
+    <div className="bar-list" role="list" aria-label={valueLabel}>
       {rows.map((r) => (
         <div key={r.key} className="bar-row" role="listitem" title={`${r.value} ${valueLabel ?? ''}`}>
           <div className="truncate">{r.label}</div>

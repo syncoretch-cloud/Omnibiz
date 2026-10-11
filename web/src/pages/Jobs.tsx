@@ -14,14 +14,21 @@ type Tab = 'recommended' | 'latest' | 'nearby' | 'saved' | 'applied';
 function Filters({ value, onChange }: { value: Record<string, string>; onChange: (v: Record<string, string>) => void }) {
   const { meta } = useSession();
   const [q, setQ] = useState(value.q ?? '');
+  const [open, setOpen] = useState(false);
   const set = (k: string, v: string) => onChange({ ...value, [k]: v });
+  const active = Object.entries(value).filter(([k, v]) => v && k !== 'q').length;
   return (
-    <div className="card card-pad stack-sm">
-      <form className="row" onSubmit={(e) => { e.preventDefault(); set('q', q); }}>
-        <div className="input-icon grow"><Icon name="search" /><Input placeholder="Job title, skill or company" value={q} onChange={(e) => setQ(e.target.value)} /></div>
-        <button className="btn btn-primary">Search</button>
-      </form>
-      <div className="grid-4">
+    <div className={`card card-pad filter-panel${open ? ' open' : ''}`} style={{ ['--search-min' as string]: '260px' }}>
+      <div className="filter-head">
+        <form className="row" onSubmit={(e) => { e.preventDefault(); set('q', q); }}>
+          <div className="input-icon grow"><Icon name="search" /><Input placeholder="Job title, skill or company" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+          <button className="btn btn-primary">Search</button>
+        </form>
+        <button type="button" className="btn btn-outline filters-toggle" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+          <Icon name="filter" />Filters{active > 0 && <span className="count">{active}</span>}
+        </button>
+      </div>
+      <div className="filter-body">
         <Select value={value.industry ?? ''} onChange={(e) => set('industry', e.target.value)} placeholder="All industries" options={(meta?.industries ?? []).map((c) => ({ value: c.slug, label: c.name }))} aria-label="Industry" />
         <Select value={value.city ?? ''} onChange={(e) => set('city', e.target.value)} placeholder="Any location" options={(meta?.cities ?? []).map((c) => c.name)} aria-label="Location" />
         <Select value={value.employment_type ?? ''} onChange={(e) => set('employment_type', e.target.value)} placeholder="Any type" options={(meta?.employment_types ?? []).map((t) => ({ value: t, label: label(t) }))} aria-label="Employment type" />

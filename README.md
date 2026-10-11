@@ -26,6 +26,8 @@ Logins last until the browser closes unless "Keep me logged in" is ticked. Email
 
 Instagram-inspired layout (stories, feed, Reels, Explore, profile grid) in the OmniBiz palette: midnight indigo, aubergine, royal plum, burnt terracotta, soft apricot, vanilla, ivory, dusty rose, mauve and beige. Surfaces are glass with neumorphic depth and clay controls over a photographic backdrop (`web/public/brand/`), in light and dark themes, with a start-up splash showing the logo.
 
+Layouts follow the content rather than fixed device sizes: each page is a CSS container, so grids, side panels, filters, the post view and the messenger rearrange for the width they actually have (from 320px phones to wide monitors). Only the navigation shell switches by screen size.
+
 To run the end-to-end API tests (they use a throwaway database):
 
 ```bash

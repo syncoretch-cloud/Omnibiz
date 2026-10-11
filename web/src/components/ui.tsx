@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode, InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router';
 import { Icon } from './Icon.tsx';
 import { Artwork } from './Artwork.tsx';
@@ -131,6 +132,11 @@ export function TagInput({ value, onChange, placeholder, suggestions }: { value:
   );
 }
 
+/** Renders overlays at the end of <body>, so page layout (containers, transforms, filters) can never offset or clip them. */
+export function Portal({ children }: { children: ReactNode }) {
+  return createPortal(children, document.body);
+}
+
 export function Modal({ title, onClose, children, footer, large }: { title: ReactNode; onClose: () => void; children: ReactNode; footer?: ReactNode; large?: boolean }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -143,16 +149,18 @@ export function Modal({ title, onClose, children, footer, large }: { title: Reac
     };
   }, [onClose]);
   return (
-    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={`modal${large ? ' modal-lg' : ''}`} role="dialog" aria-modal="true">
-        <div className="modal-head">
-          <h3>{title}</h3>
-          <button className="icon-btn" onClick={onClose} aria-label="Close"><Icon name="x" /></button>
+    <Portal>
+      <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+        <div className={`modal${large ? ' modal-lg' : ''}`} role="dialog" aria-modal="true">
+          <div className="modal-head">
+            <h3>{title}</h3>
+            <button className="icon-btn" onClick={onClose} aria-label="Close"><Icon name="x" /></button>
+          </div>
+          <div className="modal-body">{children}</div>
+          {footer && <div className="modal-foot">{footer}</div>}
         </div>
-        <div className="modal-body">{children}</div>
-        {footer && <div className="modal-foot">{footer}</div>}
       </div>
-    </div>
+    </Portal>
   );
 }
 

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { Icon } from '../components/Icon.tsx';
-import { Artwork, postArt, productArt } from '../components/Artwork.tsx';
-import { Avatar, Dropdown, Empty, LoadMore, Modal, Ring, Spinner, Stars, Swap, Tabs, Verified, Visibility } from '../components/ui.tsx';
+import { Artwork, artBackground, postArt, productArt } from '../components/Artwork.tsx';
+import { Avatar, Dropdown, Empty, LoadMore, Modal, Ring, Spinner, Swap, Tabs, Verified, Visibility } from '../components/ui.tsx';
 import { JobCard, PersonRow } from '../components/Cards.tsx';
 import { MapView } from '../components/MapView.tsx';
 import { ReportDialog } from '../components/Report.tsx';
@@ -103,7 +103,7 @@ function PostsGrid({ userId }: { userId: number }) {
   if (!list.loading && !list.items.length) return <Empty icon="image" title="No posts yet" />;
   return (
     <>
-      <div className="ig-grid">
+      <div className="tile-grid">
         {list.items.map((p: Json) => {
           const c = p.repost && !p.body ? p.repost : p;
           return (
@@ -111,7 +111,7 @@ function PostsGrid({ userId }: { userId: number }) {
               {c.media?.[0] && !/\.(mp4|webm)$/i.test(c.media[0]) ? <img src={c.media[0]} alt="" loading="lazy" /> : <Artwork variant="tile" {...postArt(c)} sub={undefined} />}
               {p.repost && <span className="tile-type"><Icon name="repeat" /></span>}
               {!p.repost && c.media?.length > 1 && <span className="tile-type"><Icon name="layers" /></span>}
-              <span className="tile-over"><span><Icon name="heart" fill />{compact(p.like_count)}</span><span><Icon name="comment" fill />{compact(p.comment_count)}</span></span>
+              <span className="tile-meta"><span><Icon name="heart" fill />{compact(p.like_count)}</span><span><Icon name="comment" fill />{compact(p.comment_count)}</span></span>
             </Link>
           );
         })}
@@ -126,12 +126,12 @@ function ShopGrid({ userId }: { userId: number }) {
   if (!list.loading && !list.items.length) return <Empty icon="bag" title="No products listed" />;
   return (
     <>
-      <div className="ig-grid">
+      <div className="tile-grid">
         {list.items.map((p: Json) => (
           <Link key={p.id} to={`/marketplace/${p.id}?src=profile`} className="tile">
-            {p.media?.[0] ? <img src={p.media[0]} alt="" loading="lazy" /> : <Artwork variant="tile" {...productArt(p, false)} />}
+            {p.media?.[0] ? <img src={p.media[0]} alt="" loading="lazy" /> : <Artwork variant="tile" {...productArt(p, false)} price={undefined} />}
             <span className="tile-type"><Icon name="bag" /></span>
-            <span className="tile-over"><span><Icon name="tag" />{money(p.price, p.currency)}</span></span>
+            <span className="tile-meta"><span><Icon name="tag" />{money(p.price, p.currency)}</span></span>
           </Link>
         ))}
       </div>
@@ -290,31 +290,34 @@ export default function Profile() {
       ? [['CV', 'file', () => setTab('about')], ['Skills', 'zap', () => setTab('about'), true], ...(!self && can('message') ? [['Message', 'send', message] as [string, string, () => void]] : []), ...(self ? [['Edit CV', 'edit', () => nav('/me/cv'), true] as [string, string, () => void, boolean]] : [])]
       : [];
 
-  const avatar = <Avatar user={u} size={150} />;
+  const avatar = <Avatar user={u} size={112} />;
+  const category = isBiz ? `${b.category === 'other' && b.custom_category ? b.custom_category : industryName(b.category)} · ${ACCOUNT_LABEL[u.account_type]}` : p?.headline || ACCOUNT_LABEL[u.account_type];
   return (
     <main className="page page-mid">
-      <section className="profile-top">
-        <div className="avatar-col">
-          {story ? <Ring seen={storySeen} square={isBiz} onClick={() => setViewing(true)} title="View story">{avatar}</Ring> : <div style={{ borderRadius: isBiz ? '32%' : '50%', boxShadow: 'var(--neu)', padding: 6, background: 'var(--surface)' }}>{avatar}</div>}
-        </div>
-        <div>
-          <div className="profile-name">
-            <h1>{u.username}</h1>
-            <Verified show={b?.verified} />
+      <section className="card profile-hero">
+        <div className="profile-cover" style={{ background: u.cover_url ? `center / cover no-repeat url("${u.cover_url}")` : artBackground(`cover-${u.id}`) }} />
+        <div className="profile-id">
+          <div className="profile-avatar">
+            {story ? <Ring seen={storySeen} square={isBiz} onClick={() => setViewing(true)} title="View story">{avatar}</Ring> : avatar}
+          </div>
+          <div className="profile-names">
+            <h1 className="row" style={{ gap: 8 }}>{u.display_name}<Verified show={b?.verified} /></h1>
+            <div className="muted small">@{u.username} · {category}</div>
+          </div>
+          <div className="profile-cta">
             {self ? (
               <>
-                <Link to={isBiz ? '/settings/business' : '/settings/account'} className="btn btn-sm">Edit profile</Link>
-                {isBiz && <Link to="/dashboard" className="btn btn-sm">Dashboard</Link>}
-                {can('manage_cv') && <Link to="/me/cv" className="btn btn-sm hide-mobile">Edit CV</Link>}
-                <Link to="/menu" className="icon-btn show-mobile" aria-label="Menu"><Icon name="menu" /></Link>
-                <Link to="/settings" className="icon-btn hide-mobile" aria-label="Settings"><Icon name="settings" /></Link>
+                <Link to={isBiz ? '/settings/business' : '/settings/account'} className="btn btn-sm btn-primary"><Icon name="edit" />Edit profile</Link>
+                {isBiz && <Link to="/dashboard" className="btn btn-sm btn-outline"><Icon name="chart" />Dashboard</Link>}
+                {can('manage_cv') && <Link to="/me/cv" className="btn btn-sm btn-outline"><Icon name="file" />Edit CV</Link>}
+                <Link to="/settings" className="btn btn-sm btn-ghost btn-icon" aria-label="Settings"><Icon name="settings" /></Link>
               </>
             ) : (
               <>
-                {can('follow') && <button className={`btn btn-sm${data.viewer.following ? '' : ' btn-primary'}`} onClick={toggleFollow}>{data.viewer.following ? <>Following <Icon name="chevronDown" /></> : 'Follow'}</button>}
-                {can('message') && <button className="btn btn-sm" onClick={message}>Message</button>}
-                {isBiz && b.website && <a href={b.website} target="_blank" rel="noreferrer noopener" className="btn btn-sm btn-icon" aria-label="Website"><Icon name="globe" /></a>}
-                <Dropdown trigger={() => <button className="icon-btn" aria-label="More"><Icon name="more" /></button>}>
+                {can('follow') && <button className={`btn btn-sm${data.viewer.following ? ' btn-outline' : ' btn-primary'}`} onClick={toggleFollow}>{data.viewer.following ? <><Icon name="check" />Following</> : <><Icon name="plus" />Follow</>}</button>}
+                {can('message') && <button className="btn btn-sm btn-outline" onClick={message}><Icon name="message" />Message</button>}
+                {isBiz && b.website && <a href={b.website} target="_blank" rel="noreferrer noopener" className="btn btn-sm btn-outline btn-icon" aria-label="Website"><Icon name="globe" /></a>}
+                <Dropdown trigger={() => <button className="btn btn-sm btn-ghost btn-icon" aria-label="More"><Icon name="more" /></button>}>
                   {isBiz && can('save') && <button onClick={saveBiz}><Icon name="bookmark" />{data.viewer.saved ? 'Unsave business' : 'Save business'}</button>}
                   <button onClick={() => navigator.clipboard?.writeText(`${location.origin}/u/${u.username}`)}><Icon name="link" />Copy profile link</button>
                   <button onClick={() => setReporting(true)}><Icon name="flag" />Report</button>
@@ -322,39 +325,31 @@ export default function Profile() {
               </>
             )}
           </div>
-          <div className="profile-stats">
-            <span><b>{compact(data.stats.posts)}</b> {data.stats.posts === 1 ? 'post' : 'posts'}</span>
-            <button onClick={() => setFollowList('followers')}><b>{compact(data.stats.followers)}</b> {data.stats.followers === 1 ? 'follower' : 'followers'}</button>
-            <button onClick={() => setFollowList('following')}><b>{compact(data.stats.following)}</b> following</button>
-          </div>
         </div>
-        <div className="profile-bio">
-          <b>{u.display_name}</b>
-          <span className="cat">
-            {isBiz ? `${b.category === 'other' && b.custom_category ? b.custom_category : industryName(b.category)} · ${ACCOUNT_LABEL[u.account_type]}` : p?.headline || ACCOUNT_LABEL[u.account_type]}
-          </span>
-          {u.bio && <span className="pre">{u.bio}</span>}
-          {isBiz && b.website && <a href={b.website} target="_blank" rel="noreferrer noopener" className="bold" style={{ color: 'var(--info)' }}>{b.website.replace(/^https?:\/\//, '')}</a>}
-          <span className="row-wrap muted small" style={{ gap: 10 }}>
-            {(u.city || u.country) && <span className="row" style={{ gap: 4 }}><Icon name="mapPin" size={14} />{[u.city, u.country].filter(Boolean).join(', ')}</span>}
-            {data.rating?.count > 0 && <span><Stars value={data.rating.avg} /> {data.rating.avg} ({data.rating.count})</span>}
-            {p?.open_to_work && <span className="chip chip-success"><Icon name="briefcase" />Open to work</span>}
-          </span>
+        {u.bio && <p className="profile-about pre">{u.bio}</p>}
+        <div className="profile-facts">
+          {(u.city || u.country) && <span className="chip"><Icon name="mapPin" />{[u.city, u.country].filter(Boolean).join(', ')}</span>}
+          {isBiz && b.website && <a href={b.website} target="_blank" rel="noreferrer noopener" className="chip"><Icon name="globe" />{b.website.replace(/^https?:\/\//, '')}</a>}
+          {isBiz && b.opening_hours && <span className="chip"><Icon name="clock" />{b.opening_hours}</span>}
+          {p?.open_to_work && <span className="chip chip-success"><Icon name="briefcase" />Open to work</span>}
+        </div>
+        <div className="profile-metrics">
+          <div className="metric"><b>{compact(data.stats.posts)}</b><span>{data.stats.posts === 1 ? 'Post' : 'Posts'}</span></div>
+          <button className="metric" onClick={() => setFollowList('followers')}><b>{compact(data.stats.followers)}</b><span>{data.stats.followers === 1 ? 'Follower' : 'Followers'}</span></button>
+          <button className="metric" onClick={() => setFollowList('following')}><b>{compact(data.stats.following)}</b><span>Following</span></button>
+          {data.rating?.count > 0 && <div className="metric" title={`${data.rating.avg} out of 5`}><b>{data.rating.avg}<span className="stars"> ★</span></b><span>{data.rating.count} review{data.rating.count === 1 ? '' : 's'}</span></div>}
         </div>
       </section>
 
       {highlights.length > 0 && (
-        <div className="highlights">
-          {highlights.map(([text, icon, onClick, brown]) => (
-            <button key={text} className={`highlight${brown ? ' brown' : ''}`} onClick={onClick}>
-              <span className="hl-ring"><div><Icon name={icon} /></div></span>
-              {text}
-            </button>
+        <div className="quick-links">
+          {highlights.map(([text, icon, onClick]) => (
+            <button key={text} className="quick-link" onClick={onClick}><Icon name={icon} />{text}</button>
           ))}
         </div>
       )}
 
-      <Tabs variant="line" tabs={tabDefs} value={tab} onChange={setTab} />
+      <Tabs tabs={tabDefs} value={tab} onChange={setTab} />
       <div style={{ marginTop: 18 }}>
         <Swap k={tab} order={ids}>
           {tab === 'posts' && <PostsGrid userId={u.id} />}

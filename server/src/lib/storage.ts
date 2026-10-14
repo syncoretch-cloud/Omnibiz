@@ -16,6 +16,8 @@ fs.mkdirSync(DOCS_DIR, { recursive: true });
 const MEDIA_TYPES: Record<string, string> = {
   'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/gif': '.gif',
   'video/mp4': '.mp4', 'video/webm': '.webm',
+  // a post's own soundtrack
+  'audio/mpeg': '.mp3', 'audio/mp4': '.m4a', 'audio/x-m4a': '.m4a', 'audio/aac': '.aac', 'audio/ogg': '.ogg', 'audio/wav': '.wav', 'audio/x-wav': '.wav',
 };
 const DOC_TYPES: Record<string, string> = {
   'application/pdf': '.pdf',

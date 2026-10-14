@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { Icon } from './Icon.tsx';
 import { Artwork, postArt } from './Artwork.tsx';
-import { Avatar, Portal, Ring, Verified } from './ui.tsx';
+import { Avatar, Portal, Verified } from './ui.tsx';
 import { del, post } from '../lib/api.ts';
 import type { Json } from '../lib/api.ts';
 import { useApi } from '../lib/hooks.ts';
@@ -159,25 +159,28 @@ export function StoriesBar({ onCreate }: { onCreate?: () => void }) {
 
   return (
     <>
-      <div className="stories" aria-label="Stories">
+      <div className="pulse" aria-label="Spotlight">
         {!hasMine && can('create_posts') && (
-          <button className="story-btn" onClick={onCreate}>
-            <span style={{ position: 'relative' }}>
-              <Ring seen square={isBusinessType(me!.user.account_type)}><Avatar user={me!.user} size={64} /></Ring>
-              <span className="plus"><Icon name="plus" /></span>
-            </span>
-            <span>Your story</span>
+          <button className="pulse-card pulse-new" onClick={onCreate}>
+            <span className="plus-orb"><Icon name="plus" /></span>
+            Share an update
           </button>
         )}
-        {ordered.map((s) => (
-          <button key={s.user.id} className="story-btn" onClick={() => setViewing({ list: ordered, start: ordered.indexOf(s) })} title={s.user.display_name}>
-            <Ring seen={isSeen(s)} square={isBusinessType(s.user.account_type)}><Avatar user={s.user} size={64} /></Ring>
-            <span>{s.user.id === me!.user.id ? 'Your story' : s.user.username}</span>
-          </button>
-        ))}
-        {!data && Array.from({ length: 6 }, (_, i) => (
-          <div key={i} className="story-btn"><span className="skeleton" style={{ width: 74, height: 74, borderRadius: '50%' }} /><span className="skeleton" style={{ width: 54, height: 10 }} /></div>
-        ))}
+        {ordered.map((s) => {
+          const latest = s.items[s.items.length - 1];
+          const media = latest?.media?.[0];
+          return (
+            <button key={s.user.id} className={`pulse-card${isSeen(s) ? '' : ' unseen'}`} onClick={() => setViewing({ list: ordered, start: ordered.indexOf(s) })} title={s.user.display_name}>
+              {media && !/\.(mp4|webm)$/i.test(media) ? <img src={media} alt="" loading="lazy" /> : <Artwork variant="thumb" {...postArt(latest)} />}
+              <span className="pulse-who">
+                <Avatar user={s.user} size={30} square={isBusinessType(s.user.account_type)} />
+                <span className="pulse-name">{s.user.id === me!.user.id ? 'You' : s.user.display_name}</span>
+                <span className="pulse-meta">{s.items.length} update{s.items.length === 1 ? '' : 's'} · {timeAgo(latest?.created_at)}</span>
+              </span>
+            </button>
+          );
+        })}
+        {!data && Array.from({ length: 6 }, (_, i) => <span key={i} className="pulse-card skeleton" />)}
       </div>
       {viewing && <StoryViewer stories={viewing.list} start={viewing.start} onClose={() => setViewing(null)} onSeen={mark} />}
     </>

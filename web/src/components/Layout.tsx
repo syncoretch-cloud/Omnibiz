@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { Icon } from './Icon.tsx';
-import { Avatar, useIndicator } from './ui.tsx';
+import { Avatar, Portal, useIndicator } from './ui.tsx';
 import { CreatePostModal } from './CreatePost.tsx';
 import { isBusinessType, useSession } from '../lib/session.tsx';
 import { toggleTheme, useTheme } from '../lib/theme.ts';
@@ -40,7 +40,7 @@ function routeKey(pathname: string) {
   return ['dashboard', 'admin', 'settings'].includes(first) ? first : pathname;
 }
 
-// ───────────── search drawer (desktop) ─────────────
+// ───────────── search palette (Ctrl/⌘ K) ─────────────
 const RECENT_KEY = 'omnibiz-recent-searches';
 function readRecent(): string[] {
   try { return JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]'); } catch { return []; }
@@ -49,13 +49,12 @@ export function rememberSearch(q: string) {
   try { localStorage.setItem(RECENT_KEY, JSON.stringify([q, ...readRecent().filter((x) => x !== q)].slice(0, 8))); } catch { /* storage unavailable */ }
 }
 
-function SearchDrawer({ onClose }: { onClose: () => void }) {
+function SearchPalette({ onClose }: { onClose: () => void }) {
   const nav = useNavigate();
   const [q, setQ] = useState('');
   const [items, setItems] = useState<Json[]>([]);
   const [recent, setRecent] = useState(readRecent);
   const dq = useDebounced(q, 180);
-  const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (dq.trim().length < 2) {
       setItems([]);
@@ -66,14 +65,9 @@ function SearchDrawer({ onClose }: { onClose: () => void }) {
     return () => ctrl.abort();
   }, [dq]);
   useEffect(() => {
-    const close = (e: MouseEvent) => {
-      const t = e.target as HTMLElement;
-      if (ref.current && !ref.current.contains(t) && !t.closest('[data-search-toggle]')) onClose();
-    };
     const esc = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    document.addEventListener('mousedown', close);
     document.addEventListener('keydown', esc);
-    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', esc); };
+    return () => document.removeEventListener('keydown', esc);
   }, [onClose]);
   const go = (term: string) => {
     if (!term.trim()) return;
@@ -82,59 +76,62 @@ function SearchDrawer({ onClose }: { onClose: () => void }) {
     onClose();
   };
   return (
-    <div className="drawer glass" ref={ref} role="dialog" aria-label="Search">
-      <h2 style={{ padding: '4px 6px 6px' }}>Search</h2>
-      <form onSubmit={(e) => { e.preventDefault(); go(q); }} className="input-icon">
-        <Icon name="search" />
-        <input className="input search-input" autoFocus placeholder="Search people, jobs, shops…" value={q} onChange={(e) => setQ(e.target.value)} />
-      </form>
-      <hr className="divider" />
-      <div className="suggest-box" style={{ overflowY: 'auto' }}>
-        {q.trim().length >= 2 ? (
-          <>
-            {items.map((s) => (
-              <Link key={s.href} to={s.href} onClick={() => { rememberSearch(q.trim()); onClose(); }}>
-                {s.kind === 'job' ? <span className="notif-icon" style={{ width: 44, height: 44 }}><Icon name="briefcase" /></span>
-                  : s.kind === 'product' ? <span className="notif-icon" style={{ width: 44, height: 44, background: 'var(--grad-brown)', boxShadow: 'var(--clay-brown)' }}><Icon name="bag" /></span>
-                  : <Avatar user={{ display_name: s.label, avatar_url: s.avatar_url, account_type: s.kind === 'business' ? 'company' : 'personal' }} size={44} />}
-                <div className="grow">
-                  <div className="truncate bold small">{s.label}</div>
-                  <div className="truncate xsmall muted">{s.sub}</div>
+    <Portal>
+      <div className="palette-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+        <div className="palette" role="dialog" aria-label="Search">
+          <form onSubmit={(e) => { e.preventDefault(); go(q); }} className="palette-input">
+            <Icon name="search" />
+            <input autoFocus placeholder="Search people, jobs, shops, products…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search" />
+            <button type="button" className="kbd" onClick={onClose}>Esc</button>
+          </form>
+          <div className="suggest-box palette-list">
+            {q.trim().length >= 2 ? (
+              <>
+                {items.map((s) => (
+                  <Link key={s.href} to={s.href} onClick={() => { rememberSearch(q.trim()); onClose(); }}>
+                    {s.kind === 'job' ? <span className="palette-icon"><Icon name="briefcase" /></span>
+                      : s.kind === 'product' ? <span className="palette-icon"><Icon name="bag" /></span>
+                      : <Avatar user={{ display_name: s.label, avatar_url: s.avatar_url, account_type: s.kind === 'business' ? 'company' : 'personal' }} size={38} />}
+                    <div className="grow">
+                      <div className="truncate bold small">{s.label}</div>
+                      <div className="truncate xsmall muted">{s.sub}</div>
+                    </div>
+                  </Link>
+                ))}
+                <a href="#" onClick={(e) => { e.preventDefault(); go(q); }}>
+                  <span className="palette-icon"><Icon name="search" /></span>
+                  <span className="small">See all results for “<b>{q.trim()}</b>”</span>
+                </a>
+              </>
+            ) : (
+              <>
+                <div className="row-between" style={{ padding: '2px 10px 6px' }}>
+                  <span className="eyebrow">Recent</span>
+                  {recent.length > 0 && <button className="text-btn" onClick={() => { try { localStorage.removeItem(RECENT_KEY); } catch { /* ignore */ } setRecent([]); }}>Clear all</button>}
                 </div>
-              </Link>
-            ))}
-            <a href="#" onClick={(e) => { e.preventDefault(); go(q); }}>
-              <span className="notif-icon" style={{ width: 44, height: 44 }}><Icon name="search" /></span>
-              <span className="small">See all results for “<b>{q.trim()}</b>”</span>
-            </a>
-          </>
-        ) : (
-          <>
-            <div className="row-between" style={{ padding: '2px 8px 6px' }}>
-              <b className="small">Recent</b>
-              {recent.length > 0 && <button className="text-btn" onClick={() => { try { localStorage.removeItem(RECENT_KEY); } catch { /* ignore */ } setRecent([]); }}>Clear all</button>}
-            </div>
-            {recent.length ? recent.map((r) => (
-              <a key={r} href="#" onClick={(e) => { e.preventDefault(); go(r); }}>
-                <span className="notif-icon" style={{ width: 44, height: 44, background: 'var(--surface-2)', color: 'var(--muted)', boxShadow: 'var(--neu-in-sm)' }}><Icon name="clock" /></span>
-                <span className="small grow">{r}</span>
-              </a>
-            )) : <p className="muted small center" style={{ padding: 30 }}>No recent searches.</p>}
-          </>
-        )}
+                {recent.length ? recent.map((r) => (
+                  <a key={r} href="#" onClick={(e) => { e.preventDefault(); go(r); }}>
+                    <span className="palette-icon"><Icon name="clock" /></span>
+                    <span className="small grow">{r}</span>
+                  </a>
+                )) : <p className="muted small center" style={{ padding: 24 }}>Try “solar wholesalers in Dar es Salaam” or “junior developer jobs”.</p>}
+              </>
+            )}
+          </div>
+        </div>
       </div>
-    </div>
+    </Portal>
   );
 }
 
-// ───────────── create & more menus ─────────────
-function CreateMenu({ onPost, onClose, style }: { onPost: () => void; onClose: () => void; style?: React.CSSProperties }) {
+// ───────────── create & account menus ─────────────
+function CreateMenu({ onPost, onClose }: { onPost: () => void; onClose: () => void }) {
   const { can } = useSession();
   const nav = useNavigate();
   const go = (to: string) => { onClose(); nav(to); };
   return (
-    <div className="popover" style={style} onMouseDown={(e) => e.stopPropagation()}>
-      {can('create_posts') && <button onClick={() => { onClose(); onPost(); }}><Icon name="image" />Post</button>}
+    <div className="popover" onMouseDown={(e) => e.stopPropagation()}>
+      {can('create_posts') && <button onClick={() => { onClose(); onPost(); }}><Icon name="image" />Post an update</button>}
       {can('manage_products') && <button onClick={() => go('/dashboard/products?new=1')}><Icon name="bag" />Product listing</button>}
       {can('create_jobs') && <button onClick={() => go('/dashboard/jobs?new=1')}><Icon name="briefcase" />Job vacancy</button>}
       {can('publish_announcements') && <button onClick={() => go('/dashboard/announcements')}><Icon name="megaphone" />Announcement</button>}
@@ -186,91 +183,95 @@ export function AppLayout() {
   const showJobs = u.account_type !== 'customer';
   const personal = u.account_type === 'personal';
   const canCreate = can('create_posts') || can('manage_products') || can('create_jobs');
-  const [panel, setPanel] = useState<'search' | null>(null);
-  const [menu, setMenu] = useState<'create' | 'more' | 'create-bottom' | null>(null);
+  const [search, setSearch] = useState(false);
+  const [menu, setMenu] = useState<'create' | 'me' | 'create-dock' | null>(null);
   const [composer, setComposer] = useState(false);
-  const [createTop, setCreateTop] = useState(300);
-  const sidebarRef = useRef<HTMLElement>(null);
-  const linksRef = useRef<HTMLDivElement>(null);
-  const bottomRef = useRef<HTMLElement>(null);
+  const navRef = useRef<HTMLElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
-  const closePanel = useCallback(() => setPanel(null), []);
+  const closeSearch = useCallback(() => setSearch(false), []);
   useOutside(!!menu, closeMenu, menuRef);
 
   useEffect(() => {
-    setPanel(null);
+    setSearch(false);
     setMenu(null);
   }, [loc.pathname]);
 
-  const side = useIndicator(linksRef, panel ? '.side-link.panel-active' : '.side-link.active', [loc.pathname, panel], 'y');
-  const bottom = useIndicator(bottomRef, 'a.active', [loc.pathname]);
+  // Ctrl/⌘ K opens search from anywhere.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearch((s) => !s);
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
+
+  const active = useIndicator(navRef, 'a.active', [loc.pathname]);
   const openCreate = useCallback(() => setComposer(true), []);
   const isReels = loc.pathname.startsWith('/reels');
-
-  const link = (to: string, icon: ReactNode, label: string, badge = 0, end = false) => (
-    <NavLink to={to} end={end} className={({ isActive }) => `side-link${isActive && !panel ? ' active' : ''}`} title={label}>
-      {icon}<span className="nav-label">{label}</span><Badge n={badge} />
-    </NavLink>
-  );
+  const mac = /Mac|iPhone|iPad/.test(navigator.platform);
+  const sections: [string, string, string][] = [
+    ['/', 'home', 'Home'],
+    ['/explore', 'compass', 'Discover'],
+    ['/reels', 'reels', 'Reels'],
+    ...(showJobs ? [['/jobs', 'briefcase', 'Jobs'] as [string, string, string]] : []),
+    ['/marketplace', 'bag', 'Market'],
+  ];
 
   return (
-    <div className={isReels ? 'reels-page' : undefined}>
-      <aside className={`sidebar glass${panel ? ' collapsed' : ''}`} aria-label="Main navigation" ref={sidebarRef}>
-        <Link to="/" className="sidebar-logo" aria-label="OmniBiz home">
-          <img src="/icon.svg" className="mark" alt="" />
-          <Wordmark />
-        </Link>
-        <div className="side-links" ref={linksRef}>
-          {side && <span className="nav-indicator" style={{ height: side.size, transform: `translateY(${side.pos}px)` }} />}
-          {link('/', <Icon name="home" />, 'Home', 0, true)}
-          <button data-search-toggle className={`side-link${panel === 'search' ? ' active panel-active' : ''}`} onClick={() => setPanel((p) => (p ? null : 'search'))} title="Search">
-            <Icon name="search" /><span className="nav-label">Search</span>
+    <div className={`shell${isReels ? ' reels-page' : ''}`}>
+      <header className="appbar glass">
+        <Link to="/" className="appbar-brand" aria-label="OmniBiz home"><Wordmark /></Link>
+        <nav className="appbar-nav" aria-label="Main navigation" ref={navRef}>
+          {active && <span className="appbar-indicator" style={{ width: active.size, transform: `translateX(${active.pos}px)` }} />}
+          {sections.map(([to, icon, label]) => (
+            <NavLink key={to} to={to} end={to === '/'} title={label}><Icon name={icon} /><span className="nav-label">{label}</span></NavLink>
+          ))}
+        </nav>
+        <div className="appbar-actions">
+          <button className="search-trigger" onClick={() => setSearch(true)} aria-label="Search">
+            <Icon name="search" /><span className="search-text">Search OmniBiz</span><kbd className="kbd">{mac ? '⌘' : 'Ctrl'} K</kbd>
           </button>
-          {link('/explore', <Icon name="compass" />, 'Explore')}
-          {link('/reels', <Icon name="reels" />, 'Reels')}
-          {showJobs && link('/jobs', <Icon name="briefcase" />, 'Jobs')}
-          {link('/marketplace', <Icon name="bag" />, 'Shop')}
-          {link('/messages', <Icon name="message" />, 'Messages', counts.messages)}
-          {link('/notifications', <Icon name="bell" />, 'Notifications', counts.notifications)}
           {canCreate && (
-            <button data-menu-toggle className="side-link" title="Create" onClick={(e) => {
-              // Popovers are positioned inside the (filtered) sidebar, so measure relative to it.
-              const r = e.currentTarget.getBoundingClientRect();
-              const sb = sidebarRef.current?.getBoundingClientRect();
-              setCreateTop(r.top - (sb?.top ?? 0) - 6);
-              setMenu((m) => (m === 'create' ? null : 'create'));
-            }}>
-              <Icon name="plusSquare" /><span className="nav-label">Create</span>
-            </button>
-          )}
-          {isBusinessType(u.account_type) && link('/dashboard', <Icon name="dashboard" />, 'Dashboard')}
-          {link(`/u/${u.username}`, <Avatar user={u} size={27} />, 'Profile')}
-        </div>
-        <div className="sidebar-foot">
-          <button data-menu-toggle className="side-link" onClick={() => setMenu((m) => (m === 'more' ? null : 'more'))} title="More">
-            <Icon name="menu" /><span className="nav-label">More</span>
-          </button>
-        </div>
-        {menu === 'create' && <div ref={menuRef}><CreateMenu onPost={openCreate} onClose={closeMenu} style={{ left: 'calc(100% + 10px)', top: createTop }} /></div>}
-        {menu === 'more' && (
-          <div ref={menuRef}>
-            <div className="popover" style={{ left: 'calc(100% + 10px)', bottom: 10 }}>
-              <MoreMenuItems onDone={closeMenu} />
+            <div className="menu-anchor" ref={menu === 'create' ? menuRef : undefined}>
+              <button data-menu-toggle className="btn btn-primary create-btn" onClick={() => setMenu((m) => (m === 'create' ? null : 'create'))} aria-label="Create">
+                <Icon name="plus" /><span className="create-label">Create</span>
+              </button>
+              {menu === 'create' && <CreateMenu onPost={openCreate} onClose={closeMenu} />}
             </div>
+          )}
+          <NavLink to="/messages" className="appbar-icon" aria-label="Messages" title="Messages"><Icon name="message" /><Badge n={counts.messages} /></NavLink>
+          <NavLink to="/notifications" className="appbar-icon" aria-label="Notifications" title="Notifications"><Icon name="bell" /><Badge n={counts.notifications} /></NavLink>
+          <div className="menu-anchor" ref={menu === 'me' ? menuRef : undefined}>
+            <button data-menu-toggle className="appbar-me" onClick={() => setMenu((m) => (m === 'me' ? null : 'me'))} aria-label="Account menu" aria-expanded={menu === 'me'}>
+              <Avatar user={u} size={34} />
+            </button>
+            {menu === 'me' && (
+              <div className="popover">
+                <Link to={`/u/${u.username}`} className="popover-profile" onClick={closeMenu}>
+                  <Avatar user={u} size={40} />
+                  <div className="grow"><div className="bold small truncate">{u.display_name}</div><div className="xsmall muted">View your profile</div></div>
+                </Link>
+                <hr />
+                <MoreMenuItems onDone={closeMenu} />
+              </div>
+            )}
           </div>
-        )}
-      </aside>
-      {panel === 'search' && <SearchDrawer onClose={closePanel} />}
+        </div>
+      </header>
 
       <header className="topbar glass">
         <Link to="/" aria-label="OmniBiz home"><Wordmark /></Link>
-        <Link to="/explore" className="icon-btn" aria-label="Search and explore"><Icon name="search" /></Link>
+        <button className="icon-btn" onClick={() => setSearch(true)} aria-label="Search"><Icon name="search" /></button>
         <Link to="/notifications" className="icon-btn" aria-label="Notifications"><Icon name="bell" /><Badge n={counts.notifications} /></Link>
         <Link to="/messages" className="icon-btn" aria-label="Messages"><Icon name="message" /><Badge n={counts.messages} /></Link>
+        <Link to="/menu" className="topbar-me" aria-label="Your account"><Avatar user={u} size={30} /></Link>
       </header>
 
-      <main className={`main${panel ? ' drawer-open' : ''}`}>
+      <main className="main">
         {u.status === 'suspended' && (
           <div className="page" style={{ paddingBottom: 0 }}>
             <div className="banner banner-danger"><Icon name="alert" />Your account is suspended{u.suspended_reason ? `: ${u.suspended_reason}` : ''}. Most actions are disabled.</div>
@@ -281,26 +282,28 @@ export function AppLayout() {
         </div>
       </main>
 
-      <nav className="bottom-nav glass" aria-label="Main" ref={bottomRef}>
-        {bottom && <span className="nav-indicator" style={{ width: bottom.size, transform: `translateX(${bottom.pos}px)` }} />}
-        <NavLink to="/" end aria-label="Home"><Icon name="home" /></NavLink>
-        <NavLink to="/reels" aria-label="Reels"><Icon name="reels" /></NavLink>
-        {canCreate ? (
-          <div className="fab-wrap" ref={menu === 'create-bottom' ? menuRef : undefined}>
-            <button data-menu-toggle className="create-fab" onClick={() => setMenu((m) => (m === 'create-bottom' ? null : 'create-bottom'))} aria-label="Create"><Icon name="plus" /></button>
-            {menu === 'create-bottom' && <CreateMenu onPost={openCreate} onClose={closeMenu} />}
+      <nav className="dock glass" aria-label="Main">
+        <NavLink to="/" end><Icon name="home" /><span className="dock-label">Home</span></NavLink>
+        <NavLink to="/explore"><Icon name="compass" /><span className="dock-label">Discover</span></NavLink>
+        {canCreate && (
+          <div className="dock-create" ref={menu === 'create-dock' ? menuRef : undefined}>
+            <button data-menu-toggle className="create-fab" onClick={() => setMenu((m) => (m === 'create-dock' ? null : 'create-dock'))} aria-label="Create"><Icon name="plus" /></button>
+            {menu === 'create-dock' && <CreateMenu onPost={openCreate} onClose={closeMenu} />}
           </div>
-        ) : <NavLink to="/explore" aria-label="Explore"><Icon name="compass" /></NavLink>}
-        {personal && showJobs ? <NavLink to="/jobs" aria-label="Jobs"><Icon name="briefcase" /></NavLink> : <NavLink to="/marketplace" aria-label="Shop"><Icon name="bag" /></NavLink>}
-        <NavLink to={`/u/${u.username}`} aria-label="Profile"><Avatar user={u} size={28} /></NavLink>
+        )}
+        <NavLink to="/reels"><Icon name="reels" /><span className="dock-label">Reels</span></NavLink>
+        {personal && showJobs
+          ? <NavLink to="/jobs"><Icon name="briefcase" /><span className="dock-label">Jobs</span></NavLink>
+          : <NavLink to="/marketplace"><Icon name="bag" /><span className="dock-label">Market</span></NavLink>}
       </nav>
 
+      {search && <SearchPalette onClose={closeSearch} />}
       {composer && <CreatePostModal onClose={() => setComposer(false)} />}
     </div>
   );
 }
 
-/** Mobile "More" page (reached from the profile menu button). */
+/** Mobile account page (reached from the avatar in the top bar). */
 export function MobileMenu() {
   const { me } = useSession();
   const u = me?.user;
@@ -311,17 +314,18 @@ export function MobileMenu() {
           <Avatar user={u} size={52} />
           <div className="grow">
             <div className="bold">{u?.display_name}</div>
-            <div className="small muted">@{u?.username}</div>
+            <div className="small muted">@{u?.username} · View profile</div>
           </div>
           <Icon name="chevronRight" size={18} />
         </Link>
       </div>
       <div className="card mt" style={{ padding: 8 }}>
         <div className="dropdown-menu" style={{ position: 'static', animation: 'none', boxShadow: 'none', background: 'none', border: 0, backdropFilter: 'none' }}>
-          <Link to="/explore"><Icon name="compass" />Explore</Link>
+          <Link to="/explore"><Icon name="compass" />Discover</Link>
           <Link to="/search"><Icon name="search" />Search</Link>
           {me?.user.account_type !== 'customer' && <Link to="/jobs"><Icon name="briefcase" />Jobs</Link>}
-          <Link to="/marketplace"><Icon name="bag" />Shop</Link>
+          <Link to="/marketplace"><Icon name="bag" />Market</Link>
+          <Link to="/notifications"><Icon name="bell" />Notifications</Link>
           <Link to="/messages"><Icon name="message" />Messages</Link>
           <MoreMenuItems />
         </div>

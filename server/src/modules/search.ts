@@ -202,7 +202,7 @@ searchRouter.get('/suggest', (req, res) => {
   for (const h of hits) {
     if (h.kind === 'business' || h.kind === 'person') {
       const u = get('SELECT id, username, display_name, avatar_url, account_type FROM users WHERE id = ?', h.ref_id);
-      if (u) out.push({ kind: h.kind, label: u.display_name, sub: `@${u.username}`, href: `/u/${u.username}`, avatar_url: u.avatar_url });
+      if (u) out.push({ kind: h.kind, id: u.id, username: u.username, account_type: u.account_type, label: u.display_name, sub: `@${u.username}`, href: `/u/${u.username}`, avatar_url: u.avatar_url });
     } else if (h.kind === 'job') {
       const j = get("SELECT j.id, j.title, b.name FROM jobs j JOIN businesses b ON b.user_id = j.company_id WHERE j.id = ?", h.ref_id);
       if (j) out.push({ kind: 'job', label: j.title, sub: j.name, href: `/jobs/${j.id}` });

@@ -17,84 +17,98 @@ function SuggestionRow({ u }: { u: Json }) {
   const { industryName } = useSession();
   const [following, setFollowing] = useState(false);
   return (
-    <div className="rail-row">
-      <Link to={`/u/${u.username}`}><Avatar user={u} size={40} /></Link>
+    <div className="widget-row">
+      <Link to={`/u/${u.username}`}><Avatar user={u} size={38} /></Link>
       <div className="grow" style={{ lineHeight: 1.25 }}>
-        <Link to={`/u/${u.username}`} className="bold small row" style={{ gap: 4, color: 'var(--text)' }}><span className="truncate">{u.username}</span><Verified show={u.verified} /></Link>
+        <Link to={`/u/${u.username}`} className="bold small row" style={{ gap: 4, color: 'var(--text)' }}><span className="truncate">{u.display_name}</span><Verified show={u.verified} /></Link>
         <div className="xsmall muted truncate">{u.category ? industryName(u.category) : ACCOUNT_LABEL[u.account_type]}{u.city ? ` · ${u.city}` : ''}</div>
       </div>
-      <button className="text-btn" disabled={following} onClick={async () => { if (await act(() => post(`/users/${u.id}/follow`))) setFollowing(true); }}>
-        {following ? 'Following' : 'Follow'}
+      <button className={`btn btn-sm ${following ? 'btn-ghost' : 'btn-outline'}`} disabled={following} onClick={async () => { if (await act(() => post(`/users/${u.id}/follow`))) setFollowing(true); }}>
+        {following ? <Icon name="check" /> : 'Follow'}
       </button>
     </div>
   );
 }
 
-function Rail() {
+/** Right-hand column of widget cards: you, jobs matched to you, businesses to follow, what's trending. */
+function Board() {
   const { me, can, industryName } = useSession();
   const u = me!.user;
-  const suggestions = useApi('/users/suggestions?limit=5');
+  const suggestions = useApi('/users/suggestions?limit=4');
   const jobs = useApi(can('apply_jobs') ? '/jobs/recommended?limit=3' : null);
   const tags = useApi('/posts/trending-tags');
   return (
-    <aside className="rail">
-      <div className="rail-me">
-        <Link to={`/u/${u.username}`}><Avatar user={u} size={52} /></Link>
-        <div className="grow" style={{ lineHeight: 1.3 }}>
-          <Link to={`/u/${u.username}`} className="bold small" style={{ color: 'var(--text)' }}>{u.username}</Link>
-          <div className="small muted truncate">{u.display_name}{me?.business ? ` · ${industryName(me.business.category)}` : ''}</div>
+    <aside className="board">
+      <div className="card widget me-widget">
+        <Link to={`/u/${u.username}`} className="row" style={{ color: 'inherit' }}>
+          <Avatar user={u} size={48} />
+          <div className="grow" style={{ lineHeight: 1.3 }}>
+            <div className="bold truncate">{u.display_name}</div>
+            <div className="xsmall muted truncate">@{u.username} · {me?.business ? industryName(me.business.category) : ACCOUNT_LABEL[u.account_type]}</div>
+          </div>
+        </Link>
+        <div className="me-links">
+          <Link to={`/u/${u.username}`}><Icon name="user" />Profile</Link>
+          {isBusinessType(u.account_type) ? <Link to="/dashboard"><Icon name="chart" />Dashboard</Link> : can('manage_cv') ? <Link to="/me/cv"><Icon name="file" />My CV</Link> : <Link to="/orders"><Icon name="package" />Orders</Link>}
+          <Link to="/saved"><Icon name="bookmark" />Saved</Link>
         </div>
-        <Link to="/settings" className="text-btn">Settings</Link>
       </div>
 
-      {suggestions.data?.users?.length > 0 && (
-        <div>
-          <div className="rail-head"><b>Suggested for you</b><Link to="/businesses" className="text-btn" style={{ color: 'var(--text)' }}>See all</Link></div>
-          <div style={{ marginTop: 6 }}>{suggestions.data.users.map((s: Json) => <SuggestionRow key={s.id} u={s} />)}</div>
+      {jobs.data?.items?.length > 0 && (
+        <div className="card widget">
+          <div className="widget-head"><span className="eyebrow"><span className="orbit" />Jobs for you</span><Link to="/jobs" className="text-btn">See all</Link></div>
+          {jobs.data.items.map((j: Json) => (
+            <Link key={j.id} to={`/jobs/${j.id}?src=feed`} className="widget-row">
+              <Avatar user={j.company} size={38} square />
+              <div className="grow" style={{ lineHeight: 1.25 }}>
+                <div className="bold small truncate">{j.title}</div>
+                <div className="xsmall muted truncate">{j.company?.display_name} · {salary(j)}</div>
+              </div>
+              {j.match && <span className="match-pill">{j.match.score}%</span>}
+            </Link>
+          ))}
         </div>
       )}
 
-      {jobs.data?.items?.length > 0 && (
-        <div>
-          <div className="rail-head"><b>Jobs for you</b><Link to="/jobs" className="text-btn" style={{ color: 'var(--text)' }}>See all</Link></div>
-          <div style={{ marginTop: 6 }}>
-            {jobs.data.items.map((j: Json) => (
-              <Link key={j.id} to={`/jobs/${j.id}?src=feed`} className="rail-row">
-                <Avatar user={j.company} size={40} square />
-                <div className="grow" style={{ lineHeight: 1.25 }}>
-                  <div className="bold small truncate">{j.title}</div>
-                  <div className="xsmall muted truncate">{j.company?.display_name} · {salary(j)}</div>
-                </div>
-                {j.match && <span className="chip chip-success">{j.match.score}%</span>}
-              </Link>
-            ))}
-          </div>
+      {suggestions.data?.users?.length > 0 && (
+        <div className="card widget">
+          <div className="widget-head"><span className="eyebrow"><span className="orbit" />Businesses to follow</span><Link to="/businesses" className="text-btn">See all</Link></div>
+          {suggestions.data.users.map((s: Json) => <SuggestionRow key={s.id} u={s} />)}
         </div>
       )}
 
       {tags.data?.tags?.length > 0 && (
-        <div>
-          <div className="rail-head"><b>Trending</b></div>
-          <div className="row-wrap" style={{ marginTop: 8 }}>
+        <div className="card widget">
+          <div className="widget-head"><span className="eyebrow"><span className="orbit" />Trending</span></div>
+          <div className="row-wrap">
             {tags.data.tags.slice(0, 8).map((t: Json) => <Link key={t.tag} to={`/search?q=${encodeURIComponent('#' + t.tag)}&type=posts`} className="chip"><Icon name="hash" />{t.tag}</Link>)}
           </div>
         </div>
       )}
 
-      <div className="rail-foot">
-        About · Help · Jobs · Shop · Businesses · Privacy · Terms · Locations
-        <div style={{ marginTop: 10, letterSpacing: '0.08em' }}>© 2026 OMNIBIZ</div>
-      </div>
+      <div className="board-foot">About · Help · Jobs · Market · Businesses · Privacy · Terms<div>© 2026 OMNIBIZ</div></div>
     </aside>
   );
 }
 
+function greeting() {
+  const h = new Date().getHours();
+  return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+}
+
 export function Home() {
-  const { me } = useSession();
+  const { me, can } = useSession();
   const { openCreate } = useOutletContext<ShellContext>();
   const feed = usePaged('/posts/feed');
   const { setItems } = feed;
   const u = me!.user;
+  const counts = me?.counts ?? { notifications: 0, messages: 0, cart: 0 };
+  const first = (u.display_name ?? u.username).split(' ')[0];
+  const today = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+  const status = [
+    counts.notifications ? `${counts.notifications} new notification${counts.notifications === 1 ? '' : 's'}` : '',
+    counts.messages ? `${counts.messages} unread message${counts.messages === 1 ? '' : 's'}` : '',
+  ].filter(Boolean).join(' · ') || 'You’re all caught up.';
 
   // New posts from the Create dialog appear at the top immediately.
   useEffect(() => {
@@ -104,10 +118,24 @@ export function Home() {
   }, [setItems]);
 
   return (
-    <main className="page">
+    <div className="page page-home">
+      <header className="today">
+        <div>
+          <span className="eyebrow"><span className="orbit" />{today}</span>
+          <h1 className="today-title">{greeting()}, <em>{first}</em></h1>
+          <p className="muted small">{status}</p>
+        </div>
+        <div className="today-actions">
+          {can('create_posts') && <button className="btn btn-primary" onClick={openCreate}><Icon name="edit" />Share an update</button>}
+          {u.account_type === 'personal' && <Link to="/jobs" className="btn btn-outline"><Icon name="briefcase" />Find jobs</Link>}
+          {u.account_type === 'customer' && <Link to="/marketplace" className="btn btn-outline"><Icon name="bag" />Browse market</Link>}
+        </div>
+      </header>
+
+      <StoriesBar onCreate={openCreate} />
+
       <div className="home-grid">
         <section className="feed">
-          <StoriesBar onCreate={openCreate} />
           {u.account_type === 'personal' && !me?.profile?.headline && (
             <div className="banner banner-info">
               <Icon name="sparkles" />
@@ -124,9 +152,9 @@ export function Home() {
           )}
           {feed.items.map((p) => <PostCard key={p.id} post={p} showReason />)}
           {feed.loading && !feed.items.length && Array.from({ length: 2 }, (_, i) => (
-            <div key={i} className="card ig-post">
-              <div className="row" style={{ marginBottom: 12 }}><span className="skeleton" style={{ width: 40, height: 40, borderRadius: '50%' }} /><span className="skeleton" style={{ width: 160, height: 12 }} /></div>
-              <div className="skeleton" style={{ aspectRatio: '4 / 5', borderRadius: 20 }} />
+            <div key={i} className="card post">
+              <div className="row" style={{ marginBottom: 14 }}><span className="skeleton" style={{ width: 42, height: 42, borderRadius: '50%' }} /><span className="skeleton" style={{ width: 160, height: 12 }} /></div>
+              <div className="skeleton" style={{ height: 180, borderRadius: 18 }} />
             </div>
           ))}
           {!feed.loading && !feed.items.length && (
@@ -134,8 +162,8 @@ export function Home() {
           )}
           <LoadMore hasMore={feed.hasMore} loading={feed.loading && feed.items.length > 0} onClick={feed.loadMore} />
         </section>
-        <Rail />
+        <Board />
       </div>
-    </main>
+    </div>
   );
 }

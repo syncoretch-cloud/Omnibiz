@@ -2,13 +2,14 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Icon } from './Icon.tsx';
-import { Artwork, postArt } from './Artwork.tsx';
+import { artBackground, postArt } from './Artwork.tsx';
 import { Avatar, Dropdown, Portal, Verified } from './ui.tsx';
 import { ReportDialog } from './Report.tsx';
 import { del, get, post } from '../lib/api.ts';
 import type { Json } from '../lib/api.ts';
 import { useAction, useSession, useToast } from '../lib/session.tsx';
-import { ACCOUNT_LABEL, dateLabel, timeAgo } from '../lib/format.ts';
+import { ACCOUNT_LABEL, compact, dateLabel, timeAgo } from '../lib/format.ts';
+import { toggleMusic, usePlaying } from '../lib/music.ts';
 
 /** Renders text with clickable #hashtags, @mentions and links. */
 export function RichText({ text }: { text: string }) {
@@ -45,14 +46,14 @@ export function MediaGrid({ media }: { media: string[] }) {
   );
 }
 
-export function Carousel({ media }: { media: string[] }) {
+export function Carousel({ media, alt = [] }: { media: string[]; alt?: string[] }) {
   const ref = useRef<HTMLDivElement>(null);
   const [i, setI] = useState(0);
   const go = (d: number) => ref.current?.scrollTo({ left: (i + d) * ref.current.clientWidth, behavior: 'smooth' });
   return (
     <>
       <div className="carousel" ref={ref} onScroll={(e) => setI(Math.round(e.currentTarget.scrollLeft / e.currentTarget.clientWidth))}>
-        {media.map((m) => (/\.(mp4|webm)$/i.test(m) ? <video key={m} src={m} controls preload="metadata" /> : <img key={m} src={m} alt="" loading="lazy" draggable={false} />))}
+        {media.map((m, k) => (/\.(mp4|webm)$/i.test(m) ? <video key={m} src={m} controls preload="metadata" /> : <img key={m} src={m} alt={alt[k] ?? ''} loading="lazy" draggable={false} />))}
       </div>
       {media.length > 1 && (
         <>
@@ -98,6 +99,18 @@ export function CommentsList({ postId, added, onCount }: { postId: number; added
   );
 }
 
+/** The post's soundtrack: tap to play or pause (only one sound plays at a time). */
+function MusicSticker({ id, music }: { id: number; music: Json }) {
+  const key = `post-${id}`;
+  const playing = usePlaying(key);
+  return (
+    <button className={`post-music${playing ? ' on' : ''}`} onClick={() => toggleMusic(key, { track: music.track, url: music.url, start: music.start })} aria-pressed={playing} aria-label={`${playing ? 'Pause' : 'Play'} ${music.title}`}>
+      <span className={`eq${playing ? ' on' : ''}`} aria-hidden="true"><i /><i /><i /></span>
+      <span className="truncate"><b>{music.title}</b>{music.artist ? ` · ${music.artist}` : ''}</span>
+    </button>
+  );
+}
+
 const KIND_CHIP: Record<string, [string, string]> = {
   promotion: ['chip-accent', 'Promotion'], offer: ['chip-accent', 'Offer'], event: ['chip-info', 'Event'], hiring: ['chip-success', 'Hiring'],
   product: ['chip-brand', 'Product'], service: ['chip-brand', 'Service'], news: ['chip-info', 'News'], announcement: ['chip-accent', 'Announcement'],
@@ -121,7 +134,7 @@ export function PostCard({ post: initial, onRemoved, showReason = false, expandC
   if (p.removed) return null;
   const pureRepost = !!p.repost && !p.body;
   const c = pureRepost ? p.repost : p;
-  if (c.removed) return <article className="card ig-post"><div className="muted small">This post is no longer available.</div></article>;
+  if (c.removed) return <article className="card post"><div className="muted small">This post is no longer available.</div></article>;
 
   const like = async () => {
     const liked = !p.liked;
@@ -178,25 +191,39 @@ export function PostCard({ post: initial, onRemoved, showReason = false, expandC
   };
 
   const chip = KIND_CHIP[c.kind];
-  const caption = !pureRepost && p.repost ? p.body : c.body;
-  const long = (caption ?? '').length > 140 || (caption ?? '').split('\n').length > 2;
+  const caption: string = (!pureRepost && p.repost ? p.body : c.body) ?? '';
+  const quoted = !pureRepost && p.repost ? p.repost : null;
+  const media: string[] = quoted ? [] : c.media ?? [];
+  const long = caption.length > 240 || caption.split('\n').length > 4;
+  // Updates without photos read as editorial cards: a kicker, then the words set large.
+  const feature = !media.length && !quoted;
+  const art = postArt(c);
+  const priceChange = c.kind === 'announcement' ? art.price : undefined;
+  const heart = burst > 0 && <div key={burst} className="heart-burst"><Icon name="heart" fill /></div>;
+  // The frame the author chose when cropping (videos are shown in it too); the author can still comment when comments are off.
+  const frame = typeof c.data?.aspect === 'string' && c.data.aspect !== 'original' ? c.data.aspect.replace(':', ' / ') : undefined;
+  const commentsOff = !!c.data?.comments_off && !p.mine;
 
   return (
-    <article className={`card ig-post${split ? ' split' : ''}`}>
-      {showReason && p.reason && !pureRepost && <div className="ig-label"><Icon name="sparkles" />{p.reason}</div>}
-      {pureRepost && <div className="ig-label"><Icon name="repeat" /><Link to={`/u/${p.author?.username}`} style={{ color: 'var(--text-2)' }}>{p.author?.display_name}</Link> reposted</div>}
+    <article className={`card post${split && media.length ? ' split' : ''}`}>
+      {showReason && p.reason && !pureRepost && <div className="post-context"><Icon name="sparkles" />{p.reason}</div>}
+      {pureRepost && <div className="post-context"><Icon name="repeat" /><Link to={`/u/${p.author?.username}`}>{p.author?.display_name}</Link> reposted</div>}
 
-      <header className="ig-head">
-        <Link to={`/u/${c.author?.username}`}><Avatar user={c.author} size={40} /></Link>
+      <header className="post-head">
+        <Link to={`/u/${c.author?.username}`}><Avatar user={c.author} size={42} /></Link>
         <div className="who">
           <div className="row" style={{ gap: 5 }}>
             <Link to={`/u/${c.author?.username}`} className="name truncate">{c.author?.display_name}</Link>
             <Verified show={c.author?.verified} />
-            <span className="muted xsmall">• <Link to={`/posts/${c.id}`} className="muted">{timeAgo(c.created_at)}</Link></span>
           </div>
-          <div className="sub truncate">{c.author?.headline || ACCOUNT_LABEL[c.author?.account_type]}{(c.city ?? c.author?.city) ? ` · ${c.city ?? c.author?.city}` : ''}</div>
+          <div className="sub truncate">
+            {c.data?.location
+              ? <><Icon name="mapPin" size={12} /> {c.data.location}</>
+              : <>{c.author?.headline || ACCOUNT_LABEL[c.author?.account_type]}{(c.city ?? c.author?.city) ? ` · ${c.city ?? c.author?.city}` : ''}</>}
+            {' · '}<Link to={`/posts/${c.id}`}>{timeAgo(c.created_at)}</Link>
+          </div>
         </div>
-        {chip && <span className={`chip ${chip[0]}`}>{chip[1]}</span>}
+        {chip && !feature && <span className={`chip ${chip[0]}`}>{chip[1]}</span>}
         <Dropdown trigger={() => <button className="icon-btn" aria-label="Post options"><Icon name="more" /></button>}>
           <button onClick={share}><Icon name="link" />Copy link</button>
           <Link to={`/posts/${c.id}`}><Icon name="eye" />Go to post</Link>
@@ -205,48 +232,74 @@ export function PostCard({ post: initial, onRemoved, showReason = false, expandC
         </Dropdown>
       </header>
 
-      <div className="ig-media" onDoubleClick={doubleTap}>
-        {!pureRepost && p.repost ? (
-          <div style={{ padding: 12, background: 'var(--surface)' }}>
-            <div className="row small" style={{ marginBottom: 8 }}><Avatar user={p.repost.author} size={24} /><b>{p.repost.author?.display_name}</b><span className="muted xsmall">· {timeAgo(p.repost.created_at)}</span></div>
-            <div style={{ borderRadius: 16, overflow: 'hidden' }}>
-              {p.repost.media?.length ? <Carousel media={p.repost.media} /> : <Artwork variant="wide" {...postArt(p.repost)} />}
-            </div>
-          </div>
-        ) : c.media?.length ? <Carousel media={c.media} /> : <Artwork variant="post" {...postArt(c)} />}
-        {burst > 0 && <div key={burst} className="heart-burst"><Icon name="heart" fill /></div>}
-      </div>
-
-      <div className="ig-body">
-        <div className="ig-actions">
-          {can('interact') && <button className={`icon-btn${p.liked ? ' on' : ''}${pop ? ' pop' : ''}`} onClick={like} aria-pressed={p.liked} aria-label="Like"><Icon name="heart" fill={p.liked} /></button>}
-          <button className="icon-btn" onClick={() => setShowComments((s) => !s)} aria-label="Comments"><Icon name="comment" /></button>
-          {can('interact') && <button className="icon-btn" onClick={() => setReposting(true)} aria-label="Repost"><Icon name="repeat" /></button>}
-          <button className="icon-btn" onClick={share} aria-label="Share"><Icon name="send" /></button>
-          <span className="grow" />
-          {can('save') && <button className={`icon-btn${p.saved ? ' on' : ''}`} onClick={save} aria-label="Save" aria-pressed={p.saved}><Icon name="bookmark" fill={p.saved} /></button>}
+      {feature ? (
+        <div className="post-feature" onDoubleClick={doubleTap} style={{ ['--feature-art' as string]: artBackground(art.seed) }}>
+          <span className="post-kicker">{art.kicker}</span>
+          {caption && <div className={`post-feature-text${caption.length <= 180 ? ' lg' : ''}${long && !captionOpen ? ' clamped' : ''}`}><RichText text={caption} /></div>}
+          {priceChange && <div className="price-change"><Icon name="tag" />{priceChange}</div>}
+          {heart}
         </div>
-        <div className="ig-likes">{p.like_count > 0 ? `${p.like_count.toLocaleString()} like${p.like_count === 1 ? '' : 's'}` : <span className="muted" style={{ fontWeight: 600 }}>Be the first to like this</span>}</div>
-        {caption && (
-          <div className={`ig-caption${long && !captionOpen ? ' clamped' : ''}`}>
-            <b>{(pureRepost ? c : p).author?.username}</b><RichText text={caption} />
-          </div>
+      ) : (
+        <>
+          {caption && <div className={`post-text${long && !captionOpen ? ' clamped' : ''}`}><RichText text={caption} /></div>}
+          {media.length > 0 && (
+            <div className={`post-media${frame ? ' framed' : ''}`} style={frame ? { aspectRatio: frame } : undefined} onDoubleClick={doubleTap}>
+              <Carousel media={media} alt={c.data?.alt} />{heart}
+            </div>
+          )}
+          {quoted && (
+            <Link to={`/posts/${quoted.id}`} className="post-quoted">
+              <div className="row small"><Avatar user={quoted.author} size={24} /><b>{quoted.author?.display_name}</b><span className="muted xsmall">· {timeAgo(quoted.created_at)}</span></div>
+              {quoted.body && <div className="small clamp-3">{quoted.body}</div>}
+              {quoted.media?.[0] && !/\.(mp4|webm)$/i.test(quoted.media[0]) && <img src={quoted.media[0]} alt="" loading="lazy" />}
+            </Link>
+          )}
+        </>
+      )}
+      {long && !captionOpen && <button className="text-btn post-more" onClick={() => setCaptionOpen(true)}>Read more</button>}
+      {(c.data?.music || c.tagged?.length > 0) && (
+        <div className="post-extras">
+          {c.data?.music && <MusicSticker id={c.id} music={c.data.music} />}
+          {c.tagged?.length > 0 && (
+            <span className="post-tagged"><Icon name="users" />with {c.tagged.map((t: Json, k: number) => <Fragment key={t.id}>{k > 0 && ', '}<Link to={`/u/${t.username}`}>{t.display_name}</Link></Fragment>)}</span>
+          )}
+        </div>
+      )}
+
+      {(c.data?.event_date || c.data?.product_id || c.data?.job_id) && (
+        <div className="post-links">
+          {c.data?.event_date && <span className="post-link"><Icon name="calendar" />{dateLabel(c.data.event_date)}{c.data.event_date.length > 10 ? ` · ${c.data.event_date.slice(11, 16)}` : ''}{c.data.event_location ? ` · ${c.data.event_location}` : ''}</span>}
+          {c.data?.product_id && <Link to={`/marketplace/${c.data.product_id}?src=feed`} className="post-link"><Icon name="bag" /><span className="grow">View product</span><Icon name="chevronRight" /></Link>}
+          {c.data?.job_id && <Link to={`/jobs/${c.data.job_id}?src=feed`} className="post-link"><Icon name="briefcase" /><span className="grow">View vacancy & apply</span><Icon name="chevronRight" /></Link>}
+        </div>
+      )}
+
+      <footer className="post-actions">
+        {can('interact')
+          ? <button className={`act${p.liked ? ' on' : ''}${pop ? ' pop' : ''}`} onClick={like} aria-pressed={p.liked} aria-label="Like"><Icon name="heart" fill={p.liked} /><span>{p.like_count > 0 ? compact(p.like_count) : 'Like'}</span></button>
+          : p.like_count > 0 && <span className="act"><Icon name="heart" /><span>{compact(p.like_count)}</span></span>}
+        {(!commentsOff || p.comment_count > 0) && (
+          <button className={`act${showComments ? ' open' : ''}`} onClick={() => setShowComments((s) => !s)} aria-expanded={showComments} aria-label="Comments"><Icon name="comment" /><span>{p.comment_count > 0 ? compact(p.comment_count) : 'Comment'}</span></button>
         )}
-        {long && !captionOpen && <button className="text-btn" style={{ color: 'var(--muted)', alignSelf: 'flex-start', fontWeight: 600 }} onClick={() => setCaptionOpen(true)}>more</button>}
-        {c.data?.event_date && <div className="ig-pill"><Icon name="calendar" />{dateLabel(c.data.event_date)}{c.data.event_date.length > 10 ? ` · ${c.data.event_date.slice(11, 16)}` : ''}{c.data.event_location ? ` · ${c.data.event_location}` : ''}</div>}
-        {c.data?.product_id && <Link to={`/marketplace/${c.data.product_id}?src=feed`} className="ig-pill"><Icon name="bag" /><span className="grow">View product</span><Icon name="chevronRight" /></Link>}
-        {c.data?.job_id && <Link to={`/jobs/${c.data.job_id}?src=feed`} className="ig-pill"><Icon name="briefcase" /><span className="grow">View vacancy & apply</span><Icon name="chevronRight" /></Link>}
-        {p.comment_count > 0 && !showComments && <button className="text-btn" style={{ color: 'var(--muted)', alignSelf: 'flex-start', fontWeight: 600 }} onClick={() => setShowComments(true)}>View {p.comment_count === 1 ? '1 comment' : `all ${p.comment_count} comments`}</button>}
-        {showComments && <CommentsList postId={p.id} added={added} onCount={(d) => setP((x: Json) => ({ ...x, comment_count: x.comment_count + d }))} />}
-        <div className="ig-time">{timeAgo(c.created_at)}{p.share_count > 0 ? ` · ${p.share_count} share${p.share_count === 1 ? '' : 's'}` : ''}</div>
-        {can('interact') && (
-          <form className="ig-add" onSubmit={sendComment}>
-            <Avatar user={me?.user} size={26} />
-            <input placeholder="Add a comment…" value={comment} onChange={(e) => setComment(e.target.value)} maxLength={2000} aria-label="Add a comment" />
-            {comment.trim() && <button className="text-btn">Post</button>}
-          </form>
-        )}
-      </div>
+        {can('interact') && <button className="act" onClick={() => setReposting(true)} aria-label="Repost"><Icon name="repeat" /><span className="act-label">Repost</span></button>}
+        <button className="act" onClick={share} aria-label="Share"><Icon name="send" /><span className="act-label">{p.share_count > 0 ? compact(p.share_count) : 'Share'}</span></button>
+        <span className="grow" />
+        {can('save') && <button className={`act icon${p.saved ? ' on' : ''}`} onClick={save} aria-label="Save" aria-pressed={p.saved}><Icon name="bookmark" fill={p.saved} /></button>}
+      </footer>
+
+      {showComments && (
+        <div className="post-comments">
+          <CommentsList postId={p.id} added={added} onCount={(d) => setP((x: Json) => ({ ...x, comment_count: x.comment_count + d }))} />
+          {commentsOff && <div className="xsmall muted">Comments are turned off for this post.</div>}
+          {can('interact') && !commentsOff && (
+            <form className="post-reply" onSubmit={sendComment}>
+              <Avatar user={me?.user} size={30} />
+              <input className="input" placeholder="Write a comment…" value={comment} onChange={(e) => setComment(e.target.value)} maxLength={2000} aria-label="Write a comment" />
+              <button className="btn btn-primary btn-icon" disabled={!comment.trim()} aria-label="Send comment"><Icon name="send" /></button>
+            </form>
+          )}
+        </div>
+      )}
 
       {reporting && <ReportDialog targetType="post" targetId={p.id} onClose={() => setReporting(false)} />}
       {reposting && (
@@ -256,7 +309,10 @@ export function PostCard({ post: initial, onRemoved, showReason = false, expandC
               <div className="modal-head"><h3>Repost</h3><button className="icon-btn" onClick={() => setReposting(false)} aria-label="Close"><Icon name="x" /></button></div>
               <div className="modal-body stack">
                 {can('create_posts') && <textarea className="textarea" placeholder="Add your thoughts (optional)" value={repostText} onChange={(e) => setRepostText(e.target.value)} maxLength={2000} />}
-                <div style={{ borderRadius: 18, overflow: 'hidden' }}><Artwork variant="wide" {...postArt(c)} /></div>
+                <div className="post-quoted">
+                  <div className="row small"><Avatar user={c.author} size={24} /><b>{c.author?.display_name}</b><span className="muted xsmall">· {timeAgo(c.created_at)}</span></div>
+                  {c.body && <div className="small clamp-3">{c.body}</div>}
+                </div>
               </div>
               <div className="modal-foot"><button className="btn btn-ghost" onClick={() => setReposting(false)}>Cancel</button><button className="btn btn-primary" onClick={repost}>Repost</button></div>
             </div>

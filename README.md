@@ -24,7 +24,28 @@ Logins last until the browser closes unless "Keep me logged in" is ticked. Email
 
 ### Look and feel
 
-Instagram-inspired layout (stories, feed, Reels, Explore, profile grid) in the OmniBiz palette: midnight indigo, aubergine, royal plum, burnt terracotta, soft apricot, vanilla, ivory, dusty rose, mauve and beige. Surfaces are glass with neumorphic depth and clay controls over a photographic backdrop (`web/public/brand/`), in light and dark themes, with a start-up splash showing the logo.
+The design language is called **Orbit**, after the ring-and-dot in the app icon:
+- **Navigation:** a frosted top bar with a sliding pill menu and a ⌘K / Ctrl K search palette. Phones get a floating dock whose active item expands into a labelled pill.
+- **Home:** a "Today" greeting, a strip of Spotlight cards for businesses' latest updates, the feed and a column of widget cards.
+- **Content:**
+  - Text updates read as editorial cards set in serif type.
+  - Profiles have a cover band, metric tiles and quick links.
+  - Discover is a bento grid.
+- **Palette:** midnight indigo, aubergine, royal plum, burnt terracotta, soft apricot, vanilla, ivory, dusty rose, mauve and beige.
+- **Material ("quiet glass"):**
+  - The photographic backdrop (`web/public/brand/`) is blurred into a soft wash of colour.
+  - Navigation and pop-ups are frosted glass.
+  - Content sits on calm translucent panels with hairline edges.
+  - Controls are flat; the gradient is reserved for primary actions.
+- **Themes:** light and dark, with a start-up splash showing the logo.
+
+Posting follows Instagram's flow: **select → crop → edit → share**.
+- **Select:** up to 10 photos or videos.
+- **Crop:** Original, 1:1, 4:5 or 16:9, with zoom, drag-to-reposition, a thirds grid, and reordering.
+- **Edit:** 12 filters named after places in Tanzania, plus brightness, contrast, saturation, warmth, fade and vignette. Each photo is edited separately (`web/src/lib/imageEdit.ts`). One pipeline renders both the preview and the uploaded file.
+- **Share:** caption with emoji, location, tagged people (they are notified), music, alt text, "hide like count" and "turn off commenting" (both enforced by the API).
+
+Music comes from **OmniBiz Sounds** (`web/src/lib/music.ts`), 12 original loops in Afrobeats, Amapiano, Bongo Flava, lo-fi and chill styles. They are generated in the browser with the Web Audio API, so there is nothing to license. Authors can also upload their own audio and choose where it starts. Posts play their soundtrack on tap; Reels play it while on screen once sound is on.
 
 Layouts follow the content rather than fixed device sizes: each page is a CSS container, so grids, side panels, filters, the post view and the messenger rearrange for the width they actually have (from 320px phones to wide monitors). Only the navigation shell switches by screen size.
 

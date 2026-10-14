@@ -325,6 +325,55 @@ test('reels mix posts, products and jobs; stories group recent posts by followed
   assert.ok(mine.items[0].id < mine.items[mine.items.length - 1].id, 'story items play oldest → newest');
 });
 
+test('post details: music, tagged people, location, alt text, hidden likes and comments off', async () => {
+  const { c: author } = await register('company', { business_name: 'Studio Co', category: 'software' });
+  const { c: friend, me: friendMe } = await register('personal');
+  const upload = async (bytes: Uint8Array, type: string, name: string) => {
+    const form = new FormData();
+    form.append('files', new Blob([bytes], { type }), name);
+    const r = await author.req('POST', '/api/media', undefined, { form });
+    assert.equal(r.status, 201, JSON.stringify(r.body));
+    return r.body.files[0].url as string;
+  };
+  const image = await upload(new Uint8Array([0x89, 0x50, 0x4e, 0x47]), 'image/png', 'photo.png');
+  const song = await upload(new Uint8Array([0x49, 0x44, 0x33, 0x03]), 'audio/mpeg', 'jingle.mp3');
+  assert.match(song, /^\/uploads\/media\/[a-f0-9]{32}\.mp3$/);
+
+  const created = await author.post('/api/posts', {
+    body: 'New studio, new sound',
+    media: [image],
+    data: {
+      aspect: '4:5', alt: ['A sunlit recording room'], location: 'Arusha', injected: 'nope',
+      music: { url: song, title: 'Studio jingle', artist: 'Studio Co', start: 12 },
+      tagged: [friendMe.id, 999999], hide_likes: true, comments_off: true,
+    },
+  });
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  const p = created.body.post;
+  assert.deepEqual([p.data.aspect, p.data.alt[0], p.data.location], ['4:5', 'A sunlit recording room', 'Arusha']);
+  assert.deepEqual([p.data.music.url, p.data.music.start], [song, 12]);
+  assert.equal(p.data.injected, undefined);
+  assert.deepEqual(p.data.tagged, [friendMe.id], 'unknown users are dropped');
+  assert.equal(p.tagged[0].username, friendMe.username);
+
+  const library = await author.post('/api/posts', { body: 'Morning mood', data: { music: { track: 'kariakoo-morning', title: 'Kariakoo Morning', artist: 'OmniBiz Sounds' } } });
+  assert.equal(library.body.post.data.music.track, 'kariakoo-morning');
+  const forged = await author.post('/api/posts', { body: 'Sneaky sound', data: { music: { url: 'https://evil.example/x.mp3', title: 'x' } } });
+  assert.equal(forged.body.post.data.music, undefined, 'only uploaded audio or library tracks are kept');
+
+  await settle();
+  const notes = (await friend.get('/api/notifications')).body.items;
+  assert.ok(notes.some((n: Json) => /tagged you/.test(n.title)), 'tagged people are notified');
+
+  const liked = await friend.post(`/api/posts/${p.id}/like`);
+  assert.equal(liked.body.like_count, null, 'hidden like counts stay hidden from others');
+  assert.equal((await friend.get(`/api/posts/${p.id}`)).body.post.like_count, null);
+  assert.equal((await author.get(`/api/posts/${p.id}`)).body.post.like_count, 1, 'the author still sees the count');
+
+  assert.equal((await friend.post(`/api/posts/${p.id}/comments`, { body: 'Nice!' })).status, 403);
+  assert.equal((await author.post(`/api/posts/${p.id}/comments`, { body: 'Thanks all' })).status, 201);
+});
+
 test('sessions are browser-only unless "keep me logged in" is chosen', async () => {
   const { me } = await register('customer');
   const raw = async (remember: boolean) => {

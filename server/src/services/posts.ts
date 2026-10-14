@@ -7,24 +7,28 @@ import { cityCoords, distanceKm } from '../lib/geo.ts';
 import { emit } from '../lib/queue.ts';
 
 function shape(r: Row, cards: Map<number, UserCard>, liked: Set<number>, saved: Set<number>, tags: Map<number, string[]>, viewerId?: number) {
+  const data = parseJson<Row>(r.data, {});
+  const mine = viewerId === r.author_id;
   return {
     id: r.id,
     kind: r.kind,
     body: r.body,
     media: parseJson<string[]>(r.media, []),
-    data: parseJson<Row>(r.data, {}),
+    data,
     category: r.category,
     city: r.city,
     status: r.status,
     created_at: r.created_at,
-    like_count: r.like_count,
+    // The author can hide the like count from everyone else, as on Instagram.
+    like_count: data.hide_likes && !mine ? null : r.like_count,
+    tagged: ((data.tagged ?? []) as number[]).map((id) => cards.get(id)).filter(Boolean),
     comment_count: r.comment_count,
     share_count: r.share_count,
     author: cards.get(r.author_id) ?? null,
     tags: tags.get(r.id) ?? [],
     liked: liked.has(r.id),
     saved: saved.has(r.id),
-    mine: viewerId === r.author_id,
+    mine,
   };
 }
 
@@ -35,7 +39,8 @@ export function hydratePosts(rows: Row[], viewerId?: number) {
   const originals = repostIds.length ? all(`SELECT * FROM posts WHERE id IN (${qs(repostIds.length)})`, ...repostIds) : [];
   const everything = [...rows, ...originals];
   const ids = everything.map((r) => r.id as number);
-  const cards = userCards(everything.map((r) => r.author_id));
+  const tagged = everything.flatMap((r) => (parseJson<Row>(r.data, {}).tagged ?? []) as number[]);
+  const cards = userCards([...everything.map((r) => r.author_id), ...tagged]);
   const liked = new Set<number>();
   const saved = new Set<number>();
   if (viewerId) {

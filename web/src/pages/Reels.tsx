@@ -8,6 +8,7 @@ import { del, post } from '../lib/api.ts';
 import type { Json } from '../lib/api.ts';
 import { usePaged } from '../lib/hooks.ts';
 import { useAction, useSession, useToast } from '../lib/session.tsx';
+import { playMusic, stopMusic, stopMusicIf } from '../lib/music.ts';
 import { compact, money, salary, timeAgo } from '../lib/format.ts';
 
 function ActionButton({ icon, label, on, pop, onClick, fill }: { icon: string; label?: string; on?: boolean; pop?: boolean; fill?: boolean; onClick: () => void }) {
@@ -31,7 +32,7 @@ function FollowPill({ user }: { user: Json }) {
   );
 }
 
-function Reel({ item, active, onComments }: { item: Json; active: boolean; onComments: (p: Json) => void }) {
+function Reel({ item, active, sound, onSound, onComments }: { item: Json; active: boolean; sound: boolean; onSound: () => void; onComments: (p: Json) => void }) {
   const { can, refresh } = useSession();
   const act = useAction();
   const toast = useToast();
@@ -43,12 +44,22 @@ function Reel({ item, active, onComments }: { item: Json; active: boolean; onCom
   const [open, setOpen] = useState(false);
   const type = item.type as 'post' | 'product' | 'job';
 
+  const music = item.type === 'post' ? p.data?.music : undefined;
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
+    // A chosen soundtrack replaces the video's own audio.
+    v.muted = !sound || !!music;
     if (active) v.play().catch(() => {});
     else v.pause();
-  }, [active]);
+  }, [active, sound, music]);
+  // The soundtrack plays while this reel is on screen and sound is on.
+  useEffect(() => {
+    if (!music || !active || !sound) return;
+    const key = `reel-${p.id}`;
+    playMusic(key, { track: music.track, url: music.url, start: music.start });
+    return () => stopMusicIf(key);
+  }, [music, active, sound, p.id]);
 
   const share = async (path: string) => {
     const url = `${location.origin}${path}`;
@@ -87,6 +98,7 @@ function Reel({ item, active, onComments }: { item: Json; active: boolean; onCom
         {media ? (/\.(mp4|webm)$/i.test(media) ? <video ref={videoRef} src={media} loop muted playsInline /> : <img src={media} alt="" />) : <Artwork variant="reel" {...art} />}
         <div className="reel-type">
           <span className="reel-title">Reels</span>
+          <button className="btn btn-glass btn-icon btn-sm reel-sound" onClick={onSound} aria-label={sound ? 'Mute' : 'Turn sound on'} aria-pressed={sound}><Icon name={sound ? 'volume' : 'volumeX'} /></button>
           <span className="chip" style={{ background: 'rgba(255,245,235,.16)', color: '#fff6ee', boxShadow: 'none', borderColor: 'rgba(255,245,235,.3)' }}>
             <Icon name={type === 'post' ? 'reels' : type === 'product' ? 'bag' : 'briefcase'} />{type === 'post' ? 'Post' : type === 'product' ? 'Shop' : 'Job'}
           </span>
@@ -123,7 +135,7 @@ function Reel({ item, active, onComments }: { item: Json; active: boolean; onCom
           )}
           <div className="meta">
             <Icon name="music" />
-            <div className="marquee"><span>{author?.display_name} · {type === 'post' ? 'Original' : type === 'product' ? (p.city ?? 'Shop') : (p.remote ? 'Remote' : p.city)} · {timeAgo(p.created_at)}</span></div>
+            <div className="marquee"><span>{music ? `${music.title}${music.artist ? ` · ${music.artist}` : ''}` : <>{author?.display_name} · {type === 'post' ? 'Original' : type === 'product' ? (p.city ?? 'Shop') : (p.remote ? 'Remote' : p.city)} · {timeAgo(p.created_at)}</>}</span></div>
           </div>
         </div>
       </div>
@@ -164,6 +176,8 @@ export default function Reels() {
   const scroller = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
   const [comments, setComments] = useState<Json | null>(null);
+  const [sound, setSound] = useState(false);
+  useEffect(() => () => stopMusic(), []);
   const [added, setAdded] = useState<Json[]>([]);
   const [text, setText] = useState('');
   const act = useAction();
@@ -211,7 +225,7 @@ export default function Reels() {
   return (
     <>
       <div className="reels" ref={scroller}>
-        {items.map((it, i) => <Reel key={it.key} item={it} active={i === active} onComments={(p) => { setAdded([]); setComments(p); }} />)}
+        {items.map((it, i) => <Reel key={it.key} item={it} active={i === active} sound={sound} onSound={() => setSound((x) => !x)} onComments={(p) => { setAdded([]); setComments(p); }} />)}
         {loading && !items.length && <div className="reel"><Spinner /></div>}
         {!loading && !items.length && <div className="reel"><div className="card"><Empty icon="reels" title="No reels yet">Follow businesses and people to fill your reels.</Empty></div></div>}
       </div>

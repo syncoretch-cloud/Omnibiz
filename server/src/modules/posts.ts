@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import type { Request } from 'express';
-import { all, get, qs, run, tx, sqlTime, HOUR, MINUTE } from '../db/index.ts';
+import { all, get, parseJson, qs, run, tx, sqlTime, HOUR, MINUTE } from '../db/index.ts';
 import type { Row } from '../db/index.ts';
 import { badRequest, forbidden, HttpError, intParam, notFound, paging, qStr, validate } from '../lib/http.ts';
 import { requireAuth, requirePerm } from '../lib/auth.ts';
@@ -20,6 +20,22 @@ export const postsRouter = Router();
 export const savesRouter = Router();
 
 const BUSINESS_ONLY_KINDS = new Set(['product', 'service', 'promotion', 'offer', 'hiring']);
+const ASPECTS = ['original', '1:1', '4:5', '16:9'];
+
+/** A post's soundtrack: a track from the built-in library, or an audio file the author uploaded. */
+function musicData(raw: unknown): Row | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const m = raw as Row;
+  const title = typeof m.title === 'string' ? m.title.trim().slice(0, 80) : '';
+  if (!title) return null;
+  const out: Row = { title, artist: typeof m.artist === 'string' ? m.artist.trim().slice(0, 60) : '' };
+  if (typeof m.track === 'string' && /^[a-z0-9-]{2,40}$/.test(m.track)) out.track = m.track;
+  else if (typeof m.url === 'string' && /^\/uploads\/media\/[a-f0-9]{32}\.(mp3|m4a|aac|ogg|wav)$/.test(m.url)) out.url = m.url;
+  else return null;
+  const start = Number(m.start);
+  out.start = Number.isFinite(start) ? Math.max(0, Math.min(600, Math.round(start))) : 0;
+  return out;
+}
 
 /** Spam protection: per-user rate, duplicate detection and link limits. */
 function spamCheck(userId: number, body: string) {
@@ -117,7 +133,22 @@ postsRouter.post('/', requirePerm('create_posts'), (req, res) => {
   if (typeof raw.event_date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(raw.event_date)) data.event_date = raw.event_date.slice(0, 16);
   if (typeof raw.event_location === 'string') data.event_location = raw.event_location.slice(0, 120);
   if (typeof raw.ends_on === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw.ends_on)) data.ends_on = raw.ends_on;
+  // Instagram-style details: display ratio, alt text, location, music, tagged people and audience settings.
+  if (typeof raw.aspect === 'string' && ASPECTS.includes(raw.aspect)) data.aspect = raw.aspect;
+  if (Array.isArray(raw.alt) && media.length) data.alt = raw.alt.slice(0, media.length).map((a: unknown) => (typeof a === 'string' ? a.trim().slice(0, 300) : ''));
+  if (typeof raw.location === 'string' && raw.location.trim()) data.location = raw.location.trim().slice(0, 80);
+  const music = musicData(raw.music);
+  if (music) data.music = music;
+  if (raw.hide_likes === true) data.hide_likes = true;
+  if (raw.comments_off === true) data.comments_off = true;
+  let tagged: number[] = [];
+  if (Array.isArray(raw.tagged)) {
+    const ids = [...new Set(raw.tagged.filter((x: unknown) => Number.isInteger(x) && x !== req.user!.id))].slice(0, 20) as number[];
+    tagged = ids.length ? all(`SELECT id FROM users WHERE id IN (${qs(ids.length)}) AND status = 'active'`, ...ids).map((r) => r.id as number) : [];
+    if (tagged.length) data.tagged = tagged;
+  }
   const id = createPost(req.user!, { kind, body, media, category: d.category, data });
+  if (tagged.length) notify(tagged, { type: 'mention', title: `${req.user!.display_name} tagged you in a post`, body: body.slice(0, 100), link: `/posts/${id}`, actorId: req.user!.id });
   const [post] = hydratePosts([get('SELECT * FROM posts WHERE id = ?', id)!], req.user!.id);
   res.status(201).json({ post });
 });
@@ -131,6 +162,12 @@ postsRouter.delete('/:id', requireAuth, (req, res) => {
 });
 
 // ───────────── interactions ─────────────
+/** Current like count, or null when the author hid it from everyone else. */
+function likeCount(p: Row, viewerId: number) {
+  if (parseJson<Row>(p.data, {}).hide_likes && p.author_id !== viewerId) return null;
+  return get('SELECT like_count FROM posts WHERE id = ?', p.id)!.like_count;
+}
+
 postsRouter.post('/:id/like', requirePerm('interact'), (req, res) => {
   const p = loadPost(req);
   const { changes } = run('INSERT OR IGNORE INTO likes (user_id, post_id) VALUES (?,?)', req.user!.id, p.id);
@@ -141,14 +178,14 @@ postsRouter.post('/:id/like', requirePerm('interact'), (req, res) => {
       notify([p.author_id], { type: 'like', title: `${req.user!.display_name} liked your post`, body: p.body.slice(0, 100), link: `/posts/${p.id}`, actorId: req.user!.id });
     }
   }
-  res.json({ liked: true, like_count: get('SELECT like_count FROM posts WHERE id = ?', p.id)!.like_count });
+  res.json({ liked: true, like_count: likeCount(p, req.user!.id) });
 });
 
 postsRouter.delete('/:id/like', requireAuth, (req, res) => {
   const p = loadPost(req);
   const { changes } = run('DELETE FROM likes WHERE user_id = ? AND post_id = ?', req.user!.id, p.id);
   if (changes) run('UPDATE posts SET like_count = MAX(0, like_count - 1) WHERE id = ?', p.id);
-  res.json({ liked: false, like_count: get('SELECT like_count FROM posts WHERE id = ?', p.id)!.like_count });
+  res.json({ liked: false, like_count: likeCount(p, req.user!.id) });
 });
 
 postsRouter.get('/:id/comments', (req, res) => {
@@ -161,6 +198,7 @@ postsRouter.get('/:id/comments', (req, res) => {
 
 postsRouter.post('/:id/comments', requirePerm('interact'), (req, res) => {
   const p = loadPost(req);
+  if (parseJson<Row>(p.data, {}).comments_off && p.author_id !== req.user!.id) throw forbidden('Comments are turned off for this post');
   const { body } = validate(req.body, { body: { type: 'text', required: true, max: 2000 } });
   if (!hit(`comment:${req.user!.id}`, 60, HOUR)) throw new HttpError(429, 'You are commenting too quickly');
   const { id } = run('INSERT INTO comments (post_id, author_id, body) VALUES (?,?,?)', p.id, req.user!.id, body);

@@ -132,7 +132,7 @@ export function TagInput({ value, onChange, placeholder, suggestions }: { value:
   );
 }
 
-/** Renders overlays at the end of <body>, so page layout (containers, transforms, filters) can never offset or clip them. */
+/** Renders overlays at the end of <body>, so page layout (containers, transforms, filters, scrolling panels) can never offset or clip them. */
 export function Portal({ children }: { children: ReactNode }) {
   return createPortal(children, document.body);
 }

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Icon } from '../components/Icon.tsx';
-import { Artwork } from '../components/Artwork.tsx';
 import { ErrorBox, Input, Select, Swap } from '../components/ui.tsx';
 import { ThemeButton, Wordmark } from '../components/Layout.tsx';
 import { ApiError, get, post } from '../lib/api.ts';
@@ -13,34 +12,6 @@ export function DevOutboxHint() {
   return (
     <div className="dev-box">
       Codes aren’t emailed in development — find them at <a href="/api/dev/outbox" target="_blank" rel="noreferrer">/api/dev/outbox</a>.
-    </div>
-  );
-}
-
-const SHOWCASE = [
-  { seed: 'show-solar', kicker: 'Wholesale', title: 'Solar Panel 300W', price: 'TZS 250,000', icon: 'sun' },
-  { seed: 'show-hiring', kicker: 'We’re hiring', title: 'Software Developer', price: 'Arusha', icon: 'briefcase' },
-  { seed: 'show-kitenge', kicker: 'New in store', title: 'Kitenge Maxi Dress', price: 'TZS 65,000', icon: 'shirt' },
-  { seed: 'show-coffee', kicker: 'Event', title: 'Farmers’ demo day', price: 'Sat · 10:00', icon: 'leaf' },
-];
-
-function PhoneShowcase() {
-  const [i, setI] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setI((x) => (x + 1) % SHOWCASE.length), 3200);
-    return () => clearInterval(t);
-  }, []);
-  return (
-    <div className="auth-art" style={{ position: 'relative', padding: '30px 40px' }} aria-hidden="true">
-      <div className="phone">
-        <div className="phone-screen">
-          {SHOWCASE.map((s, k) => <Artwork key={s.seed} variant="reel" className={k === i ? 'on' : ''} seed={s.seed} kicker={s.kicker} title={s.title} price={s.price} icon={s.icon} />)}
-          <div className="phone-ui"><i><Icon name="heart" /></i><i><Icon name="comment" /></i><i><Icon name="send" /></i></div>
-        </div>
-      </div>
-      <div className="floaty glass" style={{ left: -6, top: 70 }}><span className="ic"><Icon name="heart" fill /></span>12.4k</div>
-      <div className="floaty glass" style={{ right: -14, top: 250, animationDelay: '-2s' }}><span className="ic brown"><Icon name="briefcase" /></span>+24</div>
-      <div className="floaty glass" style={{ left: 0, bottom: 90, animationDelay: '-4s' }}><span className="ic"><Icon name="bag" /></span>TZS 250k</div>
     </div>
   );
 }
@@ -279,7 +250,6 @@ export function AuthShell({ mode }: { mode: 'login' | 'register' | 'recover' }) 
     <div className="auth-shell">
       <ThemeButton className="theme-fab glass" />
       <div className="auth-grid">
-        <PhoneShowcase />
         <Swap k={mode} order={['login', 'register', 'recover']} className="auth-col">
           {mode === 'login' ? <LoginPanel /> : mode === 'register' ? <RegisterPanel /> : <RecoverPanel />}
         </Swap>

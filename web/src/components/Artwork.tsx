@@ -1,5 +1,5 @@
-// Generated artwork for content without photos: a deterministic mesh gradient (brand + IG
-// sunset palette), a clay orb, film grain, a large glyph and serif typography.
+// Generated covers for content without photos: a deterministic mesh gradient in the brand palette,
+// light film grain, a large faint glyph and bold type.
 import type { CSSProperties, ReactNode } from 'react';
 import { Icon } from './Icon.tsx';
 import type { Json } from '../lib/api.ts';
@@ -52,13 +52,8 @@ export interface ArtProps {
 }
 
 export function Artwork({ seed, kicker, title, sub, price, icon = 'sparkles', variant = 'post', className = '', style, children }: ArtProps) {
-  const h = h32(seed);
-  const orb = 26 + (h % 22);
   return (
     <div className={`art ${variant} ${className}`} style={{ background: artBackground(seed), ...style }} aria-hidden={!title}>
-      {variant !== 'thumb' && (
-        <span className="art-orb" style={{ width: `${orb}%`, aspectRatio: '1', left: `${((h >>> 5) % 55) - 6}%`, top: `${((h >>> 9) % 38) + 4}%` }} />
-      )}
       <span className="art-glyph"><Icon name={icon} /></span>
       {variant !== 'thumb' && kicker && <span className="art-kicker">{kicker}</span>}
       {variant !== 'thumb' && title && <div className="art-title">{title}</div>}

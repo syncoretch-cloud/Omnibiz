@@ -24,19 +24,20 @@ Logins last until the browser closes unless "Keep me logged in" is ticked. Email
 
 ### Look and feel
 
-The design language is called **Orbit**, after the ring-and-dot in the app icon:
-- **Navigation:** a frosted top bar with a sliding pill menu and a ⌘K / Ctrl K search palette. Phones get a floating dock whose active item expands into a labelled pill.
-- **Home:** a "Today" greeting, a strip of Spotlight cards for businesses' latest updates, the feed and a column of widget cards.
+The layout is **app panels**, and the material is **soft glass**:
+- **Computers:** three frosted panels sit side by side, and each scrolls on its own:
+  - **Navigation:** brand, destinations, a Create button and the account menu.
+  - **Content:** a header with the page title, a back arrow on inner pages, and search (also ⌘K / Ctrl K).
+  - **For you:** your profile, jobs for you, businesses to follow and trending tags. It steps aside on pages that need the width (Market, Messages, Dashboard, Admin, Settings, Reels).
+- **Tablets:** the navigation panel becomes an icon rail beside the content.
+- **Phones:** a sticky top bar (the brand on main tabs, a back arrow and title on inner pages), the page, and a floating tab dock whose active tab expands into a labelled pill. The "+" button opens a Create sheet.
+- **Home:** a "Today" greeting, a strip of Spotlight cards for businesses' latest updates, then the feed.
 - **Content:**
   - Text updates read as editorial cards set in serif type.
   - Profiles have a cover band, metric tiles and quick links.
   - Discover is a bento grid.
 - **Palette:** midnight indigo, aubergine, royal plum, burnt terracotta, soft apricot, vanilla, ivory, dusty rose, mauve and beige.
-- **Material ("quiet glass"):**
-  - The photographic backdrop (`web/public/brand/`) is blurred into a soft wash of colour.
-  - Navigation and pop-ups are frosted glass.
-  - Content sits on calm translucent panels with hairline edges.
-  - Controls are flat; the gradient is reserved for primary actions.
+- **Material (soft glass):** frosted panels over a soft brand-colour gradient (ivory, apricot and dusty rose in light mode; midnight into aubergine in dark mode). Content sits on calm cards with hairline edges. The gradient and a soft raised edge are kept for primary actions.
 - **Themes:** light and dark, with a start-up splash showing the logo.
 
 Posting follows Instagram's flow: **select → crop → edit → share**.

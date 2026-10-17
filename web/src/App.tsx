@@ -36,7 +36,9 @@ const Admin = lazy(() => import('./pages/admin/Admin.tsx'));
 function ScrollTop() {
   const { pathname } = useLocation();
   useEffect(() => {
+    // On a phone the page scrolls; on bigger screens the content panel does.
     window.scrollTo(0, 0);
+    document.getElementById('app-scroll')?.scrollTo(0, 0);
   }, [pathname]);
   return null;
 }

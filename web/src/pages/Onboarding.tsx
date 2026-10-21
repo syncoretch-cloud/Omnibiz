@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Icon } from '../components/Icon.tsx';
-import { ThemeButton, Wordmark } from '../components/Layout.tsx';
+import { Wordmark } from '../components/Layout.tsx';
 import { Avatar, Spinner, Swap, Verified } from '../components/ui.tsx';
 import { get, post, put } from '../lib/api.ts';
 import type { Json } from '../lib/api.ts';
@@ -51,7 +51,6 @@ export function Onboarding() {
 
   return (
     <div className="auth-shell">
-      <ThemeButton className="theme-fab glass" />
       <div className="auth-card glass" style={{ width: 'min(640px, calc(100vw - 28px))' }}>
         <Wordmark />
         <div className="steps" style={{ marginBottom: 6 }}>

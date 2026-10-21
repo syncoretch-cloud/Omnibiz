@@ -395,6 +395,22 @@ CREATE TABLE IF NOT EXISTS applications (
 );
 CREATE INDEX IF NOT EXISTS idx_applications_applicant ON applications(applicant_id);
 
+-- Unfinished applications: saved privately while the applicant gathers what the job asks for.
+-- The employer never sees a draft; submitting it creates the application and removes the draft.
+CREATE TABLE IF NOT EXISTS application_drafts (
+  id INTEGER PRIMARY KEY,
+  job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  applicant_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  cover_letter TEXT,
+  answers TEXT NOT NULL DEFAULT '{}',
+  document_ids TEXT NOT NULL DEFAULT '[]',
+  step INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(job_id, applicant_id)
+);
+CREATE INDEX IF NOT EXISTS idx_application_drafts_applicant ON application_drafts(applicant_id);
+
 CREATE TABLE IF NOT EXISTS application_events (
   id INTEGER PRIMARY KEY,
   application_id INTEGER NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
@@ -524,4 +540,23 @@ CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts5(
   city,
   tokenize = 'unicode61 remove_diacritics 2',
   prefix = '2 3'
+);
+
+-- Stories: a photo, video or text card that disappears 24 hours after it is shared.
+CREATE TABLE IF NOT EXISTS stories (
+  id INTEGER PRIMARY KEY,
+  author_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  media TEXT,
+  body TEXT NOT NULL DEFAULT '',
+  style TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  expires_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_stories_author ON stories(author_id, expires_at);
+
+CREATE TABLE IF NOT EXISTS story_views (
+  story_id INTEGER NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+  viewer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  viewed_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (story_id, viewer_id)
 );

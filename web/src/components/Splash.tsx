@@ -11,7 +11,7 @@ function alreadySeen(): boolean {
 }
 
 /**
- * Start-up splash: the transparent logo glows in over the brand photograph, then fades to reveal the app.
+ * Start-up splash: the logo glows in on black, then fades to reveal the app.
  * Shown once per browser tab session, and only for as long as it takes to start (plus a short beat).
  */
 export function useSplash(ready: boolean) {
@@ -48,10 +48,9 @@ export function useSplash(ready: boolean) {
 export function Splash({ leaving }: { leaving: boolean }) {
   return (
     <div className={`splash${leaving ? ' out' : ''}`} role="presentation">
-      <div className="splash-photo" />
       <div className="splash-mark">
         <div style={{ position: 'relative', width: '100%' }}>
-          <img className="splash-logo" src="/brand/logo.png" alt="OmniBiz" />
+          <img className="splash-logo" src="/brand/omnibiz-logo.png" alt="OmniBiz" />
           <span className="splash-shine" />
         </div>
         <div className="splash-bar"><i /></div>

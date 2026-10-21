@@ -50,7 +50,7 @@ export function Home() {
         </div>
       </header>
 
-      <StoriesBar onCreate={openCreate} />
+      <StoriesBar />
 
       <section className="feed">
         {u.account_type === 'personal' && !me?.profile?.headline && (

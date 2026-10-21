@@ -5,8 +5,8 @@ import { Icon } from './Icon.tsx';
 import { Avatar, Portal } from './ui.tsx';
 import { Board } from './Board.tsx';
 import { CreatePostModal } from './CreatePost.tsx';
+import { StoryCreator } from './StoryCreator.tsx';
 import { isBusinessType, useSession } from '../lib/session.tsx';
-import { toggleTheme, useTheme } from '../lib/theme.ts';
 import { get } from '../lib/api.ts';
 import type { Json } from '../lib/api.ts';
 import { useDebounced } from '../lib/hooks.ts';
@@ -15,23 +15,13 @@ export interface ShellContext {
   openCreate: () => void;
 }
 
-/** The brand as text: the ring mark and the name. (The splash shows the full logo artwork.) */
+/** The OmniBiz logo artwork, large (sign-in and onboarding). */
 export function Wordmark({ className = '' }: { className?: string }) {
-  return <span className={`brand-mark brand-mark-lg ${className}`}><img src="/icon.svg" alt="" /><span>OmniBiz</span></span>;
+  return <span className={`brand-mark brand-mark-lg ${className}`}><img src="/brand/omnibiz-logo.png" alt="OmniBiz" /></span>;
 }
 
 export function Ambient() {
-  return <div className="ambient" aria-hidden="true"><i /><i /><i /></div>;
-}
-
-export function ThemeButton({ className, children }: { className?: string; children?: (dark: boolean) => ReactNode }) {
-  const theme = useTheme();
-  const dark = theme === 'dark';
-  return (
-    <button className={className} onClick={(e) => toggleTheme(e)} aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}>
-      {children ? children(dark) : <Icon name={dark ? 'sun' : 'moon'} />}
-    </button>
-  );
+  return <div className="ambient" aria-hidden="true" />;
 }
 
 const Badge = ({ n }: { n: number }) => (n > 0 ? <span className="badge-dot">{n > 99 ? '99+' : n}</span> : null);
@@ -128,7 +118,7 @@ function SearchPalette({ onClose }: { onClose: () => void }) {
 
 // ───────────── create sheet & account menu ─────────────
 /** Slide-up sheet of things to create, sized for thumbs. */
-function CreateSheet({ onPost, onClose }: { onPost: () => void; onClose: () => void }) {
+function CreateSheet({ onPost, onStory, onClose }: { onPost: () => void; onStory: () => void; onClose: () => void }) {
   const { can } = useSession();
   const nav = useNavigate();
   const go = (to: string) => { onClose(); nav(to); };
@@ -139,6 +129,7 @@ function CreateSheet({ onPost, onClose }: { onPost: () => void; onClose: () => v
   }, [onClose]);
   const options: [boolean, string, string, string, () => void][] = [
     [can('create_posts'), 'image', 'Post', 'Photos, video, music or a text update', () => { onClose(); onPost(); }],
+    [can('create_posts'), 'clock', 'Story', 'Gone after 24 hours', () => { onClose(); onStory(); }],
     [can('manage_products'), 'bag', 'Product', 'List something to sell', () => go('/dashboard/products?new=1')],
     [can('create_jobs'), 'briefcase', 'Job', 'Hire for a vacancy', () => go('/dashboard/jobs?new=1')],
     [can('publish_announcements'), 'megaphone', 'Announcement', 'Price changes, launches, openings', () => go('/dashboard/announcements')],
@@ -181,7 +172,6 @@ export function MoreMenuItems({ onDone }: { onDone?: () => void }) {
       {can('purchase') && <Link to="/orders" onClick={onDone}><Icon name="package" />My orders</Link>}
       {isStaff && <Link to="/admin" onClick={onDone}><Icon name="shield" />Admin portal</Link>}
       <Link to="/settings" onClick={onDone}><Icon name="settings" />Settings</Link>
-      <ThemeButton>{(dark) => <><Icon name={dark ? 'sun' : 'moon'} />Switch appearance</>}</ThemeButton>
       <hr />
       <button onClick={async () => { onDone?.(); await logout(); nav('/'); }}><Icon name="logout" />Log out</button>
     </>
@@ -216,11 +206,10 @@ export function AppLayout() {
   const personal = u.account_type === 'personal';
   const biz = isBusinessType(u.account_type);
   const canCreate = can('create_posts') || can('manage_products') || can('create_jobs');
-  // With nothing to create but posts, "+" opens the post creator straight away.
-  const onlyPosts = can('create_posts') && !can('manage_products') && !can('create_jobs') && !can('publish_announcements');
   const [search, setSearch] = useState(false);
   const [sheet, setSheet] = useState(false);
   const [composer, setComposer] = useState(false);
+  const [storying, setStorying] = useState(false);
   const [meMenu, setMeMenu] = useState(false);
   const meRef = useRef<HTMLDivElement>(null);
   const closeSearch = useCallback(() => setSearch(false), []);
@@ -253,7 +242,7 @@ export function AppLayout() {
   }, [meMenu]);
 
   const openCreate = useCallback(() => setComposer(true), []);
-  const create = () => (onlyPosts ? openCreate() : setSheet(true));
+  const create = () => setSheet(true);
   const isReels = loc.pathname.startsWith('/reels');
   const root = loc.pathname in ROOTS;
   const wide = WIDE.some((re) => re.test(loc.pathname));
@@ -273,7 +262,7 @@ export function AppLayout() {
       {/* phones: top bar */}
       <header className="topbar glass">
         {root ? (
-          <Link to="/" className="brand-mark" aria-label="OmniBiz home"><img src="/icon.svg" alt="" /><span>OmniBiz</span></Link>
+          <Link to="/" className="brand-mark" aria-label="OmniBiz home"><img className="brand-word" src="/brand/omnibiz-logo-sm.png" alt="OmniBiz" /></Link>
         ) : (
           <>
             <button className="icon-btn topbar-back" onClick={back} aria-label="Back"><Icon name="arrowLeft" /></button>
@@ -288,7 +277,7 @@ export function AppLayout() {
 
       {/* tablets and computers: navigation panel */}
       <aside className="panel panel-nav" aria-label="Main navigation">
-        <Link to="/" className="brand-mark" aria-label="OmniBiz home"><img src="/icon.svg" alt="" /><span className="nav-label">OmniBiz</span></Link>
+        <Link to="/" className="brand-mark" aria-label="OmniBiz home"><img className="brand-word" src="/brand/omnibiz-logo-sm.png" alt="OmniBiz" /><img className="brand-o" src="/brand/omnibiz-mark.png" alt="" /></Link>
         <nav className="nav-list">
           {link('/', <Icon name="home" />, 'Home')}
           {link('/explore', <Icon name="compass" />, 'Discover')}
@@ -352,9 +341,10 @@ export function AppLayout() {
           : <NavLink to="/marketplace"><Icon name="bag" /><span className="dock-label">Market</span></NavLink>}
       </nav>
 
-      {sheet && <CreateSheet onPost={openCreate} onClose={closeSheet} />}
+      {sheet && <CreateSheet onPost={openCreate} onStory={() => setStorying(true)} onClose={closeSheet} />}
       {search && <SearchPalette onClose={closeSearch} />}
       {composer && <CreatePostModal onClose={() => setComposer(false)} />}
+      {storying && <StoryCreator onClose={() => setStorying(false)} />}
     </div>
   );
 }

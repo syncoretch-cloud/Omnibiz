@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { Icon } from '../components/Icon.tsx';
+import type { IconName } from '../components/Icon.tsx';
 import { JobCard } from '../components/Cards.tsx';
-import { Empty, Input, LoadMore, PageTitle, Select, Spinner, Tabs } from '../components/ui.tsx';
-import { useApi, usePaged } from '../lib/hooks.ts';
+import { ApplicationsOverview } from '../components/Applications.tsx';
+import { Empty, Input, LoadMore, PageTitle, Select, Tabs } from '../components/ui.tsx';
+import { usePaged } from '../lib/hooks.ts';
 import { qs } from '../lib/api.ts';
 import type { Json } from '../lib/api.ts';
 import { useSession } from '../lib/session.tsx';
-import { STAGE_LABEL, label, timeAgo } from '../lib/format.ts';
+import { label } from '../lib/format.ts';
 
 type Tab = 'recommended' | 'latest' | 'nearby' | 'saved' | 'applied';
 
@@ -55,37 +57,6 @@ function JobList({ path, emptyTitle, emptyText }: { path: string; emptyTitle: st
   );
 }
 
-function Applied() {
-  const { data, loading } = useApi('/jobs/applied');
-  if (loading) return <Spinner block />;
-  if (!data?.items.length) return <div className="card"><Empty icon="send" title="No applications yet">When you apply for jobs, you can track every stage here.</Empty></div>;
-  const steps = ['applied', 'reviewing', 'shortlisted', 'interview', 'final_review', 'accepted'];
-  return (
-    <div className="stack">
-      {data.items.map(({ application: a, job: j }: Json) => {
-        const idx = steps.indexOf(a.stage);
-        return (
-          <Link key={a.id} to={`/jobs/${j.id}`} className="card card-link card-pad stack-sm">
-            <div className="row-between">
-              <div>
-                <div className="bold">{j.title}</div>
-                <div className="small muted">{j.company?.display_name} · applied {timeAgo(a.created_at)}</div>
-              </div>
-              <span className={`chip ${a.stage === 'accepted' ? 'chip-success' : a.stage === 'rejected' || a.stage === 'withdrawn' ? 'chip-danger' : 'chip-info'}`}>{STAGE_LABEL[a.stage]}</span>
-            </div>
-            {idx >= 0 && (
-              <>
-                <div className="steps">{steps.map((s, i) => <div key={s} className={`step ${i <= idx ? 'done' : ''}`} title={STAGE_LABEL[s]} />)}</div>
-                <div className="xsmall muted">Stage {idx + 1} of {steps.length} · updated {timeAgo(a.updated_at)}</div>
-              </>
-            )}
-          </Link>
-        );
-      })}
-    </div>
-  );
-}
-
 export default function Jobs() {
   const { can } = useSession();
   const [params, setParams] = useSearchParams();
@@ -95,12 +66,12 @@ export default function Jobs() {
   const hasFilters = Object.values(filters).some(Boolean);
   const setTab = (t: Tab) => setParams({ tab: t });
 
-  const tabs: { id: Tab; label: string }[] = [
-    ...(personal ? [{ id: 'recommended' as Tab, label: 'Recommended' }] : []),
-    { id: 'latest', label: hasFilters ? 'Search results' : 'Latest' },
-    { id: 'nearby', label: 'Nearby' },
-    { id: 'saved', label: 'Saved' },
-    ...(personal ? [{ id: 'applied' as Tab, label: 'Applied' }] : []),
+  const tabs: { id: Tab; label: string; icon: IconName }[] = [
+    ...(personal ? [{ id: 'recommended' as Tab, label: 'Recommended', icon: 'sparkles' as const }] : []),
+    { id: 'latest', label: hasFilters ? 'Search results' : 'Latest', icon: hasFilters ? 'search' : 'clock' },
+    { id: 'nearby', label: 'Nearby', icon: 'mapPin' },
+    { id: 'saved', label: 'Saved', icon: 'bookmark' },
+    ...(personal ? [{ id: 'applied' as Tab, label: 'My applications', icon: 'send' as const }] : []),
   ];
 
   return (
@@ -115,7 +86,7 @@ export default function Jobs() {
         {tab === 'latest' && <JobList path={`/jobs${qs(filters)}`} emptyTitle="No jobs found" emptyText="Try removing some filters." />}
         {tab === 'nearby' && <JobList path="/jobs/nearby" emptyTitle="No jobs near you yet" />}
         {tab === 'saved' && <JobList path="/jobs/saved" emptyTitle="No saved jobs" emptyText="Tap the bookmark on any job to save it for later." />}
-        {tab === 'applied' && <Applied />}
+        {tab === 'applied' && <ApplicationsOverview />}
       </div>
     </main>
   );

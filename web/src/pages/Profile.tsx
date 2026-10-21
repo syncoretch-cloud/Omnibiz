@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { Icon } from '../components/Icon.tsx';
+import type { IconName } from '../components/Icon.tsx';
 import { Artwork, artBackground, postArt, productArt } from '../components/Artwork.tsx';
 import { Avatar, Dropdown, Empty, LoadMore, Modal, Ring, Spinner, Swap, Tabs, Verified, Visibility } from '../components/ui.tsx';
 import { JobCard, PersonRow } from '../components/Cards.tsx';
+import { ApplicationsOverview } from '../components/Applications.tsx';
 import { MapView } from '../components/MapView.tsx';
 import { ReportDialog } from '../components/Report.tsx';
-import { StoryViewer, useSeenStories } from '../components/Stories.tsx';
+import { StoryViewer } from '../components/Stories.tsx';
 import { del, post } from '../lib/api.ts';
 import type { Json } from '../lib/api.ts';
 import { useApi, usePaged } from '../lib/hooks.ts';
@@ -234,8 +236,7 @@ export default function Profile() {
   const { me, can, industryName } = useSession();
   const act = useAction();
   const { data, loading, error, setData } = useApi(`/users/${username}${params.get('src') ? `?src=${params.get('src')}` : ''}`);
-  const storyRes = useApi(data?.user ? `/reels/stories/${data.user.id}` : null);
-  const { seen, mark } = useSeenStories(me!.user.id);
+  const storyRes = useApi(data?.user ? `/stories/user/${data.user.id}` : null);
   const [viewing, setViewing] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [followList, setFollowList] = useState<'followers' | 'following' | null>(null);
@@ -249,14 +250,16 @@ export default function Profile() {
   const self = data.viewer.is_self;
   const isBiz = !!b;
   const story = storyRes.data?.story;
-  const storySeen = story ? (seen[u.id] ?? 0) >= story.latest_id : true;
+  const storySeen = story ? story.all_seen : true;
 
-  const tabDefs: { id: string; label: React.ReactNode }[] = [
-    { id: 'posts', label: <><Icon name="grid" /><span className="tab-text">Posts</span></> },
-    ...(isBiz ? [{ id: 'shop', label: <><Icon name="bag" /><span className="tab-text">Shop</span></> }] : []),
-    ...(u.account_type === 'company' ? [{ id: 'jobs', label: <><Icon name="briefcase" /><span className="tab-text">Jobs</span></> }] : []),
-    ...(isBiz ? [{ id: 'updates', label: <><Icon name="megaphone" /><span className="tab-text">Updates</span></> }] : []),
-    { id: 'about', label: <><Icon name={isBiz ? 'info' : 'file'} /><span className="tab-text">{isBiz ? 'About' : 'CV'}</span></> },
+  const tabDefs: { id: string; label: string; icon: IconName }[] = [
+    { id: 'posts', label: 'Posts', icon: 'grid' },
+    ...(isBiz ? [{ id: 'shop', label: 'Shop', icon: 'bag' as const }] : []),
+    ...(u.account_type === 'company' ? [{ id: 'jobs', label: 'Jobs', icon: 'briefcase' as const }] : []),
+    ...(isBiz ? [{ id: 'updates', label: 'Updates', icon: 'megaphone' as const }] : []),
+    { id: 'about', label: isBiz ? 'About' : 'CV', icon: isBiz ? 'info' : 'file' },
+    // Only you see your own applications: unfinished forms and ones waiting for a decision.
+    ...(self && can('apply_jobs') ? [{ id: 'applications', label: 'Applications', icon: 'send' as const }] : []),
   ];
   const ids = tabDefs.map((t) => t.id);
   const tab = params.get('tab') && ids.includes(params.get('tab')!) ? params.get('tab')! : 'posts';
@@ -357,10 +360,11 @@ export default function Profile() {
           {tab === 'jobs' && <JobsList userId={u.id} />}
           {tab === 'updates' && <Updates userId={u.id} />}
           {tab === 'about' && <About data={data} />}
+          {tab === 'applications' && <ApplicationsOverview />}
         </Swap>
       </div>
 
-      {viewing && story && <StoryViewer stories={[story]} start={0} onClose={() => setViewing(false)} onSeen={mark} />}
+      {viewing && story && <StoryViewer stories={[story]} start={0} onClose={() => { setViewing(false); storyRes.reload(); }} />}
       {reporting && <ReportDialog targetType="user" targetId={u.id} onClose={() => setReporting(false)} />}
       {followList && <FollowList userId={u.id} kind={followList} onClose={() => setFollowList(null)} />}
     </main>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { Icon } from '../components/Icon.tsx';
+import type { IconName } from '../components/Icon.tsx';
 import { BusinessCard, JobCard, PersonRow, ProductCard } from '../components/Cards.tsx';
 import { PostCard } from '../components/PostCard.tsx';
 import { Empty, Input, PageTitle, Select, Spinner, Tabs } from '../components/ui.tsx';
@@ -9,10 +10,10 @@ import { qs } from '../lib/api.ts';
 import type { Json } from '../lib/api.ts';
 import { useSession } from '../lib/session.tsx';
 
-const TYPES = [
-  { id: 'all', label: 'All' }, { id: 'jobs', label: 'Jobs' }, { id: 'people', label: 'People' }, { id: 'companies', label: 'Companies' },
-  { id: 'wholesalers', label: 'Wholesalers' }, { id: 'retailers', label: 'Retailers' }, { id: 'products', label: 'Products' },
-  { id: 'services', label: 'Services' }, { id: 'posts', label: 'Posts' },
+const TYPES: { id: string; label: string; icon: IconName }[] = [
+  { id: 'all', label: 'All', icon: 'grid' }, { id: 'jobs', label: 'Jobs', icon: 'briefcase' }, { id: 'people', label: 'People', icon: 'users' },
+  { id: 'companies', label: 'Companies', icon: 'building' }, { id: 'wholesalers', label: 'Wholesalers', icon: 'package' }, { id: 'retailers', label: 'Retailers', icon: 'store' },
+  { id: 'products', label: 'Products', icon: 'bag' }, { id: 'services', label: 'Services', icon: 'zap' }, { id: 'posts', label: 'Posts', icon: 'image' },
 ];
 
 const EXAMPLES = [

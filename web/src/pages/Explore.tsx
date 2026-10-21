@@ -52,7 +52,7 @@ export default function Explore() {
       <header className="discover-head">
         <div>
           <span className="eyebrow"><span className="orbit" />Discover</span>
-          <h1>What’s moving on OmniBiz</h1>
+          <h1>What’s moving on <img className="inline-logo" src="/brand/omnibiz-logo-sm.png" alt="OmniBiz" /></h1>
         </div>
         <form className="input-icon grow" onSubmit={(e) => { e.preventDefault(); if (q.trim()) { rememberSearch(q.trim()); nav(`/search?q=${encodeURIComponent(q.trim())}`); } }}>
           <Icon name="search" />

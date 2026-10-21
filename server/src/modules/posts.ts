@@ -23,7 +23,7 @@ const BUSINESS_ONLY_KINDS = new Set(['product', 'service', 'promotion', 'offer',
 const ASPECTS = ['original', '1:1', '4:5', '16:9'];
 
 /** A post's soundtrack: a track from the built-in library, or an audio file the author uploaded. */
-function musicData(raw: unknown): Row | null {
+export function musicData(raw: unknown): Row | null {
   if (!raw || typeof raw !== 'object') return null;
   const m = raw as Row;
   const title = typeof m.title === 'string' ? m.title.trim().slice(0, 80) : '';

@@ -2,11 +2,13 @@ import { createApp } from './app.ts';
 import { config } from './config.ts';
 import { db } from './db/index.ts';
 import { settle } from './lib/queue.ts';
+import { startDemoStories } from './services/demoStories.ts';
 
 const app = createApp();
 const server = app.listen(config.port, () => {
   console.log(`OmniBiz API listening on http://localhost:${config.port} (${config.env})`);
 });
+startDemoStories();
 
 let stopping = false;
 async function shutdown(signal: string) {

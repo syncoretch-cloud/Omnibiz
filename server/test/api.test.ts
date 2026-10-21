@@ -302,7 +302,7 @@ test('messaging and business inquiry analytics', async () => {
   assert.ok(ask.body.answer);
 });
 
-test('reels mix posts, products and jobs; stories group recent posts by followed author', async () => {
+test('reels mix posts, products and jobs', async () => {
   const { c: biz, me: bizMe } = await register('company', { business_name: 'Reel Co', category: 'software' });
   await biz.post('/api/posts', { body: 'Behind the scenes at #reelco' });
   await biz.post('/api/posts', { body: 'Second update from Reel Co' });
@@ -319,24 +319,20 @@ test('reels mix posts, products and jobs; stories group recent posts by followed
   const started = await user.get(`/api/reels?start=product:${prod.body.product.id}`);
   assert.equal(started.body.items[0].key, `product:${prod.body.product.id}`);
 
-  const stories = await user.get('/api/reels/stories');
-  const mine = stories.body.stories.find((s: Json) => s.user.id === bizMe.id);
-  assert.ok(mine && !mine.suggested && mine.items.length >= 2);
-  assert.ok(mine.items[0].id < mine.items[mine.items.length - 1].id, 'story items play oldest → newest');
 });
 
 test('post details: music, tagged people, location, alt text, hidden likes and comments off', async () => {
   const { c: author } = await register('company', { business_name: 'Studio Co', category: 'software' });
   const { c: friend, me: friendMe } = await register('personal');
-  const upload = async (bytes: Uint8Array, type: string, name: string) => {
+  const upload = async (bytes: number[], type: string, name: string) => {
     const form = new FormData();
-    form.append('files', new Blob([bytes], { type }), name);
+    form.append('files', new Blob([new Uint8Array(bytes)], { type }), name);
     const r = await author.req('POST', '/api/media', undefined, { form });
     assert.equal(r.status, 201, JSON.stringify(r.body));
     return r.body.files[0].url as string;
   };
-  const image = await upload(new Uint8Array([0x89, 0x50, 0x4e, 0x47]), 'image/png', 'photo.png');
-  const song = await upload(new Uint8Array([0x49, 0x44, 0x33, 0x03]), 'audio/mpeg', 'jingle.mp3');
+  const image = await upload([0x89, 0x50, 0x4e, 0x47], 'image/png', 'photo.png');
+  const song = await upload([0x49, 0x44, 0x33, 0x03], 'audio/mpeg', 'jingle.mp3');
   assert.match(song, /^\/uploads\/media\/[a-f0-9]{32}\.mp3$/);
 
   const created = await author.post('/api/posts', {
@@ -372,6 +368,66 @@ test('post details: music, tagged people, location, alt text, hidden likes and c
 
   assert.equal((await friend.post(`/api/posts/${p.id}/comments`, { body: 'Nice!' })).status, 403);
   assert.equal((await author.post(`/api/posts/${p.id}/comments`, { body: 'Thanks all' })).status, 201);
+});
+
+test('stories: share, followed accounts first, seen state, viewers, gone after 24 hours', async () => {
+  const { c: biz, me: bizMe } = await register('company', { business_name: 'Story Co', category: 'software' });
+  const { c: viewer, me: viewerMe } = await register('personal');
+  const { c: customer } = await register('customer');
+  assert.equal((await biz.post('/api/stories', {})).status, 400, 'an empty story is rejected');
+  assert.equal((await biz.post('/api/stories', { media: 'https://evil.example/x.jpg' })).status, 400, 'media must be uploaded first');
+  assert.equal((await customer.post('/api/stories', { body: 'hi' })).status, 403, 'customer accounts cannot post');
+  assert.equal((await biz.post('/api/stories', { body: 'Open today until 8pm', bg: 'sunset' })).status, 201);
+  const second = await biz.post('/api/stories', { body: 'New arrivals', music: { track: 'kariakoo-morning', title: 'Kariakoo Morning', artist: 'OmniBiz Sounds' } });
+  assert.equal(second.body.story.music.track, 'kariakoo-morning');
+
+  await viewer.post(`/api/users/${bizMe.id}/follow`);
+  let group = (await viewer.get('/api/stories')).body.stories.find((g: Json) => g.user.id === bizMe.id);
+  assert.ok(group && !group.suggested && group.items.length === 2 && !group.all_seen);
+  assert.ok(group.items[0].id < group.items[1].id, 'items play oldest → newest');
+  for (const it of group.items) await viewer.post(`/api/stories/${it.id}/view`);
+  group = (await viewer.get('/api/stories')).body.stories.find((g: Json) => g.user.id === bizMe.id);
+  assert.ok(group.all_seen, 'seen state is remembered on the server');
+
+  const own = (await biz.get(`/api/stories/user/${bizMe.id}`)).body.story;
+  assert.equal(own.items[0].view_count, 1);
+  assert.equal((await biz.get(`/api/stories/${own.items[0].id}/viewers`)).body.viewers[0].id, viewerMe.id);
+  assert.equal((await viewer.get(`/api/stories/${own.items[0].id}/viewers`)).status, 403, 'only the author sees who viewed');
+
+  db.prepare("UPDATE stories SET expires_at = datetime('now', '-1 minute') WHERE author_id = ?").run(bizMe.id);
+  assert.equal((await viewer.get(`/api/stories/user/${bizMe.id}`)).body.story, null, 'stories disappear after 24 hours');
+});
+
+test('unfinished applications: skip a requirement, save, finish later, then send to the company', async () => {
+  const { c: company } = await register('company', { business_name: 'Draft Co', category: 'software' });
+  const job = (await company.post('/api/jobs', {
+    title: 'Data Analyst', employment_type: 'full_time', description: 'Analyse sales data for retailers across East Africa.',
+    skills: ['SQL'], required_docs: ['cv', 'cover_letter'],
+  })).body.job;
+  const { c: seeker } = await register('personal');
+
+  // No CV yet: the form is saved with what is done, and it says what is still missing.
+  const cover = 'I have three years of experience analysing retail sales data with SQL and spreadsheets.';
+  const saved = await seeker.req('PUT', `/api/jobs/${job.id}/draft`, { cover_letter: cover, step: 3 });
+  assert.equal(saved.status, 200, JSON.stringify(saved.body));
+  assert.deepEqual(saved.body.draft.missing, ['cv']);
+  assert.equal((await seeker.get(`/api/jobs/${job.id}`)).body.draft.step, 3, 'it reopens where they stopped');
+  assert.equal((await seeker.get('/api/jobs/drafts')).body.items[0].job.id, job.id);
+  assert.equal(all('SELECT id FROM applications WHERE job_id = ?', job.id).length, 0, 'the company sees nothing yet');
+  assert.equal((await seeker.post(`/api/jobs/${job.id}/apply`, { cover_letter: cover })).status, 400, 'an incomplete application cannot be sent');
+
+  // Later: upload the CV, finish and send.
+  const form = new FormData();
+  form.append('kind', 'cv');
+  form.append('file', new Blob([new Uint8Array([0x25, 0x50, 0x44, 0x46])], { type: 'application/pdf' }), 'cv.pdf');
+  const doc = (await seeker.req('POST', '/api/documents', undefined, { form })).body.document;
+  const done = await seeker.req('PUT', `/api/jobs/${job.id}/draft`, { cover_letter: cover, document_ids: [doc.id], step: 4 });
+  assert.deepEqual(done.body.draft.missing, []);
+  const sent = await seeker.post(`/api/jobs/${job.id}/apply`, { cover_letter: cover, document_ids: [doc.id] });
+  assert.equal(sent.status, 201, JSON.stringify(sent.body));
+  assert.equal((await seeker.get('/api/jobs/drafts')).body.items.length, 0, 'sending clears the draft');
+  assert.equal(all('SELECT stage FROM applications WHERE job_id = ?', job.id)[0].stage, 'applied', 'the company receives it');
+  assert.equal((await seeker.req('PUT', `/api/jobs/${job.id}/draft`, { step: 1 })).status, 409, 'no new draft after applying');
 });
 
 test('sessions are browser-only unless "keep me logged in" is chosen', async () => {

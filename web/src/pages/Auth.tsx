@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Icon } from '../components/Icon.tsx';
 import { ErrorBox, Input, Select, Swap } from '../components/ui.tsx';
-import { ThemeButton, Wordmark } from '../components/Layout.tsx';
+import { Wordmark } from '../components/Layout.tsx';
 import { ApiError, get, post } from '../lib/api.ts';
 import { isBusinessType, useSession, useToast } from '../lib/session.tsx';
 import { useDebounced } from '../lib/hooks.ts';
@@ -248,7 +248,6 @@ function RecoverPanel() {
 export function AuthShell({ mode }: { mode: 'login' | 'register' | 'recover' }) {
   return (
     <div className="auth-shell">
-      <ThemeButton className="theme-fab glass" />
       <div className="auth-grid">
         <Swap k={mode} order={['login', 'register', 'recover']} className="auth-col">
           {mode === 'login' ? <LoginPanel /> : mode === 'register' ? <RegisterPanel /> : <RecoverPanel />}

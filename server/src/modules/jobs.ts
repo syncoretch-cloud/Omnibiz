@@ -110,6 +110,27 @@ function cleanJob(d: Row, me: Row) {
   return d;
 }
 
+/** Which of the job's required items an application (or a draft) still lacks, and how many of the attached documents exist. */
+function requirementsCheck(j: Row, applicantId: number, cover: string | null | undefined, docIds: number[]) {
+  const docs = docIds.length ? all(`SELECT id, kind FROM documents WHERE owner_id = ? AND id IN (${qs(docIds.length)})`, applicantId, ...docIds) : [];
+  const kinds = new Set(docs.map((x) => x.kind));
+  const hasPortfolio = !!get("SELECT 1 AS x FROM cv_items WHERE user_id = ? AND section = 'portfolio'", applicantId);
+  const missing = parseJson<string[]>(j.required_docs, []).filter((k) => {
+    if (k === 'cover_letter') return !(cover && cover.length >= 50) && !kinds.has('cover_letter');
+    if (k === 'portfolio') return !kinds.has('portfolio') && !hasPortfolio;
+    return !kinds.has(k);
+  });
+  return { found: docs.length, missing };
+}
+
+function shapeDraft(d: Row, j: Row) {
+  const docIds = parseJson<number[]>(d.document_ids, []);
+  return {
+    id: d.id, job_id: d.job_id, cover_letter: d.cover_letter, answers: parseJson<Row>(d.answers, {}), document_ids: docIds, step: d.step,
+    created_at: d.created_at, updated_at: d.updated_at, missing: requirementsCheck(j, d.applicant_id, d.cover_letter, docIds).missing,
+  };
+}
+
 function loadJob(req: Request) {
   const j = get('SELECT * FROM jobs WHERE id = ?', intParam(req));
   if (!j) throw notFound('Job');
@@ -210,14 +231,26 @@ jobsRouter.get('/applied', requireAuth, (req, res) => {
   });
 });
 
+/** The applicant's unfinished applications, each with what is still missing. */
+jobsRouter.get('/drafts', requirePerm('apply_jobs'), (req, res) => {
+  const drafts = all('SELECT * FROM application_drafts WHERE applicant_id = ? ORDER BY updated_at DESC', req.user!.id);
+  const jobs = drafts.length ? all(`SELECT * FROM jobs WHERE id IN (${qs(drafts.length)})`, ...drafts.map((d) => d.job_id)) : [];
+  const raw = new Map(jobs.map((j) => [j.id, j]));
+  const shaped = new Map(hydrateJobs(jobs, req.user!.id).map((j) => [j.id, j]));
+  res.json({ items: drafts.filter((d) => raw.has(d.job_id)).map((d) => ({ draft: shapeDraft(d, raw.get(d.job_id)!), job: shaped.get(d.job_id) })) });
+});
+
 jobsRouter.get('/:id', (req, res) => {
   const j = loadJob(req);
   const [job] = hydrateJobs([j], req.user?.id);
   let match = null;
   let application = null;
+  let draft = null;
   if (req.user) {
     if (req.user.account_type === 'personal') match = matchFor(j, req.user.id);
     application = get('SELECT id, stage, created_at, updated_at, match_score FROM applications WHERE job_id = ? AND applicant_id = ?', j.id, req.user.id) ?? null;
+    const d = application ? null : get('SELECT * FROM application_drafts WHERE job_id = ? AND applicant_id = ?', j.id, req.user.id);
+    if (d) draft = shapeDraft(d, j);
   }
   if (req.user?.id !== j.company_id) {
     run('UPDATE jobs SET view_count = view_count + 1 WHERE id = ?', j.id);
@@ -225,7 +258,7 @@ jobsRouter.get('/:id', (req, res) => {
     recordActivity(req.user?.id, 'view_job', { category: j.industry, targetType: 'job', targetId: j.id });
   }
   const similar = all("SELECT * FROM jobs WHERE status = 'open' AND id != ? AND (industry = ? OR company_id = ?) ORDER BY id DESC LIMIT 5", j.id, j.industry, j.company_id);
-  res.json({ job, match, application, similar: hydrateJobs(similar, req.user?.id) });
+  res.json({ job, match, application, draft, similar: hydrateJobs(similar, req.user?.id) });
 });
 
 // ───────────── company: create & manage vacancies ─────────────
@@ -286,15 +319,8 @@ jobsRouter.post('/:id/apply', requirePerm('apply_jobs'), (req, res) => {
     source: { type: 'string', max: 40 },
   });
   const docIds = (d.document_ids ?? []) as number[];
-  const docs = docIds.length ? all(`SELECT id, kind FROM documents WHERE owner_id = ? AND id IN (${qs(docIds.length)})`, me.id, ...docIds) : [];
-  if (docs.length !== docIds.length) throw badRequest('One of the attached documents was not found');
-  const kinds = new Set(docs.map((x) => x.kind));
-  const hasPortfolio = !!get("SELECT 1 AS x FROM cv_items WHERE user_id = ? AND section = 'portfolio'", me.id);
-  const missing = parseJson<string[]>(j.required_docs, []).filter((k) => {
-    if (k === 'cover_letter') return !(d.cover_letter && d.cover_letter.length >= 50) && !kinds.has('cover_letter');
-    if (k === 'portfolio') return !kinds.has('portfolio') && !hasPortfolio;
-    return !kinds.has(k);
-  });
+  const { found, missing } = requirementsCheck(j, me.id, d.cover_letter, docIds);
+  if (found !== docIds.length) throw badRequest('One of the attached documents was not found');
   if (missing.length) throw badRequest(`Missing required: ${missing.map((m) => m.replace('_', ' ')).join(', ')}`, { missing });
 
   const match = matchFor(j, me.id);
@@ -305,12 +331,40 @@ jobsRouter.post('/:id/apply', requirePerm('apply_jobs'), (req, res) => {
       j.id, me.id, d.cover_letter ?? null, d.answers ?? {}, docIds, match?.score ?? null, source,
     );
     run("INSERT INTO application_events (application_id, stage, actor_id, note) VALUES (?, 'applied', ?, NULL)", id, me.id);
+    run('DELETE FROM application_drafts WHERE job_id = ? AND applicant_id = ?', j.id, me.id);
     return id;
   });
   track({ ownerId: j.company_id, actorId: me.id, type: 'application', targetType: 'job', targetId: j.id, source });
   recordActivity(me.id, 'apply', { category: j.industry, targetType: 'job', targetId: j.id });
   emit('application.submitted', { applicationId: id });
   res.status(201).json({ application: { id, stage: 'applied', match_score: match?.score ?? null } });
+});
+
+/** Save an unfinished application: anything can be skipped now and completed later. */
+jobsRouter.put('/:id/draft', requirePerm('apply_jobs'), (req, res) => {
+  const j = loadJob(req);
+  const me = req.user!;
+  if (get('SELECT 1 AS x FROM applications WHERE job_id = ? AND applicant_id = ?', j.id, me.id)) throw conflict('You have already applied for this job');
+  const d = validate(req.body, {
+    cover_letter: { type: 'text', max: 6000 },
+    answers: { type: 'json' },
+    document_ids: { type: 'ints', max: 10 },
+    step: { type: 'int', min: 1, max: 4 },
+  });
+  const docIds = (d.document_ids ?? []) as number[];
+  if (requirementsCheck(j, me.id, null, docIds).found !== docIds.length) throw badRequest('One of the attached documents was not found');
+  run(
+    `INSERT INTO application_drafts (job_id, applicant_id, cover_letter, answers, document_ids, step) VALUES (?,?,?,?,?,?)
+     ON CONFLICT(job_id, applicant_id) DO UPDATE SET cover_letter = excluded.cover_letter, answers = excluded.answers,
+       document_ids = excluded.document_ids, step = excluded.step, updated_at = datetime('now')`,
+    j.id, me.id, d.cover_letter ?? null, d.answers ?? {}, docIds, d.step ?? 1,
+  );
+  res.json({ draft: shapeDraft(get('SELECT * FROM application_drafts WHERE job_id = ? AND applicant_id = ?', j.id, me.id)!, j) });
+});
+
+jobsRouter.delete('/:id/draft', requireAuth, (req, res) => {
+  run('DELETE FROM application_drafts WHERE job_id = ? AND applicant_id = ?', intParam(req), req.user!.id);
+  res.json({ ok: true });
 });
 
 jobsRouter.post('/applications/:id/withdraw', requireAuth, (req, res) => {

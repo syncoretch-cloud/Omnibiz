@@ -24,21 +24,23 @@ Logins last until the browser closes unless "Keep me logged in" is ticked. Email
 
 ### Look and feel
 
-The layout is **app panels**, and the material is **soft glass**:
-- **Computers:** three frosted panels sit side by side, and each scrolls on its own:
-  - **Navigation:** brand, destinations, a Create button and the account menu.
+The layout is **app panels** on a **black** theme:
+- **Computers:** three panels sit side by side, and each scrolls on its own:
+  - **Navigation:** the OmniBiz logo, destinations, a Create button and the account menu.
   - **Content:** a header with the page title, a back arrow on inner pages, and search (also ⌘K / Ctrl K).
   - **For you:** your profile, jobs for you, businesses to follow and trending tags. It steps aside on pages that need the width (Market, Messages, Dashboard, Admin, Settings, Reels).
-- **Tablets:** the navigation panel becomes an icon rail beside the content.
-- **Phones:** a sticky top bar (the brand on main tabs, a back arrow and title on inner pages), the page, and a floating tab dock whose active tab expands into a labelled pill. The "+" button opens a Create sheet.
-- **Home:** a "Today" greeting, a strip of Spotlight cards for businesses' latest updates, then the feed.
+- **Tablets:** the navigation panel becomes an icon rail, with the logo's "O" ring as the mark.
+- **Phones:** a sticky top bar (the logo on main tabs, a back arrow and title on inner pages), the page, and a floating pill dock. The current destination is a light pill with its name; the others are icons. The "+" button opens a Create sheet.
+- **Tabs** follow the same pill design everywhere (jobs, profile, notifications, saved, search): a soft track where the chosen tab becomes a light pill with its name and the others show only their icon.
+- **Home:** a "Today" greeting, the stories strip, then the feed.
 - **Content:**
-  - Text updates read as editorial cards set in serif type.
+  - Text updates read as editorial cards.
   - Profiles have a cover band, metric tiles and quick links.
   - Discover is a bento grid.
-- **Palette:** midnight indigo, aubergine, royal plum, burnt terracotta, soft apricot, vanilla, ivory, dusty rose, mauve and beige.
-- **Material (soft glass):** frosted panels over a soft brand-colour gradient (ivory, apricot and dusty rose in light mode; midnight into aubergine in dark mode). Content sits on calm cards with hairline edges. The gradient and a soft raised edge are kept for primary actions.
-- **Themes:** light and dark, with a start-up splash showing the logo.
+- **Brand:** the OmniBiz logo artwork (`web/public/brand/omnibiz-logo.png`, cut out of its background) appears wherever the name is shown: navigation, top bar, sign-in, onboarding, the splash and the browser tab (the "O" ring, `omnibiz-mark.png`).
+- **Type:** Bricolage Grotesque for headings, titles, post text and stories; Plus Jakarta Sans for everything else.
+- **Palette:** black surfaces with the brand colours (midnight indigo, aubergine, royal plum, burnt terracotta, soft apricot, vanilla, ivory) for accents and gradients.
+- **Performance:** surfaces are solid rather than blurred glass, and the background is static, so scrolling stays at a steady frame rate. Blur is kept only for the top bar, the dock, and controls that float over photos and video.
 
 Posting follows Instagram's flow: **select → crop → edit → share**.
 - **Select:** up to 10 photos or videos.
@@ -49,6 +51,8 @@ Posting follows Instagram's flow: **select → crop → edit → share**.
 Music comes from **OmniBiz Sounds** (`web/src/lib/music.ts`), 12 original loops in Afrobeats, Amapiano, Bongo Flava, lo-fi and chill styles. They are generated in the browser with the Web Audio API, so there is nothing to license. Authors can also upload their own audio and choose where it starts. Posts play their soundtrack on tap; Reels play it while on screen once sound is on.
 
 Layouts follow the content rather than fixed device sizes: each page is a CSS container, so grids, side panels, filters, the post view and the messenger rearrange for the width they actually have (from 320px phones to wide monitors). Only the navigation shell switches by screen size.
+
+On a demo database (the seeded `.test` accounts) the server keeps a set of demo stories live, sharing them again as they expire, so the stories strip is never empty (`server/src/services/demoStories.ts`). It never runs in production and can be turned off with `DEMO_STORIES=off`.
 
 To run the end-to-end API tests (they use a throwaway database):
 
@@ -80,11 +84,11 @@ In development, emails and SMS are not actually sent. Verification and password-
 | §4, §31 Personalised feed | Interests are chosen at onboarding. The feed is ranked by interest weights (from selected interests, follows, searches, views, saves and applications), follows, locality, verified accounts, engagement and recency. Each post shows why it appears ("You follow…", "Near you…"). |
 | §6–9 Company profile & posts | Profile combining website, social page, storefront and recruitment page; a map; post types (product, service, promotion, event, news, offer, hiring…); hashtags, mentions, reposts. |
 | §10, §16–18 Products / wholesale / retail | Product listings with images and video, specifications, stock and availability, delivery and contact details. Wholesale adds minimum order quantity and packaging. Search, save, compare (2–4 products), contact seller. |
-| §11–15 Employment | Vacancies with skills, education, experience, salary, deadline and required documents. Matching notifies only suitable candidates. Jobs tab has Recommended, Latest, Nearby, Saved and Applied. The application wizard checks required documents. Recruitment dashboard has a drag-and-drop pipeline (Applied → Reviewing → Shortlisted → Interview → Final review → Accepted/Rejected); candidates are notified at each stage. |
+| §11–15 Employment | Vacancies with skills, education, experience, salary, deadline and required documents. Matching notifies only suitable candidates. Jobs tab has Recommended, Latest, Nearby, Saved and My applications. Apply sits after the requirements on a job page. The wizard lists what the employer asks for; anything missing can be skipped and the application saved as **unfinished**, then completed later. It is only sent to the company once every requirement is in (the server checks again). Your profile has an **Applications** tab with unfinished forms, applications waiting for a decision, and decided ones. Drafts are private: employers only ever see sent applications. Recruitment dashboard has a drag-and-drop pipeline (Applied → Reviewing → Shortlisted → Interview → Final review → Accepted/Rejected); candidates are notified at each stage. |
 | §20–21 Business alerts & smart notifications | Price changes, launches, openings, interruptions and offers. Audience = followers + people who saved or carted the product + people interested in that category nearby. Never a blast to everyone. |
 | §22, §32 Search & AI search | Global full-text search with filters per result type. Natural-language parsing: "Find software companies around Arusha hiring junior developers" becomes companies + jobs · Arusha · entry level · "software developer". Typeahead suggestions. |
 | §23 Map | Leaflet/OpenStreetMap: "Businesses near me" with company, wholesaler, retailer and job layers. Businesses set their location with a draggable pin. A precise location is only stored with the user's opt-in. |
-| §24 Social | Follow, like, comment, share, save, repost, hashtags, mentions, direct messages with product/job/order context. |
+| §24 Social | Follow, like, comment, share, save, repost, hashtags, mentions, direct messages with product/job/order context. **Stories**: a photo, video or text card (with an optional caption and music) that disappears after 24 hours. Add one from Create or the story strip. The strip shows your story, then people you follow (unseen first), then suggested local accounts. Seen state is stored on the server. You can see who viewed your story and delete it; other people can reply or react by direct message. |
 | §25 Analytics | Profile views, product views, post reach, engagement, followers, search appearances (with the terms used), inquiries, application sources, sales. Includes a trend chart, insights and a "business assistant" that answers questions like "Show me my best-performing products this month". |
 | §26–27 Admin & verification | Role hierarchy: Super Admin → Admin → Moderator → Support → Verification. Users (suspend/restore, roles), content moderation, report queue, business verification with document review and Verified badge, categories, targeted broadcasts, audit log. |
 | §28 Security | scrypt password hashing; HttpOnly SameSite cookies or bearer tokens for mobile clients; CSRF header guard; rate limits; lockout after 5 failed sign-ins; new-device sign-in alerts; session list and revocation; AES-256-GCM for 2FA secrets and registration numbers; access-checked private documents; spam limits; content auto-hidden after 3 reports. |

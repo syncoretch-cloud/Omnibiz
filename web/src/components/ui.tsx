@@ -1,8 +1,9 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode, InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router';
 import { Icon } from './Icon.tsx';
+import type { IconName } from './Icon.tsx';
 import { Artwork } from './Artwork.tsx';
 import { hue, initials } from '../lib/format.ts';
 import type { Json } from '../lib/api.ts';
@@ -185,36 +186,14 @@ export function Dropdown({ trigger, children, align = 'right' }: { trigger: (ope
   );
 }
 
-/** Measures the active child and slides an indicator under it (tabs, nav bars). */
-export function useIndicator(container: React.RefObject<HTMLElement | null>, selector: string, deps: unknown[], axis: 'x' | 'y' = 'x') {
-  const [box, setBox] = useState<{ pos: number; size: number } | null>(null);
-  useLayoutEffect(() => {
-    const el = container.current;
-    if (!el) return;
-    const measure = () => {
-      const active = el.querySelector<HTMLElement>(selector);
-      if (!active) return setBox(null);
-      setBox(axis === 'x' ? { pos: active.offsetLeft, size: active.offsetWidth } : { pos: active.offsetTop, size: active.offsetHeight });
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    document.fonts?.ready.then(measure).catch(() => {});
-    return () => ro.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
-  return box;
-}
-
-export function Tabs<T extends string>({ tabs, value, onChange, variant }: { tabs: { id: T; label: ReactNode; count?: number }[]; value: T; onChange: (v: T) => void; variant?: 'line' }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const box = useIndicator(ref, '.tab.active', [value, tabs.length]);
+/** Pill tabs. A tab with an icon shows just the icon until it is the current one, then its name too. */
+export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { id: T; label: string; icon?: IconName; count?: number }[]; value: T; onChange: (v: T) => void }) {
   return (
-    <div className={`tabs${variant ? ` ${variant}` : ''}`} role="tablist" ref={ref}>
-      {box && <span className="tab-indicator" style={{ width: box.size, transform: `translateX(${box.pos}px)` }} />}
+    <div className="tabs" role="tablist">
       {tabs.map((t) => (
-        <button key={t.id} role="tab" aria-selected={value === t.id} className={`tab${value === t.id ? ' active' : ''}`} onClick={() => onChange(t.id)}>
-          {t.label}
+        <button key={t.id} role="tab" aria-selected={value === t.id} aria-label={t.label} title={t.icon && value !== t.id ? t.label : undefined}
+          className={`tab${t.icon ? ' has-icon' : ''}${value === t.id ? ' active' : ''}`} onClick={() => onChange(t.id)}>
+          {t.icon ? <><Icon name={t.icon} /><span className="tab-text">{t.label}</span></> : t.label}
           {t.count != null && <span className="count">{t.count}</span>}
         </button>
       ))}

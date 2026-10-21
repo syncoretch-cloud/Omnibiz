@@ -54,7 +54,7 @@ export default function Notifications() {
       />
       <div className="stack">
         <Tabs
-          tabs={[{ id: '', label: 'All' }, { id: 'jobs', label: 'Jobs' }, { id: 'business', label: 'Business' }, { id: 'social', label: 'Social' }, { id: 'system', label: 'Account' }]}
+          tabs={[{ id: '', label: 'All', icon: 'bell' }, { id: 'jobs', label: 'Jobs', icon: 'briefcase' }, { id: 'business', label: 'Business', icon: 'store' }, { id: 'social', label: 'Social', icon: 'users' }, { id: 'system', label: 'Account', icon: 'shield' }]}
           value={group}
           onChange={(g) => setParams(g ? { group: g } : {}, { replace: true })}
         />

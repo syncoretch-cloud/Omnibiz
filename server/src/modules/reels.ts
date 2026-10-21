@@ -1,15 +1,13 @@
 // Reels & Explore: one vertical stream mixing ranked posts with products and jobs, so the whole
 // ecosystem (people, businesses, products, opportunities) can be browsed reel by reel.
 import { Router } from 'express';
-import { all, get, sqlTime, DAY } from '../db/index.ts';
+import { all, get, DAY } from '../db/index.ts';
 import type { Row } from '../db/index.ts';
 import { paging } from '../lib/http.ts';
 import { requireAuth } from '../lib/auth.ts';
 import { cityCoords, distanceKm } from '../lib/geo.ts';
 import { hydratePosts, rankedFeed } from '../services/posts.ts';
-import { followedIds } from '../services/personalization.ts';
 import { loadCandidates, scoreMatch } from '../services/matching.ts';
-import { userCards } from '../services/users.ts';
 import { hydrateProducts } from './products.ts';
 import { hydrateJobs } from './jobs.ts';
 
@@ -96,61 +94,4 @@ reelsRouter.get('/', requireAuth, (req, res) => {
 
   const hasMore = feed.hasMore || products.length > page * PRODUCTS_PER_PAGE || jobs.length > page * JOBS_PER_PAGE;
   res.json({ items, hasMore });
-});
-
-/**
- * Stories: recent posts (7 days) from accounts the viewer follows, then a few suggested local
- * businesses so new users still see a lively bar. Grouped per author, newest authors first.
- */
-reelsRouter.get('/stories', requireAuth, (req, res) => {
-  const viewer = req.user!;
-  const since = sqlTime(-7 * DAY);
-  const followed = followedIds(viewer.id);
-  const authorIds = [viewer.id, ...followed];
-  const rows = all(
-    `SELECT * FROM posts WHERE status = 'active' AND repost_of IS NULL AND created_at > ?
-     AND author_id IN (${authorIds.map(() => '?').join(',')}) ORDER BY created_at ASC`,
-    since, ...authorIds,
-  );
-  const suggestedRows = all(
-    `SELECT p.* FROM posts p JOIN users u ON u.id = p.author_id
-     WHERE p.status = 'active' AND p.repost_of IS NULL AND p.created_at > ? AND u.status = 'active'
-       AND p.author_id NOT IN (${authorIds.map(() => '?').join(',')})
-     ORDER BY (u.city = ?) DESC, p.like_count DESC, p.created_at DESC LIMIT 60`,
-    since, ...authorIds, viewer.city ?? '',
-  ).sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
-
-  const group = (list: Row[], suggested: boolean) => {
-    const by = new Map<number, Row[]>();
-    for (const r of list) by.set(r.author_id, [...(by.get(r.author_id) ?? []), r]);
-    return [...by.entries()].map(([authorId, posts]) => ({ authorId, posts: posts.slice(-10), suggested }));
-  };
-  let groups = group(rows, false);
-  const suggested = group(suggestedRows, true).slice(0, Math.max(0, 10 - groups.length));
-  groups = [...groups, ...suggested];
-
-  const cards = userCards(groups.map((g) => g.authorId));
-  const stories = groups
-    .map((g) => ({
-      user: cards.get(g.authorId),
-      suggested: g.suggested,
-      latest_id: g.posts[g.posts.length - 1].id,
-      latest_at: g.posts[g.posts.length - 1].created_at,
-      items: hydratePosts(g.posts, viewer.id),
-    }))
-    .filter((s) => s.user)
-    .sort((a, b) => (a.user!.id === viewer.id ? -1 : b.user!.id === viewer.id ? 1 : a.suggested !== b.suggested ? (a.suggested ? 1 : -1) : a.latest_at < b.latest_at ? 1 : -1));
-  res.json({ stories });
-});
-
-/** Recent posts of one account, as a story sequence (used when tapping a profile avatar). */
-reelsRouter.get('/stories/:userId', requireAuth, (req, res) => {
-  const userId = Number(req.params.userId);
-  const rows = all(
-    "SELECT * FROM posts WHERE author_id = ? AND status = 'active' AND repost_of IS NULL AND created_at > ? ORDER BY created_at ASC LIMIT 10",
-    userId, sqlTime(-7 * DAY),
-  );
-  const user = userCards([userId]).get(userId);
-  if (!user || !rows.length) return res.json({ story: null });
-  res.json({ story: { user, suggested: false, latest_id: rows[rows.length - 1].id, latest_at: rows[rows.length - 1].created_at, items: hydratePosts(rows, req.user!.id) } });
 });

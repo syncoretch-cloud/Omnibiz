@@ -7,7 +7,7 @@
   "background_color": "#02040a",
   "theme_color": "#02040a",
   "icons": [
-    { "src": "/brand/omnibiz-mark.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/brand/omnibiz-mark-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+    { "src": "/brand/omnibiz-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/brand/omnibiz-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
   ]
 }

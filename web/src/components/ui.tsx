@@ -9,14 +9,7 @@ import { hue, initials } from '../lib/format.ts';
 import type { Json } from '../lib/api.ts';
 
 const AVATAR_GRADIENTS = [
-  'linear-gradient(145deg, #2f7dff, #0a2a6e)',
-  'linear-gradient(145deg, #9b6bff, #2a1a6e)',
-  'linear-gradient(145deg, #ff4f9a, #6e1a4a)',
-  'linear-gradient(145deg, #34b6ff, #0a3f7a)',
-  'linear-gradient(145deg, #5a7bff, #1a1f6e)',
-  'linear-gradient(145deg, #1fc8b0, #0a4a5e)',
-  'linear-gradient(145deg, #7a5bff, #1a2a7a)',
-  'linear-gradient(145deg, #ff7a5c, #7a1f4a)',
+  '#1f4fb5', '#5a3fb0', '#a8386a', '#16708f', '#3b4aa8', '#1d7a6c', '#6a44a8', '#b0523a',
 ];
 
 export function Avatar({ user, size = 40, square }: { user?: Json; size?: number; square?: boolean }) {

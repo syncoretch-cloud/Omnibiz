@@ -196,8 +196,7 @@ function pageTitle(pathname: string) {
   if (profile) return `@${decodeURIComponent(profile[1])}`;
   return TITLES.find(([re]) => re.test(pathname))?.[1] ?? '';
 }
-/** Pages that need the full width: the context panel steps aside for them. */
-const WIDE = [/^\/reels/, /^\/messages/, /^\/marketplace/, /^\/businesses/, /^\/dashboard/, /^\/admin/, /^\/settings/, /^\/cart/, /^\/orders/, /^\/me\/cv/];
+/** Only Home has a column on the right (as on Instagram); every other page, a profile included, uses the whole width beside the rail. */
 
 export function AppLayout() {
   const { me, can } = useSession();
@@ -270,7 +269,7 @@ export function AppLayout() {
   const isReels = loc.pathname.startsWith('/reels');
   useShortcuts({ search: () => setSearch(true), create: () => (canCreate ? setSheet(true) : undefined), help: () => setHelp(true), jobs: showJobs });
   const root = loc.pathname in ROOTS;
-  const wide = WIDE.some((re) => re.test(loc.pathname));
+  const wide = loc.pathname !== '/';
   const title = pageTitle(loc.pathname);
   // Back goes to the previous screen in the app, or Home when the page was opened directly.
   const back = () => ((window.history.state?.idx ?? 0) > 0 ? nav(-1) : nav('/'));
@@ -286,7 +285,7 @@ export function AppLayout() {
     if (to === '/') window.dispatchEvent(new Event(REFRESH_EVENT));
   };
   const link = (to: string, icon: ReactNode, label: string, badge = 0, key = label.toLowerCase()) => (
-    <NavLink to={to} end={to === '/'} className="nav-link" title={label} data-icon={key} onClick={retap(to)} {...warm(to)}>
+    <NavLink to={to} end={to === '/'} className="nav-link" aria-label={label} data-label={label} data-icon={key} onClick={retap(to)} {...warm(to)}>
       {icon}<span className="nav-label">{label}</span><Badge n={badge} />
     </NavLink>
   );
@@ -328,7 +327,7 @@ export function AppLayout() {
           {can('manage_cv') && link('/me/cv', <Icon name="file" />, 'My CV')}
           {link('/saved', <Icon name="bookmark" />, 'Saved')}
         </nav>
-        {canCreate && <button className="btn btn-primary nav-create" onClick={() => { thump(); create(); }} title="Create"><Icon name="plus" /><span className="nav-label">Create</span></button>}
+        {canCreate && <button className="btn btn-primary nav-create" onClick={() => { thump(); create(); }} aria-label="Create" data-label="Create"><Icon name="plus" /><span className="nav-label">Create</span></button>}
         <div className="nav-me" ref={meRef}>
           <button className="nav-me-btn" onClick={() => setMeMenu((m) => !m)} aria-expanded={meMenu} aria-label="Account menu">
             <Avatar user={u} size={36} />

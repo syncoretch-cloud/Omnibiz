@@ -16,6 +16,16 @@ export function DevOutboxHint() {
   );
 }
 
+/** Top row of an auth card: a clear back arrow on the left, where you are on the right. */
+function AuthNav({ onBack, label, hint }: { onBack: () => void; label: string; hint?: string }) {
+  return (
+    <div className="auth-nav">
+      <button type="button" className="auth-back" onClick={onBack} aria-label={label}><Icon name="arrowLeft" /><span>{label}</span></button>
+      {hint && <span className="auth-step">{hint}</span>}
+    </div>
+  );
+}
+
 function LoginPanel() {
   const { setMe } = useSession();
   const nav = useNavigate();
@@ -55,6 +65,7 @@ function LoginPanel() {
   return (
     <>
       <div className="auth-card glass">
+        {challenge && <AuthNav onBack={() => { setChallenge(null); setCode(''); setError(null); }} label="Back" hint="Two-step check" />}
         <Wordmark />
         <Swap k={challenge ? 'otp' : 'login'} order={['login', 'otp']}>
           {challenge ? (
@@ -63,7 +74,6 @@ function LoginPanel() {
               <Input className="otp-input" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} autoFocus aria-label="Authentication code" />
               <ErrorBox error={error} />
               <button className="btn btn-primary btn-lg btn-block" disabled={busy || code.length !== 6}>Confirm</button>
-              <button type="button" className="text-btn" style={{ alignSelf: 'center', marginTop: 4 }} onClick={() => { setChallenge(null); setCode(''); }}>Back</button>
             </form>
           ) : (
             <form onSubmit={submit} className="stack-sm">
@@ -138,6 +148,11 @@ function RegisterPanel() {
   return (
     <>
       <div className="auth-card glass">
+        <AuthNav
+          onBack={() => (step === 'details' ? setStep('type') : nav('/login'))}
+          label={step === 'details' ? 'Change role' : 'Log in'}
+          hint={step === 'details' ? `Step 2 of 2 · ${TYPES.find((t) => t.id === type)?.title ?? ''}` : 'Step 1 of 2'}
+        />
         <Wordmark />
         <Swap k={step} order={['type', 'details']}>
           {step === 'type' ? (
@@ -156,9 +171,6 @@ function RegisterPanel() {
             </div>
           ) : (
             <form className="stack-sm" onSubmit={submit}>
-              <button type="button" className="text-btn row" style={{ alignSelf: 'flex-start', gap: 4, color: 'var(--muted)' }} onClick={() => setStep('type')}>
-                <Icon name="arrowLeft" size={14} />{TYPES.find((t) => t.id === type)?.title}
-              </button>
               {biz ? (
                 <>
                   <Input className={bad('business_name')} placeholder="Business name" value={f.business_name ?? ''} onChange={set('business_name')} required maxLength={120} />

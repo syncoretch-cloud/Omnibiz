@@ -88,8 +88,9 @@ postsRouter.get('/', (req, res) => {
   if (author) { where.push('p.author_id = ?'); params.push(author); }
   const tag = qStr(req, 'tag');
   if (tag) { where.push('p.id IN (SELECT post_id FROM post_tags WHERE tag = ?)'); params.push(tag.toLowerCase().replace(/^#/, '')); }
-  const kind = qStr(req, 'kind');
-  if (kind) { where.push('p.kind = ?'); params.push(kind); }
+  // `kind` can be one type or a comma-separated list (the Market's ads ask for promotion,offer,product,service).
+  const kinds = (qStr(req, 'kind') ?? '').split(',').map((k) => k.trim()).filter((k) => (POST_KINDS as readonly string[]).includes(k));
+  if (kinds.length) { where.push(`p.kind IN (${kinds.map(() => '?').join(',')})`); params.push(...kinds); }
   const rows = all(`SELECT p.* FROM posts p WHERE ${where.join(' AND ')} ORDER BY p.id DESC LIMIT ? OFFSET ?`, ...params, limit + 1, offset);
   res.json({ items: hydratePosts(rows.slice(0, limit), req.user?.id), hasMore: rows.length > limit });
 });

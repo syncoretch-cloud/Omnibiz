@@ -302,23 +302,51 @@ test('messaging and business inquiry analytics', async () => {
   assert.ok(ask.body.answer);
 });
 
-test('reels mix posts, products and jobs', async () => {
-  const { c: biz, me: bizMe } = await register('company', { business_name: 'Reel Co', category: 'software' });
-  await biz.post('/api/posts', { body: 'Behind the scenes at #reelco' });
-  await biz.post('/api/posts', { body: 'Second update from Reel Co' });
-  const prod = await biz.post('/api/products', { name: 'Reel Widget', category: 'electronics', price: 1000 });
-  await biz.post('/api/jobs', { title: 'Reel Engineer', employment_type: 'full_time', description: 'Build reels for East African businesses.', skills: ['React'] });
+test('explore mixes posts, products and jobs', async () => {
+  const { c: biz, me: bizMe } = await register('company', { business_name: 'Explore Co', category: 'software' });
+  await biz.post('/api/posts', { body: 'Behind the scenes at #exploreco' });
+  await biz.post('/api/posts', { body: 'Second update from Explore Co' });
+  await biz.post('/api/products', { name: 'Explore Widget', category: 'electronics', price: 1000 });
+  await biz.post('/api/jobs', { title: 'Explore Engineer', employment_type: 'full_time', description: 'Build discovery for East African businesses.', skills: ['React'] });
   const { c: user } = await register('personal');
   await user.post(`/api/users/${bizMe.id}/follow`);
 
-  const reels = await user.get('/api/reels');
-  assert.equal(reels.status, 200);
-  const types = new Set(reels.body.items.map((i: Json) => i.type));
+  const explore = await user.get('/api/explore');
+  assert.equal(explore.status, 200);
+  const types = new Set(explore.body.items.map((i: Json) => i.type));
   assert.ok(types.has('post') && types.has('product') && types.has('job'), [...types].join(','));
+});
 
-  const started = await user.get(`/api/reels?start=product:${prod.body.product.id}`);
-  assert.equal(started.body.items[0].key, `product:${prod.body.product.id}`);
+test('market ads: posts can be listed by several kinds at once', async () => {
+  const { c: biz } = await register('company', { business_name: 'Ad Co', category: 'software' });
+  const promo = await biz.post('/api/posts', { kind: 'promotion', body: 'Ten percent off all licences this week' });
+  const offer = await biz.post('/api/posts', { kind: 'offer', body: 'Free setup for new customers' });
+  await biz.post('/api/posts', { kind: 'news', body: 'We moved offices' });
+  const { c: user } = await register('personal');
+  const ads = await user.get('/api/posts?kind=promotion,offer');
+  assert.equal(ads.status, 200);
+  const ids = ads.body.items.map((p: Json) => p.id);
+  assert.ok(ids.includes(promo.body.post.id) && ids.includes(offer.body.post.id));
+  assert.ok(ads.body.items.every((p: Json) => ['promotion', 'offer'].includes(p.kind)));
+});
 
+test('settings: profile picture, removing it, and a saved delivery address', async () => {
+  const { c: shopper } = await register('customer');
+  const form = new FormData();
+  form.append('files', new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0])], { type: 'image/png' }), 'me.png');
+  const up = await shopper.req('POST', '/api/media', undefined, { form });
+  assert.equal(up.status, 201);
+  const url = up.body.files[0].url;
+  const set = await shopper.patch('/api/users/me', { avatar_url: url, delivery_address: 'Plot 12, Sinza, Dar es Salaam' });
+  assert.equal(set.status, 200);
+  assert.equal(set.body.user.avatar_url, url);
+  assert.equal(set.body.user.delivery_address, 'Plot 12, Sinza, Dar es Salaam');
+  const cleared = await shopper.patch('/api/users/me', { avatar_url: '' });
+  assert.equal(cleared.status, 200);
+  assert.ok(!cleared.body.user.avatar_url);
+  assert.equal(cleared.body.user.delivery_address, 'Plot 12, Sinza, Dar es Salaam');
+  const bad = await shopper.patch('/api/users/me', { avatar_url: 'http://evil.example/x.png' });
+  assert.equal(bad.status, 400);
 });
 
 test('post details: music, tagged people, location, alt text, hidden likes and comments off', async () => {

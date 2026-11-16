@@ -18,9 +18,9 @@ export function Tile({ item, size = '' }: { item: Json; size?: string }) {
   const media = type !== 'job' ? p.media?.[0] : undefined;
   const art = type === 'post' ? postArt(p) : type === 'product' ? productArt(p, false) : jobArt(p);
   return (
-    <Link to={`/reels?start=${encodeURIComponent(item.key)}`} className={`tile ${size}`}>
+    <Link to={type === 'post' ? `/posts/${p.id}` : type === 'product' ? `/marketplace/${p.id}` : `/jobs/${p.id}`} className={`tile ${size}`}>
       {media && !/\.(mp4|webm)$/i.test(media) ? <img src={media} alt="" loading="lazy" /> : <Artwork variant="tile" {...art} price={type === 'post' ? art.price : undefined} sub={undefined} />}
-      <span className="tile-type"><Icon name={type === 'product' ? 'bag' : type === 'job' ? 'briefcase' : p.media?.length > 1 ? 'layers' : 'reels'} /></span>
+      <span className="tile-type"><Icon name={type === 'product' ? 'bag' : type === 'job' ? 'briefcase' : p.media?.length > 1 ? 'layers' : 'image'} /></span>
       <span className="tile-over">
         {type === 'post' && <><span><Icon name="heart" fill />{compact(p.like_count)}</span><span><Icon name="comment" fill />{compact(p.comment_count)}</span></>}
         {type === 'product' && <span><Icon name="tag" />{money(p.price, p.currency)}</span>}
@@ -34,7 +34,7 @@ export default function Explore() {
   const { me, can } = useSession();
   const nav = useNavigate();
   const [q, setQ] = useState('');
-  const list = usePaged('/reels');
+  const list = usePaged('/explore');
   const biz = isBusinessType(me?.user.account_type);
   const shortcuts: [string, string, string][] = [
     ...(me?.user.account_type !== 'customer' ? [['/jobs', 'briefcase', 'Jobs'] as [string, string, string]] : []),

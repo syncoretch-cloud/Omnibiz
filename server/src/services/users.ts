@@ -70,6 +70,7 @@ export function selfView(u: Row) {
     lat: u.lat,
     lng: u.lng,
     share_precise_location: !!u.share_precise_location,
+    delivery_address: u.delivery_address ?? null,
     email_verified: !!u.email_verified,
     phone_verified: !!u.phone_verified,
     totp_enabled: !!u.totp_enabled,

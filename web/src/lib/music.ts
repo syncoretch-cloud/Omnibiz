@@ -1,4 +1,4 @@
-// Music for posts and reels. "OmniBiz Sounds" is a library of tracks composed in code and played with the
+// Music for posts and stories. "OmniBiz Sounds" is a library of tracks composed in code and played with the
 // Web Audio API (no recordings, so no licensing); authors can also upload their own audio. One player for the
 // whole app makes sure only one sound plays at a time.
 import { useSyncExternalStore } from 'react';

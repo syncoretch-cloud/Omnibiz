@@ -26,7 +26,7 @@ import { searchRouter } from './modules/search.ts';
 import { analyticsRouter } from './modules/analytics.ts';
 import { adminRouter, reportsRouter } from './modules/admin.ts';
 import { metaRouter } from './modules/meta.ts';
-import { reelsRouter } from './modules/reels.ts';
+import { exploreRouter } from './modules/explore.ts';
 import { storiesRouter } from './modules/stories.ts';
 
 export function ensureCategories() {
@@ -89,7 +89,7 @@ export function createApp() {
   app.use('/api/cart', cartRouter);
   app.use('/api/orders', ordersRouter);
   app.use('/api/search', searchRouter);
-  app.use('/api/reels', reelsRouter);
+  app.use('/api/explore', exploreRouter);
   app.use('/api/stories', storiesRouter);
   app.use('/api/analytics', analyticsRouter);
   app.use('/api/reports', reportsRouter);

@@ -2,33 +2,33 @@ import { useEffect, useRef, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useNavigate } from 'react-router';
 import QRCode from 'qrcode';
 import { Icon } from '../components/Icon.tsx';
-import { Empty, ErrorBox, Field, Input, Modal, PageTitle, Select, Spinner, TagInput, Textarea, SectionSwap } from '../components/ui.tsx';
+import { Avatar, Empty, ErrorBox, Field, Input, Modal, PageTitle, Select, Spinner, TagInput, Textarea, SectionSwap } from '../components/ui.tsx';
+import { useAvatarUpload } from '../components/AvatarUpload.tsx';
+import { ProfileForm } from './CvEditor.tsx';
 import { MapView } from '../components/MapView.tsx';
 import { DevOutboxHint } from './Auth.tsx';
-import { get, patch, post, put, uploadDocument, uploadMedia, del } from '../lib/api.ts';
+import { get, patch, post, put, uploadDocument, del } from '../lib/api.ts';
 import type { Json } from '../lib/api.ts';
 import { useApi } from '../lib/hooks.ts';
 import { isBusinessType, useAction, useSession, useToast } from '../lib/session.tsx';
 import { label, parseTime, timeAgo } from '../lib/format.ts';
 
-function ImageUpload({ value, onChange, round, text }: { value?: string | null; onChange: (url: string) => void; round?: boolean; text: string }) {
-  const ref = useRef<HTMLInputElement>(null);
-  const act = useAction();
-  const [busy, setBusy] = useState(false);
+/** Profile picture (a business's logo): saves the moment you pick one. */
+function PictureEditor() {
+  const { me } = useSession();
+  const pic = useAvatarUpload();
+  const u = me!.user;
   return (
-    <div className="row-wrap" style={{ gap: 10 }}>
-      <div style={{ width: round ? 72 : 160, height: 72, borderRadius: round ? '50%' : 10, overflow: 'hidden', background: 'var(--surface-2)', flexShrink: 0 }}>
-        {value && <img src={value} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+    <div className="picture-editor">
+      <Avatar user={u} size={96} square={pic.biz} />
+      <div className="stack-sm">
+        <div className="row-wrap">
+          <button type="button" className="btn btn-primary btn-sm" disabled={pic.busy} onClick={pic.open}><Icon name="camera" />{pic.busy ? 'Uploading…' : pic.has ? 'Change photo' : 'Upload photo'}</button>
+          {pic.has && <button type="button" className="btn btn-ghost btn-sm" disabled={pic.busy} onClick={pic.remove}><Icon name="trash" />Remove</button>}
+        </div>
+        <p className="xsmall muted">JPG, PNG or WebP up to 10 MB. It is cropped to a square and saved straight away.</p>
+        {pic.field}
       </div>
-      <button type="button" className="btn btn-outline btn-sm" disabled={busy} onClick={() => ref.current?.click()}><Icon name="upload" />{busy ? 'Uploading…' : text}</button>
-      <input ref={ref} type="file" accept="image/*" hidden onChange={async (e) => {
-        const f = e.target.files?.[0];
-        if (!f) return;
-        setBusy(true);
-        const urls = await act(() => uploadMedia([f]));
-        setBusy(false);
-        if (urls) onChange(urls[0]);
-      }} />
     </div>
   );
 }
@@ -38,7 +38,7 @@ function Account() {
   const act = useAction();
   const u = me!.user;
   const biz = isBusinessType(u.account_type);
-  const [f, setF] = useState<Json>({ display_name: u.display_name, bio: u.bio ?? '', email: u.email, phone: u.phone ?? '', country: u.country ?? '', region: u.region ?? '', city: u.city ?? '', avatar_url: u.avatar_url, cover_url: u.cover_url, share_precise_location: u.share_precise_location });
+  const [f, setF] = useState<Json>({ display_name: u.display_name, bio: u.bio ?? '', email: u.email, phone: u.phone ?? '', country: u.country ?? '', region: u.region ?? '', city: u.city ?? '', share_precise_location: u.share_precise_location });
   const save = async () => {
     const r = await act(() => patch('/users/me', f), 'Saved');
     if (r) setMe(r);
@@ -53,8 +53,7 @@ function Account() {
     <div className="stack">
       <div className="card card-pad stack">
         <h3>Profile</h3>
-        <Field label={biz ? 'Logo' : 'Profile picture'}><ImageUpload value={f.avatar_url} round={!biz} text="Change" onChange={(url) => setF({ ...f, avatar_url: url })} /></Field>
-        <Field label="Cover image"><ImageUpload value={f.cover_url} text="Change cover" onChange={(url) => setF({ ...f, cover_url: url })} /></Field>
+        <Field label={biz ? 'Logo' : 'Profile picture'}><PictureEditor /></Field>
         <div className="form-grid">
           <Field label={biz ? 'Business name' : 'Display name'}><Input value={f.display_name} onChange={(e) => setF({ ...f, display_name: e.target.value })} /></Field>
           <Field label="Username"><Input value={u.username} disabled /></Field>
@@ -82,6 +81,39 @@ function Account() {
         )}
       </div>
       <div className="form-actions"><button className="btn btn-primary" onClick={save}>Save changes</button></div>
+    </div>
+  );
+}
+
+/** Personal accounts: headline, summary, what work you want. It is the same form as the one on the CV tab of your profile. */
+function Professional() {
+  return (
+    <div className="stack">
+      <p className="small muted">This is what recruiters see first. Your full CV (experience, education, skills and documents) is on the CV tab of <b>your profile</b>.</p>
+      <ProfileForm />
+    </div>
+  );
+}
+
+/** Where your orders go. Checkout starts from this, so you only type it once. */
+function Delivery() {
+  const { me, setMe } = useSession();
+  const act = useAction();
+  const u = me!.user;
+  const [address, setAddress] = useState<string>(u.delivery_address ?? '');
+  const [phone, setPhone] = useState<string>(u.phone ?? '');
+  const save = async () => {
+    const r = await act(() => patch('/users/me', { delivery_address: address.trim(), ...(phone && phone !== u.phone ? { phone } : {}) }), 'Delivery details saved');
+    if (r) setMe(r);
+  };
+  return (
+    <div className="stack">
+      <div className="card card-pad stack">
+        <div><h3>Delivery details</h3><p className="small muted">Used to fill in checkout for you. You can still change them on any order.</p></div>
+        <Field label="Delivery address" hint="Street, area and city, with any landmark that helps the rider."><Textarea value={address} onChange={(e) => setAddress(e.target.value)} maxLength={300} style={{ minHeight: 84 }} /></Field>
+        <Field label="Phone for delivery" hint="The rider calls this number."><Input value={phone} onChange={(e) => setPhone(e.target.value)} /></Field>
+        <div className="form-actions"><button className="btn btn-primary" onClick={save}>Save delivery details</button></div>
+      </div>
     </div>
   );
 }
@@ -353,7 +385,7 @@ function Security() {
 }
 
 export default function Settings() {
-  const { me } = useSession();
+  const { me, can } = useSession();
   const biz = isBusinessType(me?.user.account_type);
   return (
     <main className="page page-mid">
@@ -362,7 +394,9 @@ export default function Settings() {
         <aside className="card sticky-side">
           <nav className="side-nav">
             <NavLink to="/settings/account"><Icon name="user" />Account</NavLink>
+            {can('manage_cv') && <NavLink to="/settings/professional"><Icon name="briefcase" />Professional</NavLink>}
             {biz && <NavLink to="/settings/business"><Icon name="building" />Business profile</NavLink>}
+            <NavLink to="/settings/delivery"><Icon name="package" />Delivery</NavLink>
             <NavLink to="/settings/interests"><Icon name="sparkles" />Interests</NavLink>
             <NavLink to="/settings/security"><Icon name="shield" />Security</NavLink>
           </nav>
@@ -371,6 +405,8 @@ export default function Settings() {
           <SectionSwap><Routes>
             <Route index element={<Navigate to="account" replace />} />
             <Route path="account" element={<Account />} />
+            <Route path="professional" element={can('manage_cv') ? <Professional /> : <Empty title="Professional profiles are for personal accounts" />} />
+            <Route path="delivery" element={<Delivery />} />
             <Route path="business" element={biz ? <BusinessSettings /> : <Empty title="Not a business account" />} />
             <Route path="interests" element={<Interests />} />
             <Route path="security" element={<Security />} />

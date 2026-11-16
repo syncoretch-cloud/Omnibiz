@@ -182,7 +182,7 @@ export function MoreMenuItems({ onDone }: { onDone?: () => void }) {
 
 /// ───────────── shell: navigation · content · context panels ─────────────
 /** Top-level destinations: on phones these show the brand in the top bar; other pages show a back arrow and a title. */
-const ROOTS: Record<string, string> = { '/': 'Home', '/explore': 'Discover', '/reels': 'Reels', '/jobs': 'Jobs', '/marketplace': 'Market', '/notifications': 'Notifications', '/messages': 'Messages' };
+const ROOTS: Record<string, string> = { '/': 'Home', '/explore': 'Discover', '/jobs': 'Jobs', '/marketplace': 'Market', '/notifications': 'Notifications', '/messages': 'Messages' };
 const TITLES: [RegExp, string][] = [
   [/^\/posts\//, 'Post'], [/^\/jobs\/\d+/, 'Job'], [/^\/marketplace\/compare/, 'Compare'], [/^\/marketplace\/\d+/, 'Product'],
   [/^\/messages\/\d+/, 'Messages'], [/^\/businesses/, 'Businesses'], [/^\/cart/, 'Cart'], [/^\/orders\/\d+/, 'Order'], [/^\/orders/, 'Orders'],
@@ -203,7 +203,6 @@ export function AppLayout() {
   const u = me!.user;
   const counts = me?.counts ?? { notifications: 0, messages: 0, cart: 0 };
   const showJobs = u.account_type !== 'customer';
-  const personal = u.account_type === 'personal';
   const biz = isBusinessType(u.account_type);
   const canCreate = can('create_posts') || can('manage_products') || can('create_jobs');
   const [search, setSearch] = useState(false);
@@ -267,7 +266,6 @@ export function AppLayout() {
   // Phones: the bars slip away while you read down the page and return the moment you scroll up.
   const hidden = useScrollHide();
   const create = () => setSheet(true);
-  const isReels = loc.pathname.startsWith('/reels');
   useShortcuts({ search: () => setSearch(true), create: () => (canCreate ? setSheet(true) : undefined), help: () => setHelp(true), jobs: showJobs });
   const root = loc.pathname in ROOTS;
   const title = pageTitle(loc.pathname);
@@ -291,7 +289,7 @@ export function AppLayout() {
   );
 
   return (
-    <div className={`shell${isReels ? ' reels-page' : ''}${hidden ? ' chrome-hidden' : ''}`}>
+    <div className={`shell${hidden ? ' chrome-hidden' : ''}`}>
       {/* phones: top bar */}
       <header className="topbar glass">
         {root ? (
@@ -315,7 +313,6 @@ export function AppLayout() {
         <nav className="nav-list">
           {link('/', <Icon name="home" />, 'Home')}
           {link('/explore', <Icon name="compass" />, 'Discover')}
-          {link('/reels', <Icon name="reels" />, 'Reels')}
           <span className="nav-sep" />
           {showJobs && link('/jobs', <Icon name="briefcase" />, 'Jobs')}
           {link('/marketplace', <Icon name="bag" />, 'Market')}
@@ -368,10 +365,8 @@ export function AppLayout() {
         <NavLink to="/" end data-icon="home" onClick={retap('/')}><Icon name="home" /><span className="dock-label">Home</span></NavLink>
         <NavLink to="/explore" data-icon="discover" onClick={retap('/explore')} {...warm('/explore')}><Icon name="compass" /><span className="dock-label">Discover</span></NavLink>
         {canCreate && <button className="create-fab" onClick={() => { thump(); create(); }} aria-label="Create"><Icon name="plus" /></button>}
-        <NavLink to="/reels" data-icon="reels" onClick={retap('/reels')} {...warm('/reels')}><Icon name="reels" /><span className="dock-label">Reels</span></NavLink>
-        {personal && showJobs
-          ? <NavLink to="/jobs" data-icon="jobs" onClick={retap('/jobs')} {...warm('/jobs')}><Icon name="briefcase" /><span className="dock-label">Jobs</span></NavLink>
-          : <NavLink to="/marketplace" data-icon="market" onClick={retap('/marketplace')} {...warm('/marketplace')}><Icon name="bag" /><span className="dock-label">Market</span></NavLink>}
+        <NavLink to="/marketplace" data-icon="market" onClick={retap('/marketplace')} {...warm('/marketplace')}><Icon name="bag" /><span className="dock-label">Market</span></NavLink>
+        {showJobs && <NavLink to="/jobs" data-icon="jobs" onClick={retap('/jobs')} {...warm('/jobs')}><Icon name="briefcase" /><span className="dock-label">Jobs</span></NavLink>}
       </nav>
 
       {sheet && <CreateSheet onPost={openCreate} onStory={() => setStorying(true)} onClose={closeSheet} />}

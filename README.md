@@ -24,19 +24,18 @@ Logins last until the browser closes unless "Keep me logged in" is ticked. Email
 
 ### Look and feel
 
-The layout is **app panels** on a **black** theme:
-- **Computers:** three panels sit side by side, and each scrolls on its own:
-  - **Navigation:** the OmniBiz logo, destinations, a Create button and the account menu.
-  - **Content:** a header with the page title, a back arrow on inner pages, and search (also ⌘K / Ctrl K).
-  - **For you:** your profile, jobs for you, businesses to follow and trending tags. It steps aside on pages that need the width (Market, Messages, Dashboard, Admin, Settings, Reels).
-- **Tablets:** the navigation panel becomes an icon rail, with the logo's "O" ring as the mark.
-- **Phones:** a sticky top bar (the logo on main tabs, a back arrow and title on inner pages), the page, and a floating pill dock. The current destination is a light pill with its name; the others are icons. The "+" button opens a Create sheet.
-- **Tabs** follow the same pill design everywhere (jobs, profile, notifications, saved, search): a soft track where the chosen tab becomes a light pill with its name and the others show only their icon.
+A **deep-blue dark theme**, Inter type, flat surfaces with hairline borders, and a soft blue glow along the top of each screen.
+- **Computers and tablets:** a constant icon-only rail on the left, and the page takes everything beside it.
+  - **Rail:** the logo mark, Create, the destinations (labels appear as tooltips, and each icon plays a small animation as the pointer passes), then your profile picture and a More (☰) menu with settings, saved, orders and log out.
+  - **Content:** a header with the page title, a back arrow on inner pages, and search (also `/`, ⌘K or Ctrl K). Your profile opens in the middle like any other tab; the rail never moves.
+  - **Keyboard:** `?` lists the shortcuts (`j` / `k` move between posts, `l` likes, `g` then a letter goes to a page).
+- **Phones:** a sticky top bar that hides as you scroll down, the page, and a floating dock: Home, Discover, Create, Market, Jobs. Pull down on Home to refresh; tap the current tab again to return to the top.
+- **Tabs** are separate pills; the chosen one is blue.
 - **Home:** a "Today" greeting, the stories strip, then the feed.
-- **Content:**
-  - Text updates read as editorial cards.
-  - Profiles have a cover band, metric tiles and quick links.
-  - Discover is a bento grid.
+- **Market:** an **Ads** row of promotions, offers, new products and services from businesses sits above the products (businesses can use *Post an ad*). It hides while you search or filter.
+- **Profiles:** no banner. The picture sits top-left, then name, @username and role, then the bio (emails and links are clickable), website and portfolio links, and counts. Your own CV is edited in the **CV** tab of your profile.
+- **Settings** (every role): *Account* (profile picture or logo, saved as soon as you pick one, with a square crop), *Professional* (personal accounts), *Business profile* (company, wholesaler and retailer), *Delivery* (a saved address that checkout starts from), *Interests* and *Security*.
+- **Discover** is a bento grid of posts, products and jobs.
 - **Brand:** the OmniBiz logo artwork (`web/public/brand/omnibiz-logo.png`, cut out of its background) appears wherever the name is shown: navigation, top bar, sign-in, onboarding, the splash and the browser tab (the "O" ring, `omnibiz-mark.png`).
 - **Type:** Bricolage Grotesque for headings, titles, post text and stories; Plus Jakarta Sans for everything else.
 - **Palette:** black surfaces with the brand colours (midnight indigo, aubergine, royal plum, burnt terracotta, soft apricot, vanilla, ivory) for accents and gradients.

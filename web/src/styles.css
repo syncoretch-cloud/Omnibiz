@@ -96,7 +96,6 @@
   --app-h: 100dvh;
   /* Space the sticky top bar takes; sticky panels start below it. */
   --chrome-top: 70px;
-  --reels-h: var(--app-h);
 }
 
 /* ─────────────────────────── base ─────────────────────────── */
@@ -175,7 +174,6 @@ button { -webkit-tap-highlight-color: transparent; }
 .palette-list { overflow-y: auto; padding: 10px; }
 .palette-icon { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; flex-shrink: 0; background: var(--nav-active); color: var(--brand); }
 .palette-icon svg { width: 18px; height: 18px; }
-
 
 /* ─────────────────────────── layout helpers ─────────────────────────── */
 /* Each page is a size container. Sections inside arrange themselves by the width they actually get,
@@ -533,8 +531,8 @@ a.post-link:hover { color: var(--brand); border-color: var(--brand); }
 .art.tile .art-title { font-size: clamp(12px, 9.5cqi, 30px); }
 .art.thumb { aspect-ratio: 1 / 1; padding: 0; justify-content: center; align-items: center; }
 .art.thumb .art-glyph { position: static; width: 46%; transform: none; opacity: 0.85; }
-.art.reel, .art.story { aspect-ratio: 9 / 16; padding: 14% 10% 34%; --art-lines: 8; justify-content: center; }
-.art.reel .art-title, .art.story .art-title { font-size: clamp(18px, 10.5cqi, 54px); }
+.art.story { aspect-ratio: 9 / 16; padding: 14% 10% 34%; --art-lines: 8; justify-content: center; }
+.art.story .art-title { font-size: clamp(18px, 10.5cqi, 54px); }
 .art.wide { aspect-ratio: 16 / 9; }
 .placeholder-img { width: 100%; aspect-ratio: 4 / 3; display: grid; place-items: center; }
 
@@ -622,47 +620,12 @@ a.post-link:hover { color: var(--brand); border-color: var(--brand); }
 .story-viewer-row { padding: 6px; border-radius: 12px; color: var(--text); }
 .story-viewer-row:hover { background: var(--surface-2); }
 
-/* ─────────────────────────── reels ─────────────────────────── */
 /* A size container: whether the action buttons fit beside the 9:16 card depends on both the width and the height available. */
-.reels { height: var(--reels-h); overflow-y: auto; scroll-snap-type: y mandatory; scrollbar-width: none; overscroll-behavior: contain; container: reels / size; }
-.reels::-webkit-scrollbar { display: none; }
-.reel { height: var(--reels-h); scroll-snap-align: start; scroll-snap-stop: always; display: flex; align-items: center; justify-content: center; gap: 22px; padding: 18px 0; }
-.reel-card {
-  position: relative; height: 100%; max-height: 920px; aspect-ratio: 9 / 16; border-radius: 30px; overflow: hidden;
-  box-shadow: var(--clay-soft); background: #0a1020; isolation: isolate;
-}
-.reel-card > .art, .reel-card > img, .reel-card > video { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; object-fit: cover; }
-.reel-card.entering > .art { animation: reel-zoom 6s var(--ease-out) both; }
-@keyframes reel-zoom { from { transform: scale(1.08); } to { transform: scale(1); } }
-.reel-info { position: absolute; z-index: 4; left: 0; right: 0; bottom: 0; padding: 70px 18px 20px; color: #fff6ee; background: linear-gradient(transparent, rgba(18, 6, 9, 0.72) 70%); display: flex; flex-direction: column; gap: 10px; }
-.reel-info .who { display: flex; align-items: center; gap: 10px; font-weight: 750; }
-.reel-info .who a { color: #fff6ee; }
-.reel-info .caption { font-size: 0.88rem; line-height: 1.4; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.4); cursor: pointer; }
-.reel-info .meta { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; opacity: 0.92; }
-.reel-info .meta svg { width: 14px; height: 14px; }
-.reel-info .marquee { overflow: hidden; white-space: nowrap; max-width: 70%; }
-.reel-info .marquee span { display: inline-block; animation: marquee 9s linear infinite; padding-left: 100%; }
+
 @keyframes marquee { to { transform: translateX(-100%); } }
 /* Actions live in one frosted capsule beside the card. */
-.reel-actions {
-  display: flex; flex-direction: column; align-items: center; gap: 6px; align-self: flex-end; margin-bottom: 28px; padding: 10px 6px; border-radius: 999px;
-  background: var(--glass); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
-}
-.reel-act { display: flex; flex-direction: column; align-items: center; gap: 2px; background: none; border: 0; cursor: pointer; color: var(--text); font-size: 0.7rem; font-weight: 750; padding: 2px 0 4px; }
-.reel-act .bubble-btn {
-  width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: transparent;
-  transition: transform 0.3s var(--spring), background 0.3s, color 0.2s;
-}
-.reel-act:hover .bubble-btn { background: var(--surface-2); transform: scale(1.05); }
-.reel-act:active .bubble-btn { transform: scale(0.88); }
-.reel-act svg { width: 24px; height: 24px; }
-.reel-act.on .bubble-btn { background: var(--grad-brand); color: var(--brand-contrast); box-shadow: var(--clay); border-color: transparent; }
-.reel-act.on.pop .bubble-btn svg { animation: like-pop 0.45s var(--spring); }
-.reel-type { position: absolute; z-index: 4; top: 16px; left: 16px; right: 16px; display: flex; justify-content: space-between; align-items: center; color: #fff6ee; }
-.reel-title { font-family: var(--font-display); font-size: 1.45rem; color: #fff6ee; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.4); }
-.reel-sheet { position: fixed; z-index: 120; left: 10px; right: 10px; bottom: 10px; height: calc(var(--app-h) * 0.7); border-radius: 26px; display: flex; flex-direction: column; animation: sheet-in 0.4s var(--ease-out) both; }
+
 @keyframes sheet-in { from { opacity: 0; transform: translateX(40px); } }
-.reel-sheet .sheet-body { flex: 1; overflow-y: auto; padding: 0 18px; }
 
 /* ─────────────────────────── explore & grids ─────────────────────────── */
 /* Discover: a bento grid. Tiles of mixed sizes pack densely; the row height follows the page width. */
@@ -1166,7 +1129,6 @@ a.widget-row:hover .bold { color: var(--brand); }
 .post-media.framed { max-height: calc(var(--app-h) * 0.7); }
 .post-media.framed .carousel, .post-media.framed .carousel > * { height: 100%; }
 .post-media.framed img, .post-media.framed video { height: 100%; max-height: none; object-fit: cover; }
-.reel-sound { margin-left: auto; margin-right: 8px; }
 
 /* ─────────────────────────── motion ─────────────────────────── */
 .route-enter { animation: route-in 0.5s var(--ease-out) backwards; }
@@ -1216,15 +1178,6 @@ a.widget-row:hover .bold { color: var(--brand); }
   .tile-grid { gap: 8px; }
 }
 /* Reels: the action capsule moves onto the card once there is no room for it beside the card. */
-@container reels (aspect-ratio < 0.64) {
-  .reel { position: relative; }
-  .reel-actions { position: absolute; right: 12px; bottom: 120px; z-index: 6; margin: 0; background: rgba(28, 30, 58, 0.3); border-color: rgba(255, 244, 223, 0.18); box-shadow: none; }
-  .reel-act { color: #fff6ee; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5); }
-  .reel-act .bubble-btn { color: #fff6ee; width: 44px; height: 44px; }
-  .reel-act:hover .bubble-btn { background: rgba(255, 244, 223, 0.14); }
-  .reel-info { padding-right: 76px; }
-  .reel-card > .art.reel { padding-right: 22%; }
-}
 
 /* ─────────────────────────── app shell ───────────────────────────
    Phones: a top bar, the page and a bottom tab dock. Tablets: an icon rail beside a content panel.
@@ -1250,7 +1203,7 @@ a.widget-row:hover .bold { color: var(--brand); }
 .topbar-back { margin-left: -8px; }
 .topbar-title { flex: 1; min-width: 0; padding-left: 2px; font-weight: 800; font-size: 1.12rem; letter-spacing: -0.02em; }
 .topbar-me { display: grid; margin-left: 6px; padding: 2px; border-radius: 50%; box-shadow: 0 0 0 2px rgba(120, 180, 255, 0.55); }
-.reels-page .topbar { display: none; }
+
 /* Dock: a floating rounded bar. Every destination shows its name under its icon; the current one is lit pink on a soft tile. */
 .dock {
   display: flex; position: fixed; z-index: 60; left: 14px; right: 14px; bottom: calc(14px + env(safe-area-inset-bottom));
@@ -1276,9 +1229,7 @@ a.widget-row:hover .bold { color: var(--brand); }
 .dock .create-fab svg { width: 26px; height: 26px; stroke-width: 2.4; }
 .panel-nav, .panel-head { display: none; }
 .panel-main { position: relative; min-height: var(--app-h); }
-.reel { padding: 10px 10px 92px; }
-.reel-card { height: 100%; max-height: none; width: 100%; aspect-ratio: auto; border-radius: 26px; }
-.reel-actions { right: 18px; bottom: 112px; }
+
 .pulse-card { width: 116px; height: 158px; }
 .compare-tray { bottom: 88px; }
 .auth-card { padding: 30px 22px 24px; }
@@ -1351,7 +1302,7 @@ a.widget-row:hover .bold { color: var(--brand); }
 
 /* tablets and computers */
 @media (min-width: 768px) {
-  :root { --app-h: calc(100dvh - 24px); --chrome-top: 76px; --reels-h: calc(100dvh - 24px); }
+  :root { --app-h: calc(100dvh - 24px); --chrome-top: 76px; }
   html:has(.shell), html:has(.shell) body { height: 100%; overflow: hidden; }
   .shell { height: 100dvh; display: grid; grid-template-columns: 64px minmax(0, 1fr); grid-template-areas: 'nav main'; gap: 12px; padding: 12px 12px 12px 8px; }
   .topbar, .dock { display: none; }
@@ -1366,16 +1317,16 @@ a.widget-row:hover .bold { color: var(--brand); }
     display: flex; position: sticky; top: 0; z-index: 30; align-items: center; gap: 10px; height: 64px; padding: 0 14px 0 20px;
     background: rgba(5, 24, 62, 0.55); -webkit-backdrop-filter: blur(18px) saturate(150%); backdrop-filter: blur(18px) saturate(150%); border-bottom: 1px solid var(--border);
   }
-  .reels-page .panel-head { display: none; }
+  
   h1 { font-size: 1.85rem; }
   .today-title { font-size: 2.6rem; }
   .page { padding: 24px 28px 48px; }
   .palette-backdrop { padding: 12vh 16px 16px; }
   .palette { width: min(640px, 100%); max-height: min(70vh, 620px); }
   .toasts { left: auto; right: 24px; bottom: 24px; max-width: 380px; }
-  .reel { padding: 18px 0; }
-  .reel-card { height: 100%; max-height: 920px; width: auto; aspect-ratio: 9 / 16; border-radius: 30px; }
-  .reel-actions { right: 12px; bottom: 28px; }
+  
+  
+  
   .pulse-card { width: 132px; height: 178px; }
   .compare-tray { bottom: 24px; }
   .auth-card { padding: 38px 36px 30px; }
@@ -1387,7 +1338,7 @@ a.widget-row:hover .bold { color: var(--brand); }
   .story-nav { display: inline-flex; }
   .story-close { top: 18px; right: 18px; }
   .story-top .row { padding-right: 0; }
-  .reel-sheet { left: auto; right: 24px; top: 24px; bottom: 24px; height: auto; width: min(420px, calc(100vw - 32px)); border-radius: 28px; }
+  
   .messenger { height: calc(100dvh - 24px - 64px - 72px); }
   .sheet-backdrop { align-items: center; }
   .sheet { border-radius: 28px; border-bottom: 1px solid var(--glass-border); animation: modal-in 0.4s var(--spring) both; }
@@ -1440,7 +1391,7 @@ a.widget-row:hover .bold { color: var(--brand); }
   .nav-link:hover svg { animation: ic-pop 0.5s var(--spring); }
   .nav-link:hover[data-icon='home'] svg { animation: ic-home 0.7s var(--ease-out); }
   .nav-link:hover[data-icon='discover'] svg { animation: ic-compass 0.9s var(--ease-out); }
-  .nav-link:hover[data-icon='reels'] svg { animation: ic-reels 0.7s var(--ease-out); }
+  
   .nav-link:hover[data-icon='jobs'] svg, .nav-link:hover[data-icon='market'] svg { animation: ic-swing 0.8s var(--ease-out); transform-origin: 50% 8%; }
   .nav-link:hover[data-icon='messages'] svg { animation: ic-chat 0.55s var(--spring); }
   .nav-link:hover[data-icon='notifications'] svg { animation: ic-ring 0.9s var(--ease-out); transform-origin: 50% 8%; }
@@ -1578,7 +1529,7 @@ button, a, [role='button'], summary { touch-action: manipulation; }
 @keyframes ic-pop { 0% { transform: scale(0.6); } 55% { transform: scale(1.22); } 100% { transform: scale(1); } }
 @keyframes ic-home { 0% { transform: translateY(0) scale(1); } 28% { transform: translateY(-6px) scale(1.14); } 52% { transform: translateY(1px) scale(0.95); } 72% { transform: translateY(-2px) scale(1.04); } 100% { transform: none; } }
 @keyframes ic-compass { 0% { transform: rotate(-140deg) scale(0.7); } 55% { transform: rotate(24deg) scale(1.16); } 78% { transform: rotate(-9deg); } 100% { transform: none; } }
-@keyframes ic-reels { 0% { transform: scale(0.7) rotate(-10deg); } 45% { transform: scale(1.2) rotate(6deg); } 70% { transform: scale(0.96) rotate(-2deg); } 100% { transform: none; } }
+
 @keyframes ic-swing { 0% { transform: rotate(0); } 20% { transform: rotate(-16deg); } 45% { transform: rotate(12deg); } 65% { transform: rotate(-6deg); } 82% { transform: rotate(3deg); } 100% { transform: none; } }
 @keyframes ic-ring { 0% { transform: rotate(0); } 12% { transform: rotate(18deg); } 28% { transform: rotate(-16deg); } 44% { transform: rotate(12deg); } 60% { transform: rotate(-8deg); } 76% { transform: rotate(4deg); } 100% { transform: none; } }
 @keyframes ic-chat { 0% { transform: scale(0.7) translateY(4px); } 50% { transform: scale(1.18) translateY(-2px); } 100% { transform: none; } }
@@ -1589,7 +1540,7 @@ button, a, [role='button'], summary { touch-action: manipulation; }
 .dock a.active svg, .nav-link.active svg { animation: ic-pop 0.55s var(--spring); }
 .dock a.active[data-icon='home'] svg, .nav-link.active[data-icon='home'] svg { animation: ic-home 0.7s var(--ease-out); }
 .dock a.active[data-icon='discover'] svg, .nav-link.active[data-icon='discover'] svg { animation: ic-compass 0.9s var(--ease-out); }
-.dock a.active[data-icon='reels'] svg, .nav-link.active[data-icon='reels'] svg { animation: ic-reels 0.7s var(--ease-out); }
+
 .dock a.active[data-icon='jobs'] svg, .nav-link.active[data-icon='jobs'] svg,
 .dock a.active[data-icon='market'] svg, .nav-link.active[data-icon='market'] svg { animation: ic-swing 0.8s var(--ease-out); transform-origin: 50% 8%; }
 .nav-link.active[data-icon='messages'] svg { animation: ic-chat 0.55s var(--spring); }
@@ -1651,3 +1602,24 @@ article.post.kb-focus { box-shadow: 0 0 0 2px var(--brand); }
 /* Links and emails in a bio or about text read as links: bright, underlined, easy to spot. */
 .profile-about a, .pre a { color: var(--brand-strong); text-decoration: underline; text-decoration-color: rgba(111, 176, 255, 0.45); text-underline-offset: 3px; overflow-wrap: anywhere; }
 .profile-about a:hover, .pre a:hover { color: #fff; text-decoration-color: currentColor; }
+
+/* Market ads: a row of promotions and offers above the product results. */
+.ads { display: flex; flex-direction: column; gap: 10px; padding-bottom: 6px; }
+.ads-strip { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x proximity; padding: 2px 2px 10px; margin: 0 -2px; scrollbar-width: thin; }
+.ad-card { flex: 0 0 min(260px, 78%); scroll-snap-align: start; display: flex; flex-direction: column; overflow: hidden; }
+.ad-media { position: relative; aspect-ratio: 16 / 10; overflow: hidden; background: var(--surface-2); }
+.ad-media > img, .ad-media > .art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; aspect-ratio: auto; }
+.ad-tag { position: absolute; top: 10px; left: 10px; height: 22px; padding: 0 8px; background: rgba(2, 6, 16, 0.7); border-color: rgba(255, 255, 255, 0.16); color: #fff; font-size: 0.68rem; letter-spacing: 0.04em; text-transform: uppercase; }
+.ad-body { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px 14px; min-width: 0; }
+.ad-body p { margin: 0; color: var(--text-2); }
+
+/* Profile picture editing */
+.picture-editor { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.profile-avatar { position: relative; }
+.avatar-cam {
+  position: absolute; right: 2px; bottom: 2px; z-index: 3; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; border: 3px solid var(--panel-bg);
+  background: var(--brand); color: #fff; cursor: pointer; transition: transform 0.2s var(--spring), background 0.15s;
+}
+.avatar-cam svg { width: 17px; height: 17px; }
+.avatar-cam:hover { transform: scale(1.1); background: var(--brand-strong); }
+.avatar-cam:disabled { opacity: 0.6; cursor: progress; }

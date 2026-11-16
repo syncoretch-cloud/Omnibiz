@@ -4,6 +4,7 @@ import { Icon } from '../components/Icon.tsx';
 import type { IconName } from '../components/Icon.tsx';
 import { Artwork, postArt, productArt } from '../components/Artwork.tsx';
 import { CvManager } from './CvEditor.tsx';
+import { useAvatarUpload } from '../components/AvatarUpload.tsx';
 import { RichText } from '../components/PostCard.tsx';
 import { Avatar, Dropdown, Empty, LoadMore, Modal, Ring, Spinner, Swap, Tabs, Verified, Visibility } from '../components/ui.tsx';
 import { JobCard, PersonRow } from '../components/Cards.tsx';
@@ -257,6 +258,7 @@ export default function Profile() {
   const [viewing, setViewing] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [followList, setFollowList] = useState<'followers' | 'following' | null>(null);
+  const pic = useAvatarUpload();
 
   if (loading && !data) return <Spinner block />;
   if (error) return <main className="page page-narrow"><div className="card"><Empty icon="user" title="Profile not found">{error.message}</Empty></div></main>;
@@ -322,6 +324,12 @@ export default function Profile() {
       <section className="profile-hero">
         <div className="profile-avatar">
           {story ? <Ring seen={storySeen} square={isBiz} onClick={() => setViewing(true)} title="View story">{avatar}</Ring> : avatar}
+          {self && (
+            <>
+              <button type="button" className="avatar-cam" onClick={pic.open} disabled={pic.busy} aria-label={pic.has ? 'Change profile picture' : 'Add a profile picture'} title={pic.has ? 'Change profile picture' : 'Add a profile picture'}><Icon name="camera" /></button>
+              {pic.field}
+            </>
+          )}
         </div>
         <div className="profile-names">
           <h1 className="row" style={{ gap: 8 }}>{u.display_name}<Verified show={b?.verified} /></h1>

@@ -61,7 +61,7 @@ export function Onboarding() {
             <div className="stack">
               <div className="center">
                 <h2>Hi {u.display_name.split(' ')[0]} — what are you into?</h2>
-                <p className="muted small" style={{ marginTop: 6 }}>Pick at least 3 to shape your feed, reels and job matches.</p>
+                <p className="muted small" style={{ marginTop: 6 }}>Pick at least 3 to shape your feed, discoveries and job matches.</p>
               </div>
               <div className="choice-grid">
                 {meta?.industries.filter((c) => c.slug !== 'other').map((c) => {

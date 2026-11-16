@@ -12,7 +12,6 @@ import { PostPage } from './pages/PostPage.tsx';
 import { NotFound } from './pages/NotFound.tsx';
 
 // Larger areas load on demand to keep the first screen fast on mobile networks.
-const Reels = lazy(() => import('./pages/Reels.tsx'));
 const Explore = lazy(() => import('./pages/Explore.tsx'));
 const Jobs = lazy(() => import('./pages/Jobs.tsx'));
 const JobDetail = lazy(() => import('./pages/JobDetail.tsx'));
@@ -105,7 +104,6 @@ export function App() {
             {!me && <Route path="/" element={<AuthShell mode="login" />} />}
             <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
               <Route path="/" element={<Home />} />
-              <Route path="/reels" element={<Reels />} />
               <Route path="/explore" element={<Explore />} />
               <Route path="/menu" element={<MobileMenu />} />
               <Route path="/posts/:id" element={<PostPage />} />

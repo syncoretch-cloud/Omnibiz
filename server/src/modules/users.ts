@@ -200,6 +200,7 @@ usersRouter.patch('/me', requireAuth, (req, res) => {
     lat: { type: 'number', min: -90, max: 90 },
     lng: { type: 'number', min: -180, max: 180 },
     share_precise_location: { type: 'bool' },
+    delivery_address: { type: 'text', max: 300 },
   }, { partial: true });
 
   for (const k of ['avatar_url', 'cover_url'] as const) {

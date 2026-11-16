@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS users (
   lat REAL,
   lng REAL,
   share_precise_location INTEGER NOT NULL DEFAULT 0,
+  delivery_address TEXT,
   email_verified INTEGER NOT NULL DEFAULT 0,
   phone_verified INTEGER NOT NULL DEFAULT 0,
   totp_secret_enc TEXT,

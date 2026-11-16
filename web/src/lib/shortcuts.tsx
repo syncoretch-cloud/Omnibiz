@@ -33,7 +33,6 @@ export const SHORTCUTS: [string, string][] = [
   ['c', 'Create'],
   ['g then h', 'Go to Home'],
   ['g then d', 'Go to Discover'],
-  ['g then r', 'Go to Reels'],
   ['g then j', 'Go to Jobs'],
   ['g then p', 'Go to Market'],
   ['g then m', 'Go to Messages'],
@@ -53,7 +52,7 @@ export function useShortcuts(h: { search: () => void; create: () => void; help: 
       const k = e.key;
       if (g && Date.now() - g < 1200) {
         g = 0;
-        const to: Record<string, string> = { h: '/', d: '/explore', r: '/reels', m: '/messages', n: '/notifications', s: '/saved', ...(ref.current.jobs ? { j: '/jobs' } : {}), p: '/marketplace' };
+        const to: Record<string, string> = { h: '/', d: '/explore', m: '/messages', n: '/notifications', s: '/saved', ...(ref.current.jobs ? { j: '/jobs' } : {}), p: '/marketplace' };
         if (to[k]) {
           e.preventDefault();
           tick();

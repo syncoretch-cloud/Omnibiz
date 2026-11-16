@@ -1,7 +1,6 @@
 // Pages load on demand, so the first tap on a destination waits for its code. Starting that download when a finger or
 // pointer approaches the link makes the navigation feel instant. Each loader is imported once and the result is cached.
 const LOADERS: [RegExp, () => Promise<unknown>][] = [
-  [/^\/reels/, () => import('../pages/Reels.tsx')],
   [/^\/explore/, () => import('../pages/Explore.tsx')],
   [/^\/jobs\/\d+/, () => import('../pages/JobDetail.tsx')],
   [/^\/jobs/, () => import('../pages/Jobs.tsx')],

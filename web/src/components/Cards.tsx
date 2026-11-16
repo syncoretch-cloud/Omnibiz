@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 import { Icon } from './Icon.tsx';
 import { Avatar, Stars, Verified } from './ui.tsx';
-import { Artwork, productIcon } from './Artwork.tsx';
+import { Artwork, postArt, productIcon } from './Artwork.tsx';
 import { del, post } from '../lib/api.ts';
 import type { Json } from '../lib/api.ts';
 import { useAction, useSession } from '../lib/session.tsx';
@@ -138,6 +138,30 @@ export function PersonRow({ u, right }: { u: Json; right?: React.ReactNode }) {
         <div className="xsmall muted truncate">{u.headline ?? ACCOUNT_LABEL[u.account_type]}{u.city ? ` · ${u.city}` : ''}</div>
       </div>
       {right}
+    </Link>
+  );
+}
+
+/** An ad in the Market: a business's promotion, offer, product or service post. */
+export function AdCard({ post: p }: { post: Json }) {
+  const media = p.media?.[0] as string | undefined;
+  const art = postArt(p);
+  const kind: Record<string, string> = { promotion: 'Promotion', offer: 'Offer', product: 'New product', service: 'Service' };
+  return (
+    <Link to={`/posts/${p.id}`} className="card card-link ad-card">
+      <div className="ad-media">
+        {media && !/\.(mp4|webm)$/i.test(media) ? <img src={media} alt="" loading="lazy" /> : <Artwork variant="wide" {...art} />}
+        <span className="chip ad-tag">Ad</span>
+      </div>
+      <div className="ad-body">
+        <div className="row" style={{ gap: 8 }}>
+          <Avatar user={p.author} size={24} />
+          <span className="small bold truncate">{p.author?.display_name}</span>
+          <Verified show={p.author?.verified} />
+        </div>
+        {media && !/\.(mp4|webm)$/i.test(media) && <p className="small clamp-2">{p.body}</p>}
+        <span className="xsmall muted">{kind[p.kind] ?? 'Ad'} · {timeAgo(p.created_at)}</span>
+      </div>
     </Link>
   );
 }

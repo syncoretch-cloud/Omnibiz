@@ -17,7 +17,7 @@ const PAY_INFO: Record<string, string> = {
 function Checkout({ group, onClose, onDone }: { group: Json; onClose: () => void; onDone: (ids: number[]) => void }) {
   const { me, meta } = useSession();
   const [method, setMethod] = useState('mobile_money');
-  const [address, setAddress] = useState([me?.user.city, me?.user.region].filter(Boolean).join(', '));
+  const [address, setAddress] = useState(me?.user.delivery_address || [me?.user.city, me?.user.region].filter(Boolean).join(', '));
   const [phone, setPhone] = useState(me?.user.phone ?? '');
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);

@@ -45,7 +45,7 @@ export interface ArtProps {
   sub?: ReactNode;
   price?: ReactNode;
   icon?: string;
-  variant?: 'post' | 'tile' | 'thumb' | 'reel' | 'story' | 'wide';
+  variant?: 'post' | 'tile' | 'thumb' | 'story' | 'wide';
   className?: string;
   style?: CSSProperties;
   children?: ReactNode;

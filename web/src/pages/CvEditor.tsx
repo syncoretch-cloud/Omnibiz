@@ -71,7 +71,7 @@ function ItemDialog({ section, item, onClose, onSaved }: { section: (typeof SECT
   );
 }
 
-function ProfileForm() {
+export function ProfileForm() {
   const { me, meta, setMe } = useSession();
   const act = useAction();
   const p = me!.profile!;

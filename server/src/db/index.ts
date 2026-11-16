@@ -15,6 +15,13 @@ export const db = new DatabaseSync(config.dbPath);
 db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000; PRAGMA synchronous = NORMAL;');
 db.exec(fs.readFileSync(path.join(import.meta.dirname, 'schema.sql'), 'utf8'));
 
+// Columns added after a database was first created. `CREATE TABLE IF NOT EXISTS` leaves an existing table alone, so these are added here.
+function ensureColumn(table: string, column: string, definition: string) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  if (!cols.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+}
+ensureColumn('users', 'delivery_address', 'TEXT');
+
 const cache = new Map<string, StatementSync>();
 function stmt(sql: string): StatementSync {
   let s = cache.get(sql);

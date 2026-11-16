@@ -1,16 +1,18 @@
 import { useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router';
+import { Link, useNavigate, useOutletContext, useSearchParams } from 'react-router';
 import { Icon } from '../components/Icon.tsx';
-import { ProductCard } from '../components/Cards.tsx';
+import { AdCard, ProductCard } from '../components/Cards.tsx';
 import { Empty, Input, LoadMore, PageTitle, Portal, Select } from '../components/ui.tsx';
-import { usePaged } from '../lib/hooks.ts';
+import type { ShellContext } from '../components/Layout.tsx';
+import { useApi, usePaged } from '../lib/hooks.ts';
 import { qs } from '../lib/api.ts';
 import type { Json } from '../lib/api.ts';
-import { useSession } from '../lib/session.tsx';
+import { isBusinessType, useSession } from '../lib/session.tsx';
 
 export default function Marketplace() {
   const { meta, can, me } = useSession();
   const nav = useNavigate();
+  const { openCreate } = useOutletContext<ShellContext>();
   const [params, setParams] = useSearchParams();
   const [text, setText] = useState(params.get('q') ?? '');
   const [compare, setCompare] = useState<Json[]>([]);
@@ -24,6 +26,10 @@ export default function Marketplace() {
   };
   const near = f.sort === 'nearest' && me?.user.lat != null ? { lat: me.user.lat, lng: me.user.lng } : {};
   const list = usePaged(`/products${qs({ ...f, ...near })}`);
+  // Ads (promotions, offers, new products and services from businesses) sit above the results, until you start filtering.
+  const searching = Object.keys(f).some((k) => k !== 'sort');
+  const ads = useApi(searching ? null : '/posts?kind=promotion,offer,product,service');
+  const adItems: Json[] = (ads.data?.items ?? []).slice(0, 10);
   const toggleCompare = (p: Json) =>
     setCompare((c) => (c.some((x) => x.id === p.id) ? c.filter((x) => x.id !== p.id) : c.length >= 4 ? c : [...c, p]));
 
@@ -34,7 +40,12 @@ export default function Marketplace() {
       <PageTitle
         title="Marketplace"
         subtitle="Products and services from verified companies, wholesalers and retailers."
-        actions={can('manage_products') ? <Link to="/dashboard/products?new=1" className="btn btn-primary"><Icon name="plus" />Sell something</Link> : undefined}
+        actions={(
+          <div className="row-wrap">
+            {isBusinessType(me?.user.account_type) && can('create_posts') && <button className="btn btn-outline" onClick={openCreate}><Icon name="megaphone" />Post an ad</button>}
+            {can('manage_products') && <Link to="/dashboard/products?new=1" className="btn btn-primary"><Icon name="plus" />Sell something</Link>}
+          </div>
+        )}
       />
       <div className="layout-side">
         <aside className={`card card-pad sticky-side filter-panel${filtersOpen ? ' open' : ''}`}>
@@ -75,6 +86,17 @@ export default function Marketplace() {
           </div>
         </aside>
         <section className="stack">
+          {adItems.length > 0 && (
+            <div className="ads">
+              <div className="row-between">
+                <div>
+                  <h2>Ads</h2>
+                  <p className="xsmall muted">Promotions and offers from businesses</p>
+                </div>
+              </div>
+              <div className="ads-strip">{adItems.map((p) => <AdCard key={p.id} post={p} />)}</div>
+            </div>
+          )}
           <div className="row-between">
             <span className="small muted">{list.extra?.total ?? 0} results</span>
             <Select value={f.sort ?? ''} onChange={(e) => set('sort', e.target.value)} placeholder={f.q ? 'Most relevant' : 'Newest'} options={[

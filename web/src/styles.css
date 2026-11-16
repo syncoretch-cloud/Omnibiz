@@ -1414,7 +1414,7 @@ a.widget-row:hover .bold { color: var(--brand); }
   animation: splash-glow 1.6s 0.15s var(--ease-out) both; }
 @keyframes splash-glow { from { opacity: 0; transform: scale(0.7); } }
 .splash-logo { width: 100%; height: auto; animation: splash-logo 1.4s 0.2s var(--ease-out) both; }
-.splash-shine { position: absolute; inset: 0 0 auto 0; aspect-ratio: 957 / 278; pointer-events: none;
+.splash-shine { position: absolute; inset: 0 0 auto 0; aspect-ratio: 941 / 278; pointer-events: none;
   background: linear-gradient(105deg, transparent 35%, rgba(220, 235, 255, 0.7) 50%, transparent 65%) 160% 0 / 250% 100% no-repeat;
   -webkit-mask: url('/brand/omnibiz-logo.png') center / contain no-repeat; mask: url('/brand/omnibiz-logo.png') center / contain no-repeat;
   animation: splash-shine 1.3s 1.05s var(--ease) both; mix-blend-mode: soft-light; }

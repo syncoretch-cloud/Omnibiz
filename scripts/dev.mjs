@@ -5,9 +5,10 @@ const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const procs = [
   ['api', ['run', 'dev', '--workspace', 'server']],
   ['web', ['run', 'dev', '--workspace', 'web']],
+  ['admin', ['run', 'dev', '--workspace', 'admin']],
 ].map(([name, args]) => {
   const p = spawn(npm, args, { stdio: ['ignore', 'pipe', 'pipe'], shell: process.platform === 'win32' });
-  const tag = name === 'api' ? '\x1b[36m[api]\x1b[0m ' : '\x1b[35m[web]\x1b[0m ';
+  const tag = name === 'api' ? '\x1b[36m[api]\x1b[0m ' : name === 'web' ? '\x1b[35m[web]\x1b[0m ' : '\x1b[33m[admin]\x1b[0m ';
   const pipe = (stream, out) => stream.on('data', (d) => d.toString().split(/\r?\n/).filter(Boolean).forEach((l) => out.write(tag + l + '\n')));
   pipe(p.stdout, process.stdout);
   pipe(p.stderr, process.stderr);

@@ -12,6 +12,7 @@ import { hydratePosts, rankedFeed } from '../services/posts.ts';
 import { reindexPost, unindex } from '../services/search-index.ts';
 import { userCards } from '../services/users.ts';
 import { notify } from '../services/notify.ts';
+import { screenText } from '../services/moderation.ts';
 import { recordActivity } from '../services/personalization.ts';
 import { hydrateProducts } from './products.ts';
 import { hydrateJobs } from './jobs.ts';
@@ -52,15 +53,20 @@ export function createPost(author: Row, input: { kind: string; body: string; med
   const handles = [...new Set((input.body.match(/@([a-zA-Z0-9_.]{3,30})/g) ?? []).map((m) => m.slice(1)))].slice(0, 20);
   const mentioned = handles.length ? all(`SELECT id FROM users WHERE username IN (${qs(handles.length)}) AND status = 'active'`, ...handles).map((r) => r.id as number) : [];
   const biz = get('SELECT category FROM businesses WHERE user_id = ?', author.id);
+  const held = screenText(input.body) !== null;
   const id = tx(() => {
     const { id } = run(
-      'INSERT INTO posts (author_id, kind, body, media, data, category, city, repost_of) VALUES (?,?,?,?,?,?,?,?)',
-      author.id, input.kind, input.body, input.media ?? [], input.data ?? {}, input.category ?? biz?.category ?? null, author.city ?? null, input.repost_of ?? null,
+      'INSERT INTO posts (author_id, kind, body, media, data, category, city, repost_of, status) VALUES (?,?,?,?,?,?,?,?,?)',
+      author.id, input.kind, input.body, input.media ?? [], input.data ?? {}, input.category ?? biz?.category ?? null, author.city ?? null, input.repost_of ?? null, held ? 'flagged' : 'active',
     );
     for (const t of tags) run('INSERT OR IGNORE INTO post_tags (post_id, tag) VALUES (?,?)', id, t);
     for (const m of mentioned) run('INSERT OR IGNORE INTO post_mentions (post_id, user_id) VALUES (?,?)', id, m);
     return id;
   });
+  if (held) {
+    notify([author.id], { type: 'system', title: 'Your post is under review', body: 'It may not follow the OmniBiz community guidelines. A moderator will check it shortly.' });
+    return id;
+  }
   reindexPost(id);
   emit('post.created', { postId: id, mentions: mentioned });
   return id;

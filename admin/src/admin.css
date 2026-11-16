@@ -1,0 +1,29 @@
+/* Admin shell: a fixed sidebar on wide screens, a slide-in drawer under 900px. Everything else comes from the app's styles. */
+body { background: var(--bg); }
+.admin-shell { min-height: 100dvh; display: grid; grid-template-columns: 248px minmax(0, 1fr); }
+.admin-side { position: sticky; top: 0; height: 100dvh; display: flex; flex-direction: column; gap: 18px; padding: 18px 12px; background: var(--panel-bg); border-right: 1px solid var(--border); overflow-y: auto; }
+.admin-brand { display: flex; align-items: center; gap: 10px; padding: 4px 10px; }
+.admin-side nav { display: grid; gap: 2px; }
+.admin-side nav a { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-2); text-decoration: none; font-weight: 500; transition: background 0.15s, color 0.15s; }
+.admin-side nav a svg { width: 20px; height: 20px; flex: none; }
+.admin-side nav a:hover { background: var(--surface-2); color: var(--text); }
+.admin-side nav a.active { background: var(--nav-active); color: var(--brand-strong); }
+.admin-who { margin-top: auto; display: grid; gap: 4px; padding: 12px; border-top: 1px solid var(--border); }
+.admin-who .btn { justify-self: start; margin-top: 6px; }
+.admin-main { min-width: 0; padding: clamp(16px, 3vw, 32px); max-width: 1180px; width: 100%; }
+.admin-top, .admin-scrim { display: none; }
+.admin-login { min-height: 100dvh; display: grid; place-items: center; padding: 16px; }
+.admin-login > * { width: min(100%, 400px); }
+.admin-login-title { margin: 12px 0 4px; font-size: 1.5rem; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip-x { margin-left: 6px; background: none; border: 0; color: var(--muted); cursor: pointer; font: inherit; line-height: 1; }
+.chip-x:hover { color: var(--danger); }
+
+@media (max-width: 900px) {
+  .admin-shell { grid-template-columns: minmax(0, 1fr); }
+  .admin-top { display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 30; padding: 10px 14px; background: var(--panel-bg); border-bottom: 1px solid var(--border); }
+  .admin-side { position: fixed; z-index: 41; inset: 0 auto 0 0; width: min(80vw, 288px); transform: translateX(-102%); transition: transform 0.25s var(--ease-out); box-shadow: var(--shadow-lg); }
+  .is-open .admin-side { transform: none; }
+  .admin-scrim { position: fixed; inset: 0; z-index: 40; border: 0; background: var(--scrim); opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+  .is-open .admin-scrim { display: block; opacity: 1; pointer-events: auto; }
+}

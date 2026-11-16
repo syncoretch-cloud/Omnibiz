@@ -363,3 +363,22 @@ adminRouter.get('/audit', requireStaff('audit'), (req, res) => {
   const cards = userCards(rows.map((r) => r.actor_id));
   res.json({ items: rows.map((r) => ({ ...r, details: parseJson(r.details, null), actor: cards.get(r.actor_id) })) });
 });
+
+// ───────────── Blocked terms: new posts that contain one are held for review ─────────────
+adminRouter.get('/moderation/terms', requireStaff('content'), (_req, res) => {
+  res.json({ items: all('SELECT term, created_at FROM blocked_terms ORDER BY term') });
+});
+
+adminRouter.post('/moderation/terms', requireStaff('content'), (req, res) => {
+  const { term } = validate(req.body, { term: { type: 'string', required: true, max: 60 } });
+  const t = term.toLowerCase().trim();
+  run('INSERT OR IGNORE INTO blocked_terms (term) VALUES (?)', t);
+  audit(req.user!.id, 'moderation.term.add', null, null, { term: t });
+  res.status(201).json({ ok: true });
+});
+
+adminRouter.delete('/moderation/terms/:term', requireStaff('content'), (req, res) => {
+  run('DELETE FROM blocked_terms WHERE term = ?', String(req.params.term).toLowerCase());
+  audit(req.user!.id, 'moderation.term.remove', null, null, { term: req.params.term });
+  res.json({ ok: true });
+});

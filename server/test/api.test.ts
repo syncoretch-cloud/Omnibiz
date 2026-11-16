@@ -545,3 +545,23 @@ test('subscriptions: plans per account type, plan limits and admin edits', async
   assert.equal(edited.body.plan.limits.products, 300);
   assert.equal((await staff.patch(`/api/admin/billing/plans/${pro.id}`, { limits: { bogus: 1 } })).status, 400);
 });
+
+test('moderation: posts with blocked words are held for review, and a moderator can release them', async () => {
+  const { c, me } = await register('personal');
+  const bad = await c.post('/api/posts', { kind: 'update', body: 'Check out this NSFW stuff' });
+  assert.equal(bad.status, 201, JSON.stringify(bad.body));
+  const row = db.prepare('SELECT status FROM posts WHERE id = ?').get(bad.body.post?.id ?? bad.body.id) as { status: string };
+  assert.equal(row.status, 'flagged');
+  const ok = await c.post('/api/posts', { kind: 'update', body: 'A perfectly normal update about our new shop' });
+  const okRow = db.prepare('SELECT status FROM posts WHERE id = ?').get(ok.body.post?.id ?? ok.body.id) as { status: string };
+  assert.equal(okRow.status, 'active');
+
+  const { me: modMe, c: mod } = await register('personal');
+  db.prepare("UPDATE users SET role = 'moderator' WHERE id = ?").run(modMe.id);
+  const added = await mod.post('/api/admin/moderation/terms', { term: 'Badword' });
+  assert.equal(added.status, 201);
+  const second = await c.post('/api/posts', { kind: 'update', body: 'this has a badword in it' });
+  assert.equal((db.prepare('SELECT status FROM posts WHERE id = ?').get(second.body.post?.id ?? second.body.id) as { status: string }).status, 'flagged');
+  assert.equal((await c.post('/api/admin/moderation/terms', { term: 'x' })).status, 403);
+  void me;
+});

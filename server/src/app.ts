@@ -28,6 +28,7 @@ import { adminRouter, reportsRouter } from './modules/admin.ts';
 import { metaRouter } from './modules/meta.ts';
 import { exploreRouter } from './modules/explore.ts';
 import { billingAdminRouter, subscriptionsRouter } from './modules/subscriptions.ts';
+import { ensureBlockedTerms } from './services/moderation.ts';
 import { ensurePlans } from './services/subscriptions.ts';
 import { storiesRouter } from './modules/stories.ts';
 
@@ -43,6 +44,7 @@ let handlersRegistered = false;
 export function createApp() {
   ensureCategories();
   ensurePlans();
+  ensureBlockedTerms();
   if (!handlersRegistered) {
     registerEventHandlers();
     handlersRegistered = true;

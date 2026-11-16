@@ -29,7 +29,6 @@ const Profile = lazy(() => import('./pages/Profile.tsx'));
 const Saved = lazy(() => import('./pages/Saved.tsx'));
 const Settings = lazy(() => import('./pages/Settings.tsx'));
 const Dashboard = lazy(() => import('./pages/dashboard/Dashboard.tsx'));
-const Admin = lazy(() => import('./pages/admin/Admin.tsx'));
 
 /** New pages open at the top; going Back returns to exactly where you were (waiting for the page to be tall enough again). */
 const scrollMemory = new Map<string, number>();
@@ -125,7 +124,6 @@ export function App() {
               <Route path="/saved" element={<Saved />} />
               <Route path="/settings/*" element={<Settings />} />
               <Route path="/dashboard/*" element={<RequireBusiness><Dashboard /></RequireBusiness>} />
-              <Route path="/admin/*" element={<Admin />} />
               <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>

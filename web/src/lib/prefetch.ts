@@ -18,7 +18,6 @@ const LOADERS: [RegExp, () => Promise<unknown>][] = [
   [/^\/saved/, () => import('../pages/Saved.tsx')],
   [/^\/settings/, () => import('../pages/Settings.tsx')],
   [/^\/dashboard/, () => import('../pages/dashboard/Dashboard.tsx')],
-  [/^\/admin/, () => import('../pages/admin/Admin.tsx')],
 ];
 const started = new Set<() => Promise<unknown>>();
 

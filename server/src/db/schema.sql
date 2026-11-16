@@ -594,3 +594,9 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   ended_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions(user_id, status);
+
+-- Words and phrases that hold a new post for review instead of publishing it. Managed from the admin panel.
+CREATE TABLE IF NOT EXISTS blocked_terms (
+  term TEXT PRIMARY KEY,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);

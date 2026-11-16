@@ -29,10 +29,10 @@ export function Ambient() {
 
 const Badge = ({ n }: { n: number }) => (n > 0 ? <span className="badge-dot">{n > 99 ? '99+' : n}</span> : null);
 
-/** Route-level enter animation; nested areas (dashboard/admin/settings) animate their own sections. */
+/** Route-level enter animation; nested areas (dashboard/settings) animate their own sections. */
 function routeKey(pathname: string) {
   const first = pathname.split('/')[1] ?? '';
-  return ['dashboard', 'admin', 'settings'].includes(first) ? first : pathname;
+  return ['dashboard', 'settings'].includes(first) ? first : pathname;
 }
 
 // ───────────── search palette (Ctrl/⌘ K) ─────────────
@@ -173,7 +173,7 @@ export function MoreMenuItems({ onDone }: { onDone?: () => void }) {
       <Link to="/saved" onClick={onDone}><Icon name="bookmark" />Saved</Link>
       {can('purchase') && <Link to="/cart" onClick={onDone}><Icon name="cart" />Cart{counts.cart > 0 && <span className="chip chip-brand" style={{ marginLeft: 'auto', height: 22 }}>{counts.cart}</span>}</Link>}
       {can('purchase') && <Link to="/orders" onClick={onDone}><Icon name="package" />My orders</Link>}
-      {isStaff && <Link to="/admin" onClick={onDone}><Icon name="shield" />Admin portal</Link>}
+      {isStaff && <a href={import.meta.env.VITE_ADMIN_URL ?? 'http://localhost:5180'} target="_blank" rel="noreferrer" onClick={onDone}><Icon name="shield" />Admin panel</a>}
       <Link to="/settings" onClick={onDone}><Icon name="settings" />Settings</Link>
       <hr />
       <button onClick={async () => { onDone?.(); await logout(); nav('/'); }}><Icon name="logout" />Log out</button>
@@ -188,7 +188,7 @@ const TITLES: [RegExp, string][] = [
   [/^\/posts\//, 'Post'], [/^\/jobs\/\d+/, 'Job'], [/^\/marketplace\/compare/, 'Compare'], [/^\/marketplace\/\d+/, 'Product'],
   [/^\/messages\/\d+/, 'Messages'], [/^\/businesses/, 'Businesses'], [/^\/cart/, 'Cart'], [/^\/orders\/\d+/, 'Order'], [/^\/orders/, 'Orders'],
   [/^\/search/, 'Search'], [/^\/saved/, 'Saved'], [/^\/me\/cv/, 'My CV'], [/^\/settings/, 'Settings'], [/^\/dashboard/, 'Dashboard'],
-  [/^\/admin/, 'Admin'], [/^\/menu/, 'Account'],
+  [/^\/menu/, 'Account'],
 ];
 function pageTitle(pathname: string) {
   if (ROOTS[pathname]) return ROOTS[pathname];

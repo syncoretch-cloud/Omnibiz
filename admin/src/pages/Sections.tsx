@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { Link, NavLink, Navigate, Route, Routes } from 'react-router';
-import { Icon } from '../../components/Icon.tsx';
-import { Avatar, Empty, Field, Input, Modal, PageTitle, Select, Spinner, Tabs, Textarea, SectionSwap } from '../../components/ui.tsx';
-import { Kpi, LineChart } from '../../components/Charts.tsx';
-import { patch, post, qs } from '../../lib/api.ts';
-import type { Json } from '../../lib/api.ts';
-import { useApi, useDebounced } from '../../lib/hooks.ts';
-import { useAction, useSession } from '../../lib/session.tsx';
-import { ACCOUNT_LABEL, compact, label, parseTime, timeAgo } from '../../lib/format.ts';
+import { Link } from 'react-router';
+import { appUrl } from '../lib/appUrl.ts';
+import { Icon } from '@web/components/Icon.tsx';
+import { Avatar, Empty, Field, Input, Modal, PageTitle, Select, Spinner, Tabs, Textarea, SectionSwap } from '@web/components/ui.tsx';
+import { Kpi, LineChart } from '@web/components/Charts.tsx';
+import { patch, post, qs } from '@web/lib/api.ts';
+import type { Json } from '@web/lib/api.ts';
+import { useApi, useDebounced } from '@web/lib/hooks.ts';
+import { useAction, useSession } from '@web/lib/session.tsx';
+import { ACCOUNT_LABEL, compact, label, parseTime, timeAgo } from '@web/lib/format.ts';
 
 function fillDays(rows: { day: string; n: number }[], days = 30) {
   const list: string[] = [];
@@ -16,7 +17,7 @@ function fillDays(rows: { day: string; n: number }[], days = 30) {
   return { days: list, values: list.map((d) => m.get(d) ?? 0) };
 }
 
-function Overview() {
+export function Overview() {
   const { data, loading } = useApi('/admin/stats');
   if (loading || !data) return <Spinner block />;
   const signups = fillDays(data.signups);
@@ -34,8 +35,8 @@ function Overview() {
         <Kpi label="Order value" value={data.content.gmv} format={(n) => `TZS ${compact(n)}`} />
       </div>
       <div className="grid-3">
-        <Link to="/admin/reports" className="card card-link kpi"><div className="label">Reports to review</div><div className="value" style={{ color: data.queues.open_reports ? 'var(--danger)' : undefined }}>{data.queues.open_reports}</div></Link>
-        <Link to="/admin/verification" className="card card-link kpi"><div className="label">Pending verifications</div><div className="value">{data.queues.pending_verifications}</div></Link>
+        <Link to="/reports" className="card card-link kpi"><div className="label">Reports to review</div><div className="value" style={{ color: data.queues.open_reports ? 'var(--danger)' : undefined }}>{data.queues.open_reports}</div></Link>
+        <Link to="/verification" className="card card-link kpi"><div className="label">Pending verifications</div><div className="value">{data.queues.pending_verifications}</div></Link>
         <div className="card kpi"><div className="label">Suspicious sign-ins (7d)</div><div className="value">{data.queues.suspicious_logins_7d}</div></div>
       </div>
       <div className="card card-pad">
@@ -71,7 +72,7 @@ function UserDetail({ id, onClose, onChanged }: { id: number; onClose: () => voi
           <span className={`chip ${u.status === 'active' ? 'chip-success' : 'chip-danger'}`}>{label(u.status)}</span>
         </div>
         <div className="grid-4">{Object.entries(data.counts).map(([k, v]) => <div key={k} className="card kpi"><div className="label">{label(k)}</div><div className="value">{v as number}</div></div>)}</div>
-        <Link to={`/u/${u.username}`} className="btn btn-outline btn-sm" style={{ alignSelf: 'flex-start' }}>Open profile</Link>
+        <a href={appUrl(`/u/${u.username}`)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ alignSelf: 'flex-start' }}>Open profile</a>
         {staffCan('users.suspend') && u.id !== me?.user.id && (
           <div className="card card-pad stack-sm">
             <h3>Account status</h3>
@@ -98,7 +99,7 @@ function UserDetail({ id, onClose, onChanged }: { id: number; onClose: () => voi
   );
 }
 
-function Users() {
+export function Users() {
   const [q, setQ] = useState('');
   const [type, setType] = useState('');
   const [status, setStatus] = useState('');
@@ -138,7 +139,7 @@ function Users() {
   );
 }
 
-function Content() {
+export function Content() {
   const act = useAction();
   const [type, setType] = useState<'posts' | 'products' | 'jobs' | 'comments'>('posts');
   const [status, setStatus] = useState('');
@@ -176,7 +177,7 @@ function Content() {
   );
 }
 
-function Reports() {
+export function Reports() {
   const act = useAction();
   const [status, setStatus] = useState('open');
   const { data, loading, reload } = useApi(`/admin/reports?status=${status}`);
@@ -202,7 +203,7 @@ function Reports() {
             </div>
             <div className="card card-pad small" style={{ background: 'var(--surface-2)' }}>
               {r.preview?.text ?? <i>Content no longer exists</i>}
-              {r.preview?.link && <div><Link to={r.preview.link} className="xsmall">Open in context →</Link></div>}
+              {r.preview?.link && <div><a href={appUrl(r.preview.link)} target="_blank" rel="noreferrer" className="xsmall">Open in context →</a></div>}
             </div>
             {r.details.filter((d: Json) => d.details).map((d: Json, i: number) => <div key={i} className="xsmall muted">“{d.details}”</div>)}
             {status === 'open' && (
@@ -222,7 +223,7 @@ function Reports() {
   );
 }
 
-function Verification() {
+export function Verification() {
   const act = useAction();
   const [status, setStatus] = useState('pending');
   const { data, loading, reload } = useApi(`/admin/verifications?status=${status}`);
@@ -235,7 +236,7 @@ function Verification() {
           <div className="row">
             <Avatar user={v.user} size={44} square />
             <div className="grow">
-              <Link to={`/u/${v.user?.username}`} className="bold">{v.business?.name}</Link>
+              <a href={appUrl(`/u/${v.user?.username}`)} target="_blank" rel="noreferrer" className="bold">{v.business?.name}</a>
               <div className="xsmall muted">{label(v.business?.kind)} · {v.business?.category} · {v.business?.address} · requested {timeAgo(v.created_at)}</div>
             </div>
           </div>
@@ -260,7 +261,7 @@ function Verification() {
   );
 }
 
-function Categories() {
+export function Categories() {
   const act = useAction();
   const { data, reload } = useApi('/admin/categories');
   const [name, setName] = useState('');
@@ -287,7 +288,7 @@ function Categories() {
   );
 }
 
-function Broadcast() {
+export function Broadcast() {
   const { meta } = useSession();
   const act = useAction();
   const [f, setF] = useState({ title: '', body: '', link: '', account_type: '', city: '', interest: '' });
@@ -314,7 +315,7 @@ function Broadcast() {
   );
 }
 
-function Audit() {
+export function Audit() {
   const { data, loading } = useApi('/admin/audit?limit=100');
   if (loading) return <Spinner block />;
   return (
@@ -335,36 +336,3 @@ function Audit() {
   );
 }
 
-export default function Admin() {
-  const { me, staffCan } = useSession();
-  if (!me?.staff_permissions.length) return <Navigate to="/" replace />;
-  const links: [string, string, string, string][] = [
-    ['', 'Overview', 'chart', 'stats'], ['users', 'Users', 'users', 'users.view'], ['content', 'Content', 'layers', 'content'],
-    ['reports', 'Reports', 'flag', 'reports'], ['verification', 'Verification', 'shieldCheck', 'verification'],
-    ['categories', 'Categories', 'tag', 'categories'], ['broadcast', 'Broadcast', 'megaphone', 'broadcast'], ['audit', 'Audit log', 'file', 'audit'],
-  ];
-  const allowed = links.filter(([, , , p]) => staffCan(p));
-  return (
-    <main className="page">
-      <PageTitle title="Admin portal" subtitle={`Signed in as ${label(me.user.role)}`} />
-      <div className="layout-side">
-        <aside className="card sticky-side">
-          <nav className="side-nav">{allowed.map(([to, text, icon]) => <NavLink key={to} to={`/admin${to ? '/' + to : ''}`} end={!to}><Icon name={icon} />{text}</NavLink>)}</nav>
-        </aside>
-        <section>
-          <SectionSwap><Routes>
-            <Route index element={staffCan('stats') ? <Overview /> : <Navigate to={allowed[0]?.[0] ?? '/'} replace />} />
-            {staffCan('users.view') && <Route path="users" element={<Users />} />}
-            {staffCan('content') && <Route path="content" element={<Content />} />}
-            {staffCan('reports') && <Route path="reports" element={<Reports />} />}
-            {staffCan('verification') && <Route path="verification" element={<Verification />} />}
-            {staffCan('categories') && <Route path="categories" element={<Categories />} />}
-            {staffCan('broadcast') && <Route path="broadcast" element={<Broadcast />} />}
-            {staffCan('audit') && <Route path="audit" element={<Audit />} />}
-            <Route path="*" element={<Empty icon="lock" title="You don't have access to this section" />} />
-          </Routes></SectionSwap>
-        </section>
-      </div>
-    </main>
-  );
-}

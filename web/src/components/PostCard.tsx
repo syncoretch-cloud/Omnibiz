@@ -12,20 +12,27 @@ import { ACCOUNT_LABEL, compact, dateLabel, timeAgo } from '../lib/format.ts';
 import { toggleMusic, usePlaying } from '../lib/music.ts';
 import { thump, tick } from '../lib/haptics.ts';
 
-/** Renders text with clickable #hashtags, @mentions and links. */
+/** Renders text with clickable #hashtags, @mentions, links (https://…, www.…) and email addresses. */
 export function RichText({ text }: { text: string }) {
   const parts: ReactNode[] = [];
-  const re = /(#[\p{L}\p{N}_]{2,40}|@[a-zA-Z0-9_.]{3,30}|https?:\/\/[^\s]+)/gu;
+  // Emails come first so the @ inside one is never read as a @mention.
+  const re = /([A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}|#[\p{L}\p{N}_]{2,40}|@[a-zA-Z0-9_.]{3,30}|https?:\/\/[^\s]+|www\.[^\s]+\.[^\s]+)/gu;
   let last = 0;
   let m: RegExpExecArray | null;
   let i = 0;
   while ((m = re.exec(text))) {
     if (m.index > last) parts.push(text.slice(last, m.index));
-    const t = m[0];
-    if (t.startsWith('#')) parts.push(<Link key={i++} to={`/search?q=${encodeURIComponent(t)}&type=posts`}>{t}</Link>);
+    let t = m[0];
+    // Sentence punctuation right after a link is not part of it.
+    const trail = /[.,;:!?)\]]+$/.exec(t)?.[0] ?? '';
+    if (trail && !t.startsWith('#') && !t.startsWith('@')) t = t.slice(0, -trail.length);
+    const shown = (u: string) => (u.length > 50 ? u.slice(0, 47) + '…' : u);
+    if (/^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(t) && !t.startsWith('@')) parts.push(<a key={i++} href={`mailto:${t}`}>{t}</a>);
+    else if (t.startsWith('#')) parts.push(<Link key={i++} to={`/search?q=${encodeURIComponent(t)}&type=posts`}>{t}</Link>);
     else if (t.startsWith('@')) parts.push(<Link key={i++} to={`/u/${t.slice(1)}`}>{t}</Link>);
-    else parts.push(<a key={i++} href={t} target="_blank" rel="noopener noreferrer nofollow">{t.length > 50 ? t.slice(0, 47) + '…' : t}</a>);
-    last = m.index + t.length;
+    else parts.push(<a key={i++} href={t.startsWith('www.') ? `https://${t}` : t} target="_blank" rel="noopener noreferrer nofollow">{shown(t.replace(/^https?:\/\//, ''))}</a>);
+    if (trail && !t.startsWith('#') && !t.startsWith('@')) parts.push(trail);
+    last = m.index + m[0].length;
   }
   if (last < text.length) parts.push(text.slice(last));
   return <>{parts.map((p, k) => <Fragment key={k}>{p}</Fragment>)}</>;

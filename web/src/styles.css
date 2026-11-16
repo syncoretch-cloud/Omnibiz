@@ -1647,3 +1647,7 @@ article.post.kb-focus { box-shadow: 0 0 0 2px var(--brand); }
 .feed > .post:nth-child(2) { animation-delay: 0.05s; }
 .feed > .post:nth-child(3) { animation-delay: 0.1s; }
 .feed > .post:nth-child(n + 4) { animation-delay: 0.14s; }
+
+/* Links and emails in a bio or about text read as links: bright, underlined, easy to spot. */
+.profile-about a, .pre a { color: var(--brand-strong); text-decoration: underline; text-decoration-color: rgba(111, 176, 255, 0.45); text-underline-offset: 3px; overflow-wrap: anywhere; }
+.profile-about a:hover, .pre a:hover { color: #fff; text-decoration-color: currentColor; }

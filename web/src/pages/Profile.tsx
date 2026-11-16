@@ -4,6 +4,7 @@ import { Icon } from '../components/Icon.tsx';
 import type { IconName } from '../components/Icon.tsx';
 import { Artwork, postArt, productArt } from '../components/Artwork.tsx';
 import { CvManager } from './CvEditor.tsx';
+import { RichText } from '../components/PostCard.tsx';
 import { Avatar, Dropdown, Empty, LoadMore, Modal, Ring, Spinner, Swap, Tabs, Verified, Visibility } from '../components/ui.tsx';
 import { JobCard, PersonRow } from '../components/Cards.tsx';
 import { ApplicationsOverview } from '../components/Applications.tsx';
@@ -179,7 +180,7 @@ function About({ data }: { data: Json }) {
   if (!b) {
     return (
       <div className="stack">
-        {p?.summary && <div className="card card-pad"><h3 style={{ marginBottom: 8 }}>About</h3><p className="pre">{p.summary}</p></div>}
+        {p?.summary && <div className="card card-pad"><h3 style={{ marginBottom: 8 }}>About</h3><p className="pre"><RichText text={p.summary} /></p></div>}
         {p && (p.email || p.phone || p.dob || p.preferred_industries.length > 0) && (
           <div className="grid-2">
             {(p.email || p.phone || p.dob) && (
@@ -206,7 +207,7 @@ function About({ data }: { data: Json }) {
   }
   return (
     <div className="stack">
-      {b.description && <div className="card card-pad"><h3 style={{ marginBottom: 8 }}>About {b.name}</h3><p className="pre">{b.description}</p></div>}
+      {b.description && <div className="card card-pad"><h3 style={{ marginBottom: 8 }}>About {b.name}</h3><p className="pre"><RichText text={b.description} /></p></div>}
       <div className="grid-2">
         <div className="card card-pad stack-sm small">
           <div className="section-title">Contact</div>
@@ -349,7 +350,7 @@ export default function Profile() {
           )}
         </div>
         <div className="profile-body">
-          {u.bio && <p className="profile-about pre">{u.bio}</p>}
+          {u.bio && <p className="profile-about pre"><RichText text={u.bio} /></p>}
           {links.length > 0 && (
             <div className="profile-links">
               {links.slice(0, 5).map((l, i) => (

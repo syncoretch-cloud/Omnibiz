@@ -12,8 +12,9 @@ body { background: var(--bg); }
 .admin-who .btn { justify-self: start; margin-top: 6px; }
 .admin-main { min-width: 0; padding: clamp(16px, 3vw, 32px); max-width: 1180px; width: 100%; }
 .admin-top, .admin-scrim { display: none; }
-.admin-login { min-height: 100dvh; display: grid; place-items: center; padding: 16px; }
-.admin-login > * { width: min(100%, 400px); }
+.admin-login { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; padding: 16px 16px 0; }
+.admin-login > .card { width: min(100%, 400px); margin-block: auto; }
+.admin-foot { flex: none; padding: 28px 0 calc(16px + env(safe-area-inset-bottom, 0px)); text-align: center; font-size: 0.76rem; color: var(--muted); }
 .admin-login-title { margin: 12px 0 4px; font-size: 1.5rem; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip-x { margin-left: 6px; background: none; border: 0; color: var(--muted); cursor: pointer; font: inherit; line-height: 1; }

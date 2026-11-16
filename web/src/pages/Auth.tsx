@@ -265,7 +265,7 @@ export function AuthShell({ mode }: { mode: 'login' | 'register' | 'recover' }) 
           {mode === 'login' ? <LoginPanel /> : mode === 'register' ? <RegisterPanel /> : <RecoverPanel />}
         </Swap>
       </div>
-      <div className="auth-foot">© 2026 OMNIBIZ</div>
+      <footer className="auth-foot">© {new Date().getFullYear()} Syncore Technologies. All rights reserved.</footer>
     </div>
   );
 }

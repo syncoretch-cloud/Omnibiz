@@ -50,6 +50,7 @@ export function Login() {
         {error && <p className="small" style={{ color: 'var(--danger)' }} role="alert">{error}</p>}
         <button className="btn btn-primary" disabled={busy}>{busy ? 'Signing in…' : challenge ? 'Verify' : 'Sign in'}</button>
       </form>
+      <footer className="admin-foot">© {new Date().getFullYear()} Syncore Technologies. All rights reserved.</footer>
     </main>
   );
 }

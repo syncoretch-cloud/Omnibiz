@@ -872,8 +872,9 @@ button.metric:hover { border-color: var(--brand); transform: translateY(-2px); }
 @keyframes pulse { 50% { box-shadow: 0 0 0 14px transparent; } }
 
 /* ─────────────────────────── auth shell (landing) ─────────────────────────── */
-.auth-shell { min-height: var(--app-h); display: grid; place-items: center; padding: 32px 18px; position: relative; }
-.auth-grid { display: grid; grid-template-columns: minmax(0, 380px); width: min(100%, 380px); }
+/* The form is centred in the free space and the footer always follows it, so the two can never overlap. */
+.auth-shell { min-height: var(--app-h); display: flex; flex-direction: column; align-items: center; padding: 32px 18px 0; }
+.auth-grid { display: grid; grid-template-columns: minmax(0, 380px); width: min(100%, 380px); margin-block: auto; }
 .auth-col { display: flex; flex-direction: column; gap: 14px; width: 100%; min-width: 0; }
 .auth-card { border-radius: 20px; padding: 38px 36px 30px; display: flex; flex-direction: column; gap: 12px; align-items: stretch; }
 .auth-card .brand-mark { align-self: center; margin: 2px auto 18px; }
@@ -894,7 +895,7 @@ button.metric:hover { border-color: var(--brand); transform: translateY(-2px); }
 .pw-wrap { position: relative; }
 .pw-wrap .input { padding-right: 64px; }
 .pw-wrap button { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); }
-.auth-foot { position: fixed; bottom: 16px; left: 0; right: 0; text-align: center; font-size: 0.74rem; color: var(--muted); letter-spacing: 0.08em; }
+.auth-foot { flex: none; padding: 28px 0 calc(16px + env(safe-area-inset-bottom, 0px)); text-align: center; font-size: 0.76rem; color: var(--muted); letter-spacing: 0.03em; }
 
 /* ─────────────────────────── misc components ─────────────────────────── */
 .empty { padding: 44px 20px; text-align: center; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 10px; }

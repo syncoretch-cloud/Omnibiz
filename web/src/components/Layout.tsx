@@ -15,6 +15,7 @@ import { SHORTCUTS, useShortcuts } from '../lib/shortcuts.tsx';
 
 export interface ShellContext {
   openCreate: () => void;
+  openSearch: () => void;
 }
 
 /** The OmniBiz logo artwork, large (sign-in and onboarding). */
@@ -355,7 +356,7 @@ export function AppLayout() {
           </div>
         )}
         <div key={routeKey(loc.pathname)} className="route-enter">
-          <Outlet context={{ openCreate } satisfies ShellContext} />
+          <Outlet context={{ openCreate, openSearch: () => setSearch(true) } satisfies ShellContext} />
         </div>
       </main>
 

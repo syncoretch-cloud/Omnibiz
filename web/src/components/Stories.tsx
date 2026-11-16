@@ -194,6 +194,13 @@ export function StoriesBar() {
 
   return (
     <>
+      {data && !mine && !others.length && can('create_posts') ? (
+        // No stories yet: a slim prompt instead of a tall empty tile.
+        <button className="pulse-slim" onClick={() => setCreating(true)}>
+          <span className="plus-orb"><Icon name="plus" /></span>
+          <span><b>Add to your story</b><small>Stories from people you follow show here for 24 hours.</small></span>
+        </button>
+      ) : (
       <div className="pulse" aria-label="Stories">
         {can('create_posts') && (mine ? (
           <div className="pulse-mine">
@@ -226,6 +233,7 @@ export function StoriesBar() {
         {!data && Array.from({ length: 5 }, (_, i) => <span key={i} className="pulse-card skeleton" />)}
         {data && !others.length && <p className="pulse-empty small muted">No stories from others yet. When people you follow add one, it shows here for 24 hours.</p>}
       </div>
+      )}
       {viewing && <StoryViewer stories={viewing.list} start={viewing.start} onClose={() => { setViewing(null); reload(); }} />}
       {creating && <StoryCreator onClose={() => setCreating(false)} />}
     </>

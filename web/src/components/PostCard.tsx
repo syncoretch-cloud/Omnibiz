@@ -124,7 +124,7 @@ const KIND_CHIP: Record<string, [string, string]> = {
   product: ['chip-brand', 'Product'], service: ['chip-brand', 'Service'], news: ['chip-info', 'News'], announcement: ['chip-accent', 'Announcement'],
 };
 
-export function PostCard({ post: initial, onRemoved, showReason = false, expandComments = false, split = false }: { post: Json; onRemoved?: () => void; showReason?: boolean; expandComments?: boolean; split?: boolean }) {
+export function PostCard({ post: initial, onRemoved, showReason = false, expandComments = false, split = false, gallery = false }: { post: Json; onRemoved?: () => void; showReason?: boolean; expandComments?: boolean; split?: boolean; gallery?: boolean }) {
   const { me, can, staffCan } = useSession();
   const act = useAction();
   const toast = useToast();
@@ -214,7 +214,7 @@ export function PostCard({ post: initial, onRemoved, showReason = false, expandC
   const commentsOff = !!c.data?.comments_off && !p.mine;
 
   return (
-    <article className={`card post${split && media.length ? ' split' : ''}`}>
+    <article className={`card post${split && media.length ? ' split' : ''}${gallery ? ' gallery' : ''}`}>
       {showReason && p.reason && !pureRepost && <div className="post-context"><Icon name="sparkles" />{p.reason}</div>}
       {pureRepost && <div className="post-context"><Icon name="repeat" /><Link to={`/u/${p.author?.username}`}>{p.author?.display_name}</Link> reposted</div>}
 
@@ -247,6 +247,7 @@ export function PostCard({ post: initial, onRemoved, showReason = false, expandC
           {caption && <div className={`post-feature-text${caption.length <= 180 ? ' lg' : ''}${long && !captionOpen ? ' clamped' : ''}`}><RichText text={caption} /></div>}
           {priceChange && <div className="price-change"><Icon name="tag" />{priceChange}</div>}
           {heart}
+          {gallery && <Link to={`/posts/${c.id}`} className="post-open" aria-label="Open post"><Icon name="eye" /></Link>}
         </div>
       ) : (
         <>
@@ -254,6 +255,8 @@ export function PostCard({ post: initial, onRemoved, showReason = false, expandC
           {media.length > 0 && (
             <div className={`post-media${frame ? ' framed' : ''}`} style={frame ? { aspectRatio: frame } : undefined} onDoubleClick={doubleTap}>
               <Carousel media={media} alt={c.data?.alt} />{heart}
+              {gallery && <Link to={`/posts/${c.id}`} className="post-open" aria-label="Open post"><Icon name="eye" />View</Link>}
+              {gallery && chip && <span className={`chip post-kind ${chip[0]}`}>{chip[1]}</span>}
             </div>
           )}
           {quoted && (

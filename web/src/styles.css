@@ -1431,11 +1431,28 @@ a.widget-row:hover .bold { color: var(--brand); }
   .nav-link:hover[data-icon='notifications'] svg { animation: ic-ring 0.9s var(--ease-out); transform-origin: 50% 8%; }
   .nav-link:hover[data-icon='dashboard'] svg { animation: ic-grid 0.7s var(--ease-out); }
 }
-/* Only Home keeps a column on the right; every other page, a profile included, takes the whole width beside the rail. */
-@media (min-width: 1280px) {
-  .shell:not(.no-side) { grid-template-columns: 64px minmax(0, 1fr) 320px; grid-template-areas: 'nav main side'; }
-  .shell:not(.no-side) .panel-side { display: block; grid-area: side; min-height: 0; overflow: hidden auto; scrollbar-width: none; }
+/* The right-hand panel (profile, account, suggestions) is closed until the avatar in the rail is clicked. Until then the page takes the whole width.
+   Wide screens give it its own column; narrower ones slide it over the page. */
+@media (min-width: 768px) {
+  .shell.side-open .panel-side {
+    display: block; position: fixed; z-index: 70; top: 12px; right: 12px; bottom: 12px; width: min(340px, calc(100vw - 24px)); overflow: hidden auto; scrollbar-width: none;
+    background: var(--panel-bg); animation: side-in 0.28s var(--ease-out) both; box-shadow: var(--shadow-lg);
+  }
+  .nav-me-btn.on { box-shadow: 0 0 0 2px var(--brand); }
 }
+@media (min-width: 1100px) {
+  .shell.side-open { grid-template-columns: 64px minmax(0, 1fr) 340px; grid-template-areas: 'nav main side'; }
+  .shell.side-open .panel-side { position: static; grid-area: side; width: auto; min-height: 0; box-shadow: none; }
+}
+@keyframes side-in { from { opacity: 0; transform: translateX(24px); } }
+.account-menu { display: flex; flex-direction: column; padding: 6px; }
+.account-menu a, .account-menu button {
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px; border: 0; border-radius: 10px; background: none; color: var(--text);
+  font-size: 0.9rem; font-weight: 550; text-align: left; cursor: pointer;
+}
+.account-menu a:hover, .account-menu button:hover { background: var(--surface-2); color: var(--text); }
+.account-menu svg { width: 19px; height: 19px; color: var(--text-2); }
+.account-menu hr { border: 0; height: 1px; background: var(--border); margin: 4px 6px; }
 
 /* ─────────────────────────── splash ─────────────────────────── */
 .splash { position: fixed; inset: 0; z-index: 3000; display: grid; place-items: center; overflow: hidden; background: #000; transition: opacity 0.8s var(--ease), visibility 0.8s; }

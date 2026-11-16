@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Icon } from './Icon.tsx';
 import { Avatar, Verified } from './ui.tsx';
@@ -27,7 +28,7 @@ function SuggestionRow({ u }: { u: Json }) {
 }
 
 /** The context panel: you, jobs matched to you, businesses to follow and what's trending. */
-export function Board() {
+export function Board({ onClose, account }: { onClose?: () => void; account?: ReactNode }) {
   const { me, can, industryName } = useSession();
   const u = me!.user;
   const suggestions = useApi('/users/suggestions?limit=4');
@@ -35,6 +36,12 @@ export function Board() {
   const tags = useApi('/posts/trending-tags');
   return (
     <div className="board">
+      {onClose && (
+        <div className="row-between" style={{ padding: '2px 4px 0' }}>
+          <span className="eyebrow">Your account</span>
+          <button className="icon-btn" onClick={onClose} aria-label="Close panel"><Icon name="x" /></button>
+        </div>
+      )}
       <div className="widget me-widget">
         <Link to={`/u/${u.username}`} className="row" style={{ color: 'inherit' }}>
           <Avatar user={u} size={48} />
@@ -81,6 +88,8 @@ export function Board() {
           </div>
         </div>
       )}
+
+      {account && <div className="widget account-menu">{account}</div>}
 
       <div className="board-foot">About · Help · Jobs · Market · Businesses · Privacy · Terms<div>© 2026 OMNIBIZ</div></div>
     </div>

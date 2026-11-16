@@ -212,17 +212,17 @@ export function AppLayout() {
   const [sheet, setSheet] = useState(false);
   const [composer, setComposer] = useState(false);
   const [storying, setStorying] = useState(false);
-  const [meMenu, setMeMenu] = useState(false);
+  // The right-hand panel stays closed until the profile icon is clicked, so the page gets the whole width.
+  const [side, setSide] = useState(false);
   const [help, setHelp] = useState(false);
   const toast = useToast();
-  const meRef = useRef<HTMLDivElement>(null);
   const closeSearch = useCallback(() => setSearch(false), []);
   const closeSheet = useCallback(() => setSheet(false), []);
 
   useEffect(() => {
     setSearch(false);
     setSheet(false);
-    setMeMenu(false);
+    setSide(false);
   }, [loc.pathname]);
 
   // Ctrl/⌘ K opens search from anywhere.
@@ -237,13 +237,12 @@ export function AppLayout() {
     return () => document.removeEventListener('keydown', onKey);
   }, []);
 
-  // The account menu closes on any click outside it.
   useEffect(() => {
-    if (!meMenu) return;
-    const close = (e: MouseEvent) => meRef.current && !meRef.current.contains(e.target as Node) && setMeMenu(false);
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, [meMenu]);
+    if (!side) return;
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setSide(false);
+    document.addEventListener('keydown', esc);
+    return () => document.removeEventListener('keydown', esc);
+  }, [side]);
 
   const openCreate = useCallback(() => setComposer(true), []);
 
@@ -269,7 +268,6 @@ export function AppLayout() {
   const isReels = loc.pathname.startsWith('/reels');
   useShortcuts({ search: () => setSearch(true), create: () => (canCreate ? setSheet(true) : undefined), help: () => setHelp(true), jobs: showJobs });
   const root = loc.pathname in ROOTS;
-  const wide = loc.pathname !== '/';
   const title = pageTitle(loc.pathname);
   // Back goes to the previous screen in the app, or Home when the page was opened directly.
   const back = () => ((window.history.state?.idx ?? 0) > 0 ? nav(-1) : nav('/'));
@@ -291,7 +289,7 @@ export function AppLayout() {
   );
 
   return (
-    <div className={`shell${wide ? ' no-side' : ''}${isReels ? ' reels-page' : ''}${hidden ? ' chrome-hidden' : ''}`}>
+    <div className={`shell${side ? ' side-open' : ''}${isReels ? ' reels-page' : ''}${hidden ? ' chrome-hidden' : ''}`}>
       {/* phones: top bar */}
       <header className="topbar glass">
         {root ? (
@@ -328,18 +326,10 @@ export function AppLayout() {
           {link('/saved', <Icon name="bookmark" />, 'Saved')}
         </nav>
         {canCreate && <button className="btn btn-primary nav-create" onClick={() => { thump(); create(); }} aria-label="Create" data-label="Create"><Icon name="plus" /><span className="nav-label">Create</span></button>}
-        <div className="nav-me" ref={meRef}>
-          <button className="nav-me-btn" onClick={() => setMeMenu((m) => !m)} aria-expanded={meMenu} aria-label="Account menu">
+        <div className="nav-me">
+          <button className={`nav-me-btn${side ? ' on' : ''}`} onClick={() => { tick(); setSide((o) => !o); }} aria-expanded={side} aria-controls="side-panel" aria-label="Your profile and account" data-label="Profile">
             <Avatar user={u} size={36} />
-            <span className="nav-label nav-me-text"><b className="truncate">{u.display_name}</b><span className="truncate">@{u.username}</span></span>
-            <span className="nav-label"><Icon name="more" /></span>
           </button>
-          {meMenu && (
-            <div className="popover nav-me-menu">
-              <Link to={`/u/${u.username}`} onClick={() => setMeMenu(false)}><Icon name="user" />View profile</Link>
-              <MoreMenuItems onDone={() => setMeMenu(false)} />
-            </div>
-          )}
         </div>
       </aside>
 
@@ -362,8 +352,12 @@ export function AppLayout() {
         </div>
       </main>
 
-      {/* computers: context panel */}
-      {!wide && <aside className="panel panel-side" aria-label="For you"><Board /></aside>}
+      {/* computers: your profile and account, opened from the avatar in the rail */}
+      {side && (
+        <aside className="panel panel-side" id="side-panel" aria-label="Your profile and account">
+          <Board onClose={() => setSide(false)} account={<MoreMenuItems onDone={() => setSide(false)} />} />
+        </aside>
+      )}
 
       {/* phones: bottom tabs */}
       <nav className="dock glass" aria-label="Main">

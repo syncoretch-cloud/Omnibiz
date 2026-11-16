@@ -644,3 +644,59 @@ test('location: countries and regions are offered, and missing ones are filled f
   assert.equal(upd.status, 200, JSON.stringify(upd.body));
   assert.equal(upd.body.user.region, 'Mbeya');
 });
+
+test('password recovery: the code goes by email or text message, only to the account\'s own contacts', async () => {
+  const { setSenders } = await import('../src/lib/outbox.ts');
+  const emails: { to: string; body: string }[] = [];
+  const texts: { to: string; body: string }[] = [];
+  setSenders({ email: async (to, _s, body) => { emails.push({ to, body }); }, sms: async (to, body) => { texts.push({ to, body }); } });
+  try {
+    const { me } = await register('personal');
+    const code = (s: string) => /(\d{6})/.exec(s)![1];
+    const wait = () => new Promise((r) => setTimeout(r, 50));
+
+    // By email (the default for an email address or username).
+    const byEmail = await new Client().post('/api/auth/recover/request', { identifier: me.email });
+    assert.equal(byEmail.status, 200);
+    assert.equal(byEmail.body.channel, 'email');
+    await wait();
+    assert.equal(emails.at(-1)!.to, me.email);
+    assert.equal(texts.length, 0);
+
+    // By text message: sent to the phone on the account, even when the person typed their username.
+    const bySms = await new Client().post('/api/auth/recover/request', { identifier: me.username, channel: 'sms' });
+    assert.equal(bySms.body.channel, 'sms');
+    await wait();
+    assert.equal(texts.at(-1)!.to, me.phone);
+    assert.match(texts.at(-1)!.body, /\d{6}/);
+
+    // A phone number as the identifier defaults to a text message.
+    const phoneOnly = await new Client().post('/api/auth/recover/request', { identifier: me.phone });
+    assert.equal(phoneOnly.body.channel, 'sms');
+
+    // The SMS code resets the password, and the old password stops working.
+    const newest = code(texts.at(-1)!.body);
+    const reset = await new Client().post('/api/auth/recover/reset', { identifier: me.username, code: newest, password: 'Fresh2026pw' });
+    assert.equal(reset.status, 200, JSON.stringify(reset.body));
+    assert.equal((await new Client().post('/api/auth/login', { identifier: me.username, password: 'Secret123' })).status, 401);
+    assert.equal((await new Client().post('/api/auth/login', { identifier: me.username, password: 'Fresh2026pw' })).status, 200);
+
+    // Unknown accounts get the same answer and nothing is sent.
+    const before = emails.length + texts.length;
+    const ghost = await new Client().post('/api/auth/recover/request', { identifier: 'nobody@example.com' });
+    assert.equal(ghost.status, 200);
+    await wait();
+    assert.equal(emails.length + texts.length, before);
+
+    // A failing provider is recorded on the outbox row instead of breaking the request.
+    setSenders({ email: async () => { throw new Error('SMTP down'); } });
+    const { me: m2 } = await register('personal');
+    assert.equal((await new Client().post('/api/auth/recover/request', { identifier: m2.email })).status, 200);
+    await wait();
+    const row = db.prepare("SELECT status, error FROM outbox WHERE recipient = ? ORDER BY id DESC LIMIT 1").get(m2.email) as { status: string; error: string };
+    assert.equal(row.status, 'failed');
+    assert.match(row.error, /SMTP down/);
+  } finally {
+    setSenders({ email: null, sms: null });
+  }
+});

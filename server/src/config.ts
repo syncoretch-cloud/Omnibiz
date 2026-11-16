@@ -14,6 +14,11 @@ function loadSecret(): Buffer {
   return Buffer.from(fs.readFileSync(file, 'utf8').trim(), 'hex');
 }
 
+// Settings (SMTP and SMS credentials, ports) can live in server/.env or a .env at the project root; real environment variables win.
+for (const file of [path.join(SERVER_ROOT, '.env'), path.join(SERVER_ROOT, '..', '.env')]) {
+  if (fs.existsSync(file) && typeof process.loadEnvFile === 'function') process.loadEnvFile(file);
+}
+
 const env = process.env.NODE_ENV ?? 'development';
 
 export const config = {
@@ -34,4 +39,23 @@ export const config = {
   maxUploadBytes: 25 * 1024 * 1024,
   /** Email/phone code verification at sign-up. Off for now; set CONTACT_VERIFICATION=on to bring it back. */
   contactVerification: process.env.CONTACT_VERIFICATION === 'on',
+  /** Email delivery over SMTP (Gmail, Zoho, Brevo, SES…). Unset = messages are only saved to the outbox. */
+  mail: {
+    host: process.env.SMTP_HOST ?? '',
+    port: Number(process.env.SMTP_PORT ?? 587),
+    secure: process.env.SMTP_SECURE === 'true' || process.env.SMTP_PORT === '465',
+    user: process.env.SMTP_USER ?? '',
+    pass: process.env.SMTP_PASS ?? '',
+    from: process.env.MAIL_FROM ?? process.env.SMTP_USER ?? 'OmniBiz <no-reply@omnibiz.local>',
+  },
+  /** Text messages through Africa's Talking or Twilio. Unset = messages are only saved to the outbox. */
+  sms: {
+    provider: (process.env.SMS_PROVIDER ?? '').toLowerCase(),
+    atUsername: process.env.AT_USERNAME ?? '',
+    atApiKey: process.env.AT_API_KEY ?? '',
+    atSender: process.env.AT_SENDER_ID ?? '',
+    twilioSid: process.env.TWILIO_ACCOUNT_SID ?? '',
+    twilioToken: process.env.TWILIO_AUTH_TOKEN ?? '',
+    twilioFrom: process.env.TWILIO_FROM ?? '',
+  },
 };

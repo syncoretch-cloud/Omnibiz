@@ -24,11 +24,11 @@ const PHONE = /^\+?\d{9,15}$/;
 const normPhone = (p: string) => p.replace(/[\s\-()]/g, '');
 
 // ───────────── helpers ─────────────
-function issueCode(user: Row, purpose: 'email' | 'phone' | 'reset') {
+function issueCode(user: Row, purpose: 'email' | 'phone' | 'reset', via: 'email' | 'sms' = 'email') {
   if (!hit(`code:${user.id}:${purpose}`, 5, 60 * MINUTE)) throw new HttpError(429, 'Too many codes requested. Try again later.');
   const code = randomCode();
   run("UPDATE verification_codes SET used_at = datetime('now') WHERE user_id = ? AND purpose = ? AND used_at IS NULL", user.id, purpose);
-  const target = purpose === 'phone' ? user.phone : user.email;
+  const target = purpose === 'phone' || (purpose === 'reset' && via === 'sms') ? user.phone : user.email;
   run(
     'INSERT INTO verification_codes (user_id, purpose, code_hash, target, expires_at) VALUES (?,?,?,?,?)',
     user.id, purpose, sha256(`${user.id}:${code}`), target, sqlTime(15 * MINUTE),
@@ -36,8 +36,9 @@ function issueCode(user: Row, purpose: 'email' | 'phone' | 'reset') {
   if (purpose === 'email') sendEmail(user.email, 'Verify your OmniBiz email', `Your OmniBiz verification code is ${code}. It expires in 15 minutes.`);
   if (purpose === 'phone' && user.phone) sendSms(user.phone, `OmniBiz code: ${code}`);
   if (purpose === 'reset') {
-    sendEmail(user.email, 'Reset your OmniBiz password', `Use code ${code} to reset your password. If you did not request this, you can ignore this email.`);
-    if (user.phone && user.phone_verified) sendSms(user.phone, `OmniBiz password reset code: ${code}`);
+    // The code goes only to the contact details already on the account, by the channel the person chose.
+    if (via === 'sms' && user.phone) sendSms(user.phone, `OmniBiz: your password reset code is ${code}. It expires in 15 minutes. Never share it.`);
+    else sendEmail(user.email, 'Reset your OmniBiz password', `Use code ${code} to reset your password. It expires in 15 minutes. If you did not request this, you can ignore this email.`);
   }
 }
 
@@ -265,16 +266,18 @@ authRouter.post('/verify/confirm', requireAuth, rateLimit('verify', 20, 15 * MIN
 
 // ───────────── account recovery ─────────────
 authRouter.post('/recover/request', rateLimit('recover', 5, 15 * MINUTE, (r) => r.ip ?? ''), (req, res) => {
-  const { identifier } = validate(req.body, { identifier: { type: 'string', required: true } });
+  const { identifier, channel } = validate(req.body, { identifier: { type: 'string', required: true }, channel: { type: 'enum', values: ['email', 'sms'] } });
   const user = findByIdentifier(identifier);
+  // Someone who typed a phone number most likely wants the text message; everyone else gets email unless they choose.
+  const via: 'email' | 'sms' = channel ?? (/^\+?[\d\s\-()]{9,}$/.test(identifier.trim()) ? 'sms' : 'email');
   if (user && user.status !== 'deleted') {
     try {
-      issueCode(user, 'reset');
+      issueCode(user, 'reset', via);
     } catch {
       /* rate limited — respond identically so accounts cannot be enumerated */
     }
   }
-  res.json({ ok: true, message: 'If an account matches, a reset code has been sent.' });
+  res.json({ ok: true, channel: via, message: `If an account matches, a reset code has been sent by ${via === 'sms' ? 'text message' : 'email'}.` });
 });
 
 authRouter.post('/recover/reset', rateLimit('reset', 10, 15 * MINUTE, (r) => r.ip ?? ''), (req, res) => {

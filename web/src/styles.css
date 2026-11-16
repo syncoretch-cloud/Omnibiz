@@ -895,6 +895,9 @@ button.metric:hover { border-color: var(--brand); transform: translateY(-2px); }
 .pw-wrap { position: relative; }
 .pw-wrap .input { padding-right: 64px; }
 .pw-wrap button { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); }
+.auth-link { background: none; border: 0; padding: 4px 0; cursor: pointer; font: inherit; font-weight: 600; color: var(--brand-strong); }
+.auth-link:hover:not(:disabled) { text-decoration: underline; }
+.auth-link:disabled { color: var(--muted); cursor: default; }
 .auth-foot { flex: none; padding: 28px 0 calc(16px + env(safe-area-inset-bottom, 0px)); text-align: center; font-size: 0.76rem; color: var(--muted); letter-spacing: 0.03em; }
 
 /* ─────────────────────────── misc components ─────────────────────────── */

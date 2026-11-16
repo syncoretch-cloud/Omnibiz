@@ -3,6 +3,7 @@ import path from 'node:path';
 import { createApp } from './app.ts';
 import { config } from './config.ts';
 import { db } from './db/index.ts';
+import { deliveryConfigured } from './lib/outbox.ts';
 import { settle } from './lib/queue.ts';
 import { startDemoStories } from './services/demoStories.ts';
 
@@ -11,6 +12,10 @@ const server = app.listen(config.port, () => {
   console.log(`OmniBiz API listening on http://localhost:${config.port} (${config.env})`);
 });
 startDemoStories();
+{
+  const d = deliveryConfigured();
+  console.log(`Messages: email ${d.email ? 'is delivered over SMTP' : 'is only saved to the outbox (set SMTP_HOST to send it)'}; SMS ${d.sms ? 'is delivered' : 'is only saved to the outbox (set SMS_PROVIDER to send it)'}`);
+}
 
 // OmniBiz Manager: the same API with the staff app on its own port, so it is reachable whenever the server is running.
 let manager: ReturnType<typeof app.listen> | null = null;

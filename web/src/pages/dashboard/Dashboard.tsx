@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, NavLink, Route, Routes } from 'react-router';
 import { Icon } from '../../components/Icon.tsx';
 import { Empty, PageTitle, Select, Spinner, Verified, SectionSwap } from '../../components/ui.tsx';
-import { BarList, Kpi, LineChart } from '../../components/Charts.tsx';
+import { ActivityMatrix, BarList, Kpi, LineChart } from '../../components/Charts.tsx';
 import { post } from '../../lib/api.ts';
 import type { Json } from '../../lib/api.ts';
 import { useApi } from '../../lib/hooks.ts';
@@ -78,6 +78,21 @@ function Overview() {
         <Kpi label="New followers" value={data.followers.new ?? 0} />
         <Kpi label="Engagement" value={data.engagement.likes + data.engagement.comments + data.engagement.reposts} />
         {company ? <Kpi label="Job applications" value={t.application.value} previous={t.application.previous} /> : <Kpi label={`Sales (${data.sales.orders} orders)`} value={data.sales.revenue} format={(n) => money(n, data.sales.currency ?? 'TZS')} />}
+      </div>
+      <div className="card card-pad hero-card">
+        <div className="row-between" style={{ marginBottom: 12 }}>
+          <div>
+            <h3>Weekly activity</h3>
+            <p className="xsmall muted">Profile, product and post views, week by week</p>
+          </div>
+          <span className="chip chip-brand">{data.series.days.length} days</span>
+        </div>
+        <ActivityMatrix
+          title="Weekly activity: profile views, product views and post reach per day"
+          days={data.series.days}
+          values={data.series.days.map((_: string, i: number) => (data.series.profile_view[i] ?? 0) + (data.series.product_view[i] ?? 0) + (data.series.post_impression[i] ?? 0))}
+          unit="views"
+        />
       </div>
       <div className="card card-pad">
         <h3 style={{ marginBottom: 8 }}>Visibility over time</h3>

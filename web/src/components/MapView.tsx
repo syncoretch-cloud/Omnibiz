@@ -14,8 +14,8 @@ export interface Pin {
   z?: number;
 }
 
-// Pins also carry a letter (C/W/R/J), so close maroon/brown shades stay distinguishable.
-const COLORS: Record<string, string> = { company: '#6d324f', wholesaler: '#b85c4a', retailer: '#80616f', job: '#1c1e3a', product: '#40263a' };
+// Pins also carry a letter (C/W/R/J), so close shades stay distinguishable.
+const COLORS: Record<string, string> = { company: '#2f7dff', wholesaler: '#9b6bff', retailer: '#ff4f9a', job: '#1fa8c8', product: '#5a6bff' };
 export const pinColor = (type: string) => COLORS[type] ?? '#0f766e';
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);

@@ -5,16 +5,16 @@ import { Icon } from './Icon.tsx';
 import type { Json } from '../lib/api.ts';
 import { ANNOUNCEMENT_LABEL, label, money, salary } from '../lib/format.ts';
 
-// Midnight · aubergine · plum · terracotta · apricot · vanilla · ivory · dusty rose · mauve · beige.
+// Deep blue · electric blue · sky · violet · pink · mint: cool gradients that glow against the dark canvas.
 const PALETTES = [
-  ['#1c1e3a', '#40263a', '#6d324f', '#e89f6e'],
-  ['#40263a', '#6d324f', '#b85c4a', '#f7e6c4'],
-  ['#1c1e3a', '#6d324f', '#e89f6e', '#fff4df'],
-  ['#40263a', '#80616f', '#d9c5c8', '#e89f6e'],
-  ['#6d324f', '#b85c4a', '#e89f6e', '#f7e6c4'],
-  ['#1c1e3a', '#40263a', '#b85c4a', '#d9c5a8'],
-  ['#40263a', '#6d324f', '#d9c5a8', '#fff4df'],
-  ['#1c1e3a', '#80616f', '#e89f6e', '#f7e6c4'],
+  ['#050b1f', '#0a2a6e', '#2f7dff', '#8ec5ff'],
+  ['#0a0f2e', '#2a1a8a', '#7a5bff', '#d4c4ff'],
+  ['#050b1f', '#0a3f7a', '#34b6ff', '#d6f3ff'],
+  ['#0a0f2e', '#5a1a7a', '#ff4f9a', '#ffd0e6'],
+  ['#050b1f', '#0a4a5e', '#1fc8b0', '#c8fff0'],
+  ['#0a0f2e', '#1a3fa0', '#5a8bff', '#e0eaff'],
+  ['#050b1f', '#4a1a7a', '#9b6bff', '#f0e6ff'],
+  ['#0a0f2e', '#0a4fd6', '#64d2ff', '#ffffff'],
 ];
 
 function h32(s: string): number {

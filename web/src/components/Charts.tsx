@@ -149,3 +149,62 @@ export function Kpi({ label, value, previous, format = compact }: { label: strin
     </div>
   );
 }
+
+// ISO week number (Mon–Sun weeks) for a YYYY-MM-DD day.
+function isoWeek(d: string) {
+  const t = new Date(d + 'T00:00:00Z');
+  const day = (t.getUTCDay() + 6) % 7;
+  t.setUTCDate(t.getUTCDate() - day + 3);
+  const first = new Date(Date.UTC(t.getUTCFullYear(), 0, 4));
+  return 1 + Math.round(((t.getTime() - first.getTime()) / 86400000 - 3 + ((first.getUTCDay() + 6) % 7)) / 7);
+}
+
+const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+/** Weekly activity as a dot matrix: one row per week, one glowing bubble per day sized by activity, with the week's total and change. */
+export function ActivityMatrix({ days, values, title, unit = 'activity' }: { days: string[]; values: number[]; title: string; unit?: string }) {
+  const weeks = useMemo(() => {
+    const rows: { key: string; label: string; cells: (number | null)[]; total: number }[] = [];
+    days.forEach((d, i) => {
+      const dt = new Date(d + 'T00:00:00Z');
+      const monday = new Date(dt.getTime() - ((dt.getUTCDay() + 6) % 7) * 86400000).toISOString().slice(0, 10);
+      let row = rows.find((r) => r.key === monday);
+      if (!row) {
+        row = { key: monday, label: `W${String(isoWeek(d)).padStart(2, '0')}`, cells: Array(7).fill(null), total: 0 };
+        rows.push(row);
+      }
+      row.cells[(dt.getUTCDay() + 6) % 7] = values[i] ?? 0;
+      row.total += values[i] ?? 0;
+    });
+    return rows.slice(-8);
+  }, [days, values]);
+  const max = Math.max(1, ...weeks.flatMap((w) => w.cells.map((c) => c ?? 0)));
+  return (
+    <div className="matrix" role="table" aria-label={title}>
+      <div className="matrix-row matrix-head" role="row">
+        <span />
+        {WEEKDAYS.map((d, i) => <span key={i} role="columnheader">{d}</span>)}
+        <span className="matrix-num">{unit}</span>
+        <span className="matrix-num">change</span>
+      </div>
+      {weeks.map((w, wi) => {
+        const prev = weeks[wi - 1]?.total;
+        // A week still in progress (or the first, partial one) has nothing fair to be compared with.
+        const full = !w.cells.includes(null) && !weeks[wi - 1]?.cells.includes(null);
+        const change = prev && full ? Math.round(((w.total - prev) / prev) * 100) : null;
+        return (
+          <div key={w.key} className="matrix-row" role="row">
+            <span className="matrix-week">{w.label}</span>
+            {w.cells.map((c, i) => (
+              <span key={i} className="matrix-cell" role="cell" title={c === null ? undefined : `${c} ${unit}`}>
+                <i className={c === null ? 'm-none' : c === 0 ? 'm-zero' : ''} style={c ? { '--s': `${0.26 + 0.74 * Math.sqrt(c / max)}` } as React.CSSProperties : undefined} />
+              </span>
+            ))}
+            <span className="matrix-num matrix-total">{compact(w.total)}</span>
+            <span className={`matrix-num matrix-change ${change === null ? '' : change >= 0 ? 'up' : 'down'}`}>{change === null ? '—' : Math.abs(change) > 999 ? '>999%' : `${change > 0 ? '+' : ''}${change}%`}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}

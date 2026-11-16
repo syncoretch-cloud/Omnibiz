@@ -697,19 +697,39 @@ a.post-link:hover { color: var(--brand); border-color: var(--brand); }
 
 /* ─────────────────────────── profile ─────────────────────────── */
 /* A cover band with the avatar overlapping it, then name and actions, facts, metric tiles. */
-.profile-hero { overflow: hidden; padding: 0 0 18px; margin-bottom: 14px; }
-.profile-cover { height: clamp(120px, 22cqi, 200px); position: relative; }
-.profile-id { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 18px; padding: 0 clamp(16px, 3cqi, 26px); margin-top: -52px; position: relative; }
-.profile-avatar { padding: 5px; border-radius: 34%; background: var(--surface); box-shadow: var(--neu); flex-shrink: 0; }
+/* Profile header: no banner. The picture sits top-left, then name, @username and role; bio, links and counts follow. */
+.profile-hero {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: 'avatar names cta' 'avatar body body'; column-gap: clamp(20px, 4cqi, 40px); row-gap: 14px;
+  align-items: start; padding: clamp(6px, 1cqi, 12px) 0 22px; margin-bottom: 14px; border-bottom: 1px solid var(--border);
+}
+.profile-avatar { grid-area: avatar; flex-shrink: 0; }
 .profile-avatar .avatar:not(.square) { border-radius: 50%; }
-.profile-avatar:has(.avatar:not(.square)) { border-radius: 50%; }
-.profile-names { flex: 1 1 220px; min-width: 0; padding-bottom: 4px; }
-.profile-names h1 { font-size: 1.45rem; }
-.profile-cta { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 6px; }
-.profile-about { padding: 14px clamp(16px, 3cqi, 26px) 0; max-width: 68ch; font-size: 0.93rem; }
-.profile-facts { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px clamp(16px, 3cqi, 26px) 0; }
+.profile-names { grid-area: names; min-width: 0; padding-top: 6px; }
+.profile-names h1 { font-size: 1.5rem; }
+.profile-handle { margin-top: 2px; color: var(--text-2); font-size: 0.95rem; font-weight: 500; }
+.profile-role { margin-top: 2px; color: var(--muted); font-size: 0.88rem; }
+.profile-cta { grid-area: cta; display: flex; flex-wrap: wrap; gap: 8px; padding-top: 6px; }
+.profile-body { grid-area: body; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.profile-about { max-width: 68ch; font-size: 0.94rem; line-height: 1.55; }
+.profile-links { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.profile-link { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 0; border: 0; background: none; color: var(--brand-strong); font: inherit; font-size: 0.9rem; font-weight: 550; cursor: pointer; }
+.profile-link svg { width: 15px; height: 15px; flex-shrink: 0; }
+.profile-link:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+.profile-link.more { color: var(--muted); }
+.profile-facts { display: flex; flex-wrap: wrap; gap: 8px; }
+.profile-facts:empty { display: none; }
 .profile-facts a.chip:hover { color: var(--brand); border-color: var(--brand); }
-.profile-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(88px, 1fr)); gap: 10px; padding: 16px clamp(16px, 3cqi, 26px) 0; }
+.profile-stats { display: flex; flex-wrap: wrap; gap: 6px 28px; color: var(--text-2); font-size: 0.92rem; }
+.profile-stats button { padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.profile-stats button:hover { color: var(--text); }
+.profile-stats b { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
+.profile-rating b .stars { color: var(--brand-strong); }
+@container page (width < 640px) {
+  .profile-hero { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 'avatar names' 'cta cta' 'body body'; column-gap: 16px; }
+  .profile-avatar .avatar { width: 80px !important; height: 80px !important; font-size: 26px !important; }
+  .profile-names { align-self: center; padding-top: 0; }
+  .profile-names h1 { font-size: 1.25rem; }
+}
 .metric { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 12px 14px; border-radius: 16px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); text-align: left; font: inherit; }
 button.metric { cursor: pointer; transition: border-color 0.2s, transform 0.25s var(--spring); }
 button.metric:hover { border-color: var(--brand); transform: translateY(-2px); }
@@ -1188,10 +1208,6 @@ a.widget-row:hover .bold { color: var(--brand); }
   .messenger .thread-back { display: inline-flex; }
 }
 @container page (width < 600px) {
-  .profile-id { margin-top: -42px; }
-  .profile-avatar .avatar { width: 84px !important; height: 84px !important; font-size: 28px !important; }
-  .profile-names { flex-basis: 100%; }
-  .profile-cta { width: 100%; }
   .metric { padding: 10px 12px; }
   .metric b { font-size: 1.15rem; }
   .bento { gap: 8px; }

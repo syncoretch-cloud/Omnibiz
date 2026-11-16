@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { Icon } from '../components/Icon.tsx';
 import type { IconName } from '../components/Icon.tsx';
-import { Artwork, artBackground, postArt, productArt } from '../components/Artwork.tsx';
+import { Artwork, postArt, productArt } from '../components/Artwork.tsx';
 import { CvManager } from './CvEditor.tsx';
 import { Avatar, Dropdown, Empty, LoadMore, Modal, Ring, Spinner, Swap, Tabs, Verified, Visibility } from '../components/ui.tsx';
 import { JobCard, PersonRow } from '../components/Cards.tsx';
@@ -309,54 +309,66 @@ export default function Profile() {
       ? [['CV', 'file', () => setTab('about')], ['Skills', 'zap', () => setTab('about'), true], ...(!self && can('message') ? [['Message', 'send', message] as [string, string, () => void]] : [])]
       : [];
 
-  const avatar = <Avatar user={u} size={112} />;
+  const avatar = <Avatar user={u} size={120} />;
+  // Websites and portfolio links shown under the bio: a business's site and links, or the links in a person's public portfolio.
+  const host = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; } };
+  const links: { url: string; label: string; site?: boolean }[] = isBiz
+    ? [...(b.website ? [{ url: b.website as string, label: host(b.website), site: true }] : []), ...((b.portfolio_links ?? []) as string[]).filter((l) => l !== b.website).map((l) => ({ url: l, label: host(l) }))]
+    : ((data.cv?.portfolio ?? []) as Json[]).filter((i) => i.url).map((i, k) => ({ url: i.url as string, label: (i.title as string) || host(i.url), site: k === 0 }));
   const category = isBiz ? `${b.category === 'other' && b.custom_category ? b.custom_category : industryName(b.category)} · ${ACCOUNT_LABEL[u.account_type]}` : p?.headline || ACCOUNT_LABEL[u.account_type];
   return (
     <main className="page page-wide">
-      <section className="card profile-hero">
-        <div className="profile-cover" style={{ background: u.cover_url ? `center / cover no-repeat url("${u.cover_url}")` : artBackground(`cover-${u.id}`) }} />
-        <div className="profile-id">
-          <div className="profile-avatar">
-            {story ? <Ring seen={storySeen} square={isBiz} onClick={() => setViewing(true)} title="View story">{avatar}</Ring> : avatar}
-          </div>
-          <div className="profile-names">
-            <h1 className="row" style={{ gap: 8 }}>{u.display_name}<Verified show={b?.verified} /></h1>
-            <div className="muted small">@{u.username} · {category}</div>
-          </div>
-          <div className="profile-cta">
-            {self ? (
-              <>
-                <Link to={isBiz ? '/settings/business' : '/settings/account'} className="btn btn-sm btn-primary"><Icon name="edit" />Edit profile</Link>
-                {isBiz && <Link to="/dashboard" className="btn btn-sm btn-outline"><Icon name="chart" />Dashboard</Link>}
-                {can('manage_cv') && <button className="btn btn-sm btn-outline" onClick={() => setTab('about')}><Icon name="file" />Edit CV</button>}
-                <Link to="/settings" className="btn btn-sm btn-ghost btn-icon" aria-label="Settings"><Icon name="settings" /></Link>
-              </>
-            ) : (
-              <>
-                {can('follow') && <button className={`btn btn-sm${data.viewer.following ? ' btn-outline' : ' btn-primary'}`} onClick={toggleFollow}>{data.viewer.following ? <><Icon name="check" />Following</> : <><Icon name="plus" />Follow</>}</button>}
-                {can('message') && <button className="btn btn-sm btn-outline" onClick={message}><Icon name="message" />Message</button>}
-                {isBiz && b.website && <a href={b.website} target="_blank" rel="noreferrer noopener" className="btn btn-sm btn-outline btn-icon" aria-label="Website"><Icon name="globe" /></a>}
-                <Dropdown trigger={() => <button className="btn btn-sm btn-ghost btn-icon" aria-label="More"><Icon name="more" /></button>}>
-                  {isBiz && can('save') && <button onClick={saveBiz}><Icon name="bookmark" />{data.viewer.saved ? 'Unsave business' : 'Save business'}</button>}
-                  <button onClick={() => navigator.clipboard?.writeText(`${location.origin}/u/${u.username}`)}><Icon name="link" />Copy profile link</button>
-                  <button onClick={() => setReporting(true)}><Icon name="flag" />Report</button>
-                </Dropdown>
-              </>
-            )}
-          </div>
+      <section className="profile-hero">
+        <div className="profile-avatar">
+          {story ? <Ring seen={storySeen} square={isBiz} onClick={() => setViewing(true)} title="View story">{avatar}</Ring> : avatar}
         </div>
-        {u.bio && <p className="profile-about pre">{u.bio}</p>}
-        <div className="profile-facts">
-          {(u.city || u.country) && <span className="chip"><Icon name="mapPin" />{[u.city, u.country].filter(Boolean).join(', ')}</span>}
-          {isBiz && b.website && <a href={b.website} target="_blank" rel="noreferrer noopener" className="chip"><Icon name="globe" />{b.website.replace(/^https?:\/\//, '')}</a>}
-          {isBiz && b.opening_hours && <span className="chip"><Icon name="clock" />{b.opening_hours}</span>}
-          {p?.open_to_work && <span className="chip chip-success"><Icon name="briefcase" />Open to work</span>}
+        <div className="profile-names">
+          <h1 className="row" style={{ gap: 8 }}>{u.display_name}<Verified show={b?.verified} /></h1>
+          <div className="profile-handle">@{u.username}</div>
+          <div className="profile-role">{category}</div>
         </div>
-        <div className="profile-metrics">
-          <div className="metric"><b>{compact(data.stats.posts)}</b><span>{data.stats.posts === 1 ? 'Post' : 'Posts'}</span></div>
-          <button className="metric" onClick={() => setFollowList('followers')}><b>{compact(data.stats.followers)}</b><span>{data.stats.followers === 1 ? 'Follower' : 'Followers'}</span></button>
-          <button className="metric" onClick={() => setFollowList('following')}><b>{compact(data.stats.following)}</b><span>Following</span></button>
-          {data.rating?.count > 0 && <div className="metric" title={`${data.rating.avg} out of 5`}><b>{data.rating.avg}<span className="stars"> ★</span></b><span>{data.rating.count} review{data.rating.count === 1 ? '' : 's'}</span></div>}
+      <div className="profile-cta">
+          {self ? (
+            <>
+              <Link to={isBiz ? '/settings/business' : '/settings/account'} className="btn btn-sm btn-primary"><Icon name="edit" />Edit profile</Link>
+              {isBiz && <Link to="/dashboard" className="btn btn-sm btn-outline"><Icon name="chart" />Dashboard</Link>}
+              {can('manage_cv') && <button className="btn btn-sm btn-outline" onClick={() => setTab('about')}><Icon name="file" />Edit CV</button>}
+              <Link to="/settings" className="btn btn-sm btn-ghost btn-icon" aria-label="Settings"><Icon name="settings" /></Link>
+            </>
+          ) : (
+            <>
+              {can('follow') && <button className={`btn btn-sm${data.viewer.following ? ' btn-outline' : ' btn-primary'}`} onClick={toggleFollow}>{data.viewer.following ? <><Icon name="check" />Following</> : <><Icon name="plus" />Follow</>}</button>}
+              {can('message') && <button className="btn btn-sm btn-outline" onClick={message}><Icon name="message" />Message</button>}
+              {isBiz && b.website && <a href={b.website} target="_blank" rel="noreferrer noopener" className="btn btn-sm btn-outline btn-icon" aria-label="Website"><Icon name="globe" /></a>}
+              <Dropdown trigger={() => <button className="btn btn-sm btn-ghost btn-icon" aria-label="More"><Icon name="more" /></button>}>
+                {isBiz && can('save') && <button onClick={saveBiz}><Icon name="bookmark" />{data.viewer.saved ? 'Unsave business' : 'Save business'}</button>}
+                <button onClick={() => navigator.clipboard?.writeText(`${location.origin}/u/${u.username}`)}><Icon name="link" />Copy profile link</button>
+                <button onClick={() => setReporting(true)}><Icon name="flag" />Report</button>
+              </Dropdown>
+            </>
+          )}
+        </div>
+        <div className="profile-body">
+          {u.bio && <p className="profile-about pre">{u.bio}</p>}
+          {links.length > 0 && (
+            <div className="profile-links">
+              {links.slice(0, 5).map((l, i) => (
+                <a key={l.url} href={l.url} target="_blank" rel="noreferrer noopener" className="profile-link" title={l.url}><Icon name={i === 0 && l.site ? 'globe' : 'link'} />{l.label}</a>
+              ))}
+              {links.length > 5 && <button className="profile-link more" onClick={() => setTab('about')}>+{links.length - 5} more</button>}
+            </div>
+          )}
+          <div className="profile-facts">
+            {(u.city || u.country) && <span className="chip"><Icon name="mapPin" />{[u.city, u.country].filter(Boolean).join(', ')}</span>}
+            {isBiz && b.opening_hours && <span className="chip"><Icon name="clock" />{b.opening_hours}</span>}
+            {p?.open_to_work && <span className="chip chip-success"><Icon name="briefcase" />Open to work</span>}
+          </div>
+          <div className="profile-stats">
+            <div><b>{compact(data.stats.posts)}</b> {data.stats.posts === 1 ? 'post' : 'posts'}</div>
+            <button onClick={() => setFollowList('followers')}><b>{compact(data.stats.followers)}</b> {data.stats.followers === 1 ? 'follower' : 'followers'}</button>
+            <button onClick={() => setFollowList('following')}><b>{compact(data.stats.following)}</b> following</button>
+            {data.rating?.count > 0 && <div className="profile-rating" title={`${data.rating.avg} out of 5`}><b>{data.rating.avg}<span className="stars"> ★</span></b><span>{data.rating.count} review{data.rating.count === 1 ? '' : 's'}</span></div>}
+          </div>
         </div>
       </section>
 

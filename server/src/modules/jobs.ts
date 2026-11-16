@@ -18,6 +18,8 @@ import { recordActivity } from '../services/personalization.ts';
 import { cvFor } from './users.ts';
 import { createPost } from './posts.ts';
 
+import { assertWithinLimit } from '../services/subscriptions.ts';
+
 export const jobsRouter = Router();
 export const recruitmentRouter = Router();
 
@@ -264,6 +266,7 @@ jobsRouter.get('/:id', (req, res) => {
 // ───────────── company: create & manage vacancies ─────────────
 jobsRouter.post('/', requirePerm('create_jobs'), (req, res) => {
   const me = req.user!;
+  assertWithinLimit(me, 'jobs');
   const d = validate(req.body, JOB_SPEC);
   const announce = d.announce;
   cleanJob(d, me);

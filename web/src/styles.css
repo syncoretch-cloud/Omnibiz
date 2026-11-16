@@ -1688,3 +1688,21 @@ article.post.kb-focus { box-shadow: 0 0 0 2px var(--brand); }
 .pulse-slim .plus-orb { width: 40px; height: 40px; flex-shrink: 0; }
 .pulse-slim b { display: block; font-size: 0.9rem; }
 .pulse-slim small { display: block; margin-top: 1px; font-size: 0.76rem; color: var(--muted); line-height: 1.35; }
+
+/* ───────── Plans ───────── */
+.plan-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
+.plan { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.plan h3 { margin: 0; }
+.plan-hot { border-color: var(--brand); }
+.plan-current { box-shadow: inset 0 0 0 1px var(--brand); }
+.plan-price { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
+.plan-price small { font-size: 0.8rem; font-weight: 500; color: var(--muted); }
+.plan-features { list-style: none; margin: 0 0 auto; padding: 0; display: grid; gap: 8px; font-size: 0.9rem; }
+.plan-features li { display: flex; gap: 8px; align-items: flex-start; }
+.plan-features svg { width: 16px; height: 16px; margin-top: 2px; color: var(--success); flex: none; }
+.plan .btn { width: 100%; margin-top: 4px; }
+.meter { display: grid; gap: 6px; }
+.meter-row { display: flex; justify-content: space-between; font-size: 0.88rem; }
+.meter-bar { height: 6px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+.meter-bar i { display: block; height: 100%; border-radius: inherit; background: var(--brand); }
+.meter-bar i.full { background: var(--danger); }

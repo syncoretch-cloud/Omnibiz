@@ -4,6 +4,7 @@ import QRCode from 'qrcode';
 import { Icon } from '../components/Icon.tsx';
 import { Avatar, Empty, ErrorBox, Field, Input, Modal, PageTitle, Select, Spinner, TagInput, Textarea, SectionSwap } from '../components/ui.tsx';
 import { useAvatarUpload } from '../components/AvatarUpload.tsx';
+import { PlanSettings } from './PlanSettings.tsx';
 import { ProfileForm } from './CvEditor.tsx';
 import { MapView } from '../components/MapView.tsx';
 import { DevOutboxHint } from './Auth.tsx';
@@ -441,6 +442,7 @@ export default function Settings() {
             <NavLink to="/settings/account"><Icon name="user" />Account</NavLink>
             {can('manage_cv') && <NavLink to="/settings/professional"><Icon name="briefcase" />Professional</NavLink>}
             {biz && <NavLink to="/settings/business"><Icon name="building" />Business profile</NavLink>}
+            <NavLink to="/settings/plan"><Icon name="award" />Plan</NavLink>
             <NavLink to="/settings/delivery"><Icon name="package" />Delivery</NavLink>
             <NavLink to="/settings/interests"><Icon name="sparkles" />Interests</NavLink>
             <NavLink to="/settings/security"><Icon name="shield" />Security</NavLink>
@@ -451,6 +453,7 @@ export default function Settings() {
             <Route index element={<Navigate to="account" replace />} />
             <Route path="account" element={<Account />} />
             <Route path="professional" element={can('manage_cv') ? <Professional /> : <Empty title="Professional profiles are for personal accounts" />} />
+            <Route path="plan" element={<PlanSettings />} />
             <Route path="delivery" element={<Delivery />} />
             <Route path="business" element={biz ? <BusinessSettings /> : <Empty title="Not a business account" />} />
             <Route path="interests" element={<Interests />} />

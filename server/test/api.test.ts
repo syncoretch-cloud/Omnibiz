@@ -504,3 +504,44 @@ test('sessions are browser-only unless "keep me logged in" is chosen', async () 
   assert.doesNotMatch(await raw(false), /Max-Age/i);
   assert.match(await raw(true), /Max-Age=2592000/i);
 });
+
+test('subscriptions: plans per account type, plan limits and admin edits', async () => {
+  const { c: shop } = await register('retailer');
+  const view = await shop.get('/api/subscriptions');
+  assert.equal(view.status, 200);
+  assert.equal(view.body.plan.code, 'retailer_free');
+  assert.ok(view.body.plans.every((p: Json) => p.audience === 'retailer' && p.active));
+
+  // Personal accounts only see the free plan until the paid one is switched on.
+  const { c: person } = await register('personal');
+  const pv = await person.get('/api/subscriptions');
+  assert.deepEqual(pv.body.plans.map((p: Json) => p.code), ['personal_free']);
+
+  // Free retailers are capped at 10 active products.
+  const product = (i: number) => shop.post('/api/products', { name: `Item ${i}`, category: 'electronics', price: 1000, currency: 'TZS', description: 'A fine item', images: [] });
+  const first = await product(0);
+  assert.equal(first.status, 201, JSON.stringify(first.body));
+  for (let i = 1; i < 10; i++) assert.equal((await product(i)).status, 201);
+  const capped = await product(11);
+  assert.equal(capped.status, 402);
+
+  // Moving to Pro lifts it; you can't pick another audience's plan.
+  const pro = view.body.plans.find((p: Json) => p.code === 'retailer_pro');
+  const wrong = (await register('company')).c;
+  assert.equal((await wrong.post('/api/subscriptions/subscribe', { plan_id: pro.id })).status, 404);
+  assert.equal((await shop.post('/api/subscriptions/subscribe', { plan_id: pro.id })).status, 200);
+  assert.equal((await product(12)).status, 201);
+  assert.equal((await shop.get('/api/subscriptions')).body.plan.code, 'retailer_pro');
+  assert.equal((await shop.post('/api/subscriptions/cancel')).status, 200);
+  assert.equal((await shop.get('/api/subscriptions')).body.plan.code, 'retailer_free');
+
+  // Only staff with billing permission can edit plans.
+  assert.equal((await shop.patch(`/api/admin/billing/plans/${pro.id}`, { price: 1 })).status, 403);
+  const { me: staffMe, c: staff } = await register('personal');
+  db.prepare("UPDATE users SET role = 'admin' WHERE id = ?").run(staffMe.id);
+  const edited = await staff.patch(`/api/admin/billing/plans/${pro.id}`, { price: 25000, limits: { products: 300 } });
+  assert.equal(edited.status, 200, JSON.stringify(edited.body));
+  assert.equal(edited.body.plan.price, 25000);
+  assert.equal(edited.body.plan.limits.products, 300);
+  assert.equal((await staff.patch(`/api/admin/billing/plans/${pro.id}`, { limits: { bogus: 1 } })).status, 400);
+});

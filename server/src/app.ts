@@ -27,6 +27,8 @@ import { analyticsRouter } from './modules/analytics.ts';
 import { adminRouter, reportsRouter } from './modules/admin.ts';
 import { metaRouter } from './modules/meta.ts';
 import { exploreRouter } from './modules/explore.ts';
+import { billingAdminRouter, subscriptionsRouter } from './modules/subscriptions.ts';
+import { ensurePlans } from './services/subscriptions.ts';
 import { storiesRouter } from './modules/stories.ts';
 
 export function ensureCategories() {
@@ -40,6 +42,7 @@ let handlersRegistered = false;
 
 export function createApp() {
   ensureCategories();
+  ensurePlans();
   if (!handlersRegistered) {
     registerEventHandlers();
     handlersRegistered = true;
@@ -93,6 +96,8 @@ export function createApp() {
   app.use('/api/stories', storiesRouter);
   app.use('/api/analytics', analyticsRouter);
   app.use('/api/reports', reportsRouter);
+  app.use('/api/subscriptions', subscriptionsRouter);
+  app.use('/api/admin/billing', billingAdminRouter);
   app.use('/api/admin', adminRouter);
   app.use('/api', (_req, _res, next) => next(new HttpError(404, 'Not found')));
 

@@ -564,3 +564,33 @@ CREATE TABLE IF NOT EXISTS story_views (
   viewed_at TEXT NOT NULL DEFAULT (datetime('now')),
   PRIMARY KEY (story_id, viewer_id)
 );
+
+-- Subscription plans are data, so prices, limits and availability can be changed from the admin panel.
+CREATE TABLE IF NOT EXISTS plans (
+  id INTEGER PRIMARY KEY,
+  code TEXT NOT NULL UNIQUE,
+  audience TEXT NOT NULL CHECK (audience IN ('personal','company','wholesaler','retailer','customer')),
+  name TEXT NOT NULL,
+  tagline TEXT,
+  price REAL NOT NULL DEFAULT 0,
+  currency TEXT NOT NULL DEFAULT 'TZS',
+  features TEXT NOT NULL DEFAULT '[]',
+  limits TEXT NOT NULL DEFAULT '{}',
+  active INTEGER NOT NULL DEFAULT 1,
+  highlight INTEGER NOT NULL DEFAULT 0,
+  sort INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  plan_id INTEGER NOT NULL REFERENCES plans(id),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','cancelled','expired')),
+  price REAL NOT NULL DEFAULT 0,
+  payment_ref TEXT,
+  started_at TEXT NOT NULL DEFAULT (datetime('now')),
+  renews_at TEXT,
+  ended_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions(user_id, status);

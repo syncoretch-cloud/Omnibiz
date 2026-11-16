@@ -13,6 +13,7 @@ import { reindexProduct, searchIds, unindex } from '../services/search-index.ts'
 import { track } from '../services/analytics.ts';
 import { recordActivity } from '../services/personalization.ts';
 import { createPost } from './posts.ts';
+import { assertWithinLimit } from '../services/subscriptions.ts';
 
 export const productsRouter = Router();
 
@@ -178,6 +179,7 @@ productsRouter.get('/:id', (req, res) => {
 // ───────────── manage catalogue ─────────────
 productsRouter.post('/', requirePerm('manage_products'), (req, res) => {
   const me = req.user!;
+  assertWithinLimit(me, 'products');
   const d = validate(req.body, PRODUCT_SPEC);
   const announce = d.announce;
   cleanProduct(d, me);

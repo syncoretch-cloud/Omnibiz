@@ -1,11 +1,13 @@
 // Runs the API server and the web dev server side by side.
 import { spawn } from 'node:child_process';
 
+// `npm run dev -- --lan` also opens the web app and OmniBiz Manager to other devices on your network (for testing on a phone).
+const lan = process.argv.includes('--lan');
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const procs = [
   ['api', ['run', 'dev', '--workspace', 'server']],
-  ['web', ['run', 'dev', '--workspace', 'web']],
-  ['admin', ['run', 'dev', '--workspace', 'admin']],
+  ['web', ['run', 'dev', '--workspace', 'web', ...(lan ? ['--', '--host'] : [])]],
+  ['admin', ['run', 'dev', '--workspace', 'admin', ...(lan ? ['--', '--host'] : [])]],
 ].map(([name, args]) => {
   const p = spawn(npm, args, { stdio: ['ignore', 'pipe', 'pipe'], shell: process.platform === 'win32' });
   const tag = name === 'api' ? '\x1b[36m[api]\x1b[0m ' : name === 'web' ? '\x1b[35m[web]\x1b[0m ' : '\x1b[33m[admin]\x1b[0m ';

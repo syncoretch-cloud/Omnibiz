@@ -9,7 +9,7 @@ Requires **Node.js 23.6+** (developed on Node 26). No database server needed: it
 ```bash
 npm install
 npm run seed          # demo data (npm run seed -- --reset to wipe and reseed)
-npm run dev           # API on :4000 + web app on :5173 with hot reload
+npm run dev           # API on :4000, web app on :5173, admin panel on :5180, all with hot reload
 ```
 
 To run it production-style on one port:
@@ -19,6 +19,10 @@ npm run build && npm start   # http://localhost:4000
 ```
 
 On Windows you can also double-click `scripts/start-server.cmd` (output goes to `server/data/server.log`) and `scripts/stop-server.cmd`. The server serves the built app from `web/dist`, so run `npm run build` first.
+
+**Admin panel.** `admin/` is a separate app that uses the same API and accounts as the main app. Sign in at http://localhost:5180 with an account whose `role` is not `user` (set it in the `users` table, or use *Users → role* as a super admin). Staff roles and what each can do are in `server/src/lib/permissions.ts`. It covers users, content moderation, reports, verification, blocked words, plans and billing, categories, broadcasts and the audit log. For production, `npm run build:admin` produces `admin/dist` to host on its own domain, proxying `/api` to the server; set `VITE_APP_URL` (public app) and `VITE_ADMIN_URL` (in `web`) at build time so the two link to each other.
+
+**Subscriptions.** Plans live in the `plans` table, one set per account type, and are edited from the admin panel (price, features, product and job limits, on/off). Limits are enforced when products or jobs are created. Personal and customer paid plans start switched off until pricing is decided.
 
 Logins last until the browser closes unless "Keep me logged in" is ticked. Email/phone code verification at sign-up is off; set `CONTACT_VERIFICATION=on` to enable it.
 
@@ -104,6 +108,7 @@ server/   Node + Express 5, TypeScript run natively by Node (no build step)
   src/modules/     one router per domain: auth, users, businesses, posts, products, jobs/recruitment,
                    announcements, notifications, messages, orders, search, analytics, admin, files, meta
   test/            end-to-end API tests
+admin/    Staff admin panel: React + Vite, same API, reuses the web app's components (alias @web)
 web/      React 19 + Vite + React Router, mobile-first and installable as a PWA, light/dark themes
 ```
 
@@ -122,6 +127,7 @@ The design follows §36–37: one modular codebase with clear boundaries, so pie
 
 ## Not yet included
 
+- **Subscription billing.** Choosing a paid plan switches it on in test mode (`server/src/modules/subscriptions.ts`); no money is taken and nothing renews automatically until a payment provider is connected.
 - **Real payment collection.** Payment choices and transaction records exist; a mobile-money or card provider still needs connecting through its webhook (`server/src/modules/orders.ts`).
 - **Real email and SMS delivery.** Messages go to the outbox; a provider worker is needed.
 - **Language-model AI.** Job matching, CV analysis, natural-language search and the business assistant are rule-based and explainable. Each sits behind a single function that a model-backed version could replace.

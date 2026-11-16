@@ -27,7 +27,6 @@ const Search = lazy(() => import('./pages/Search.tsx'));
 const Notifications = lazy(() => import('./pages/Notifications.tsx'));
 const Messages = lazy(() => import('./pages/Messages.tsx'));
 const Profile = lazy(() => import('./pages/Profile.tsx'));
-const CvEditor = lazy(() => import('./pages/CvEditor.tsx'));
 const Saved = lazy(() => import('./pages/Saved.tsx'));
 const Settings = lazy(() => import('./pages/Settings.tsx'));
 const Dashboard = lazy(() => import('./pages/dashboard/Dashboard.tsx'));
@@ -67,6 +66,12 @@ function ScrollTop() {
     return () => clearInterval(id);
   }, [loc.key, type]);
   return null;
+}
+
+/** The CV lives in your profile now; old links and bookmarks to /me/cv land on it. */
+function CvRedirect() {
+  const { me } = useSession();
+  return <Navigate to={`/u/${me?.user.username}?tab=about`} replace />;
 }
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -118,7 +123,7 @@ export function App() {
               <Route path="/messages" element={<Messages />} />
               <Route path="/messages/:id" element={<Messages />} />
               <Route path="/u/:username" element={<Profile />} />
-              <Route path="/me/cv" element={<CvEditor />} />
+              <Route path="/me/cv" element={<CvRedirect />} />
               <Route path="/saved" element={<Saved />} />
               <Route path="/settings/*" element={<Settings />} />
               <Route path="/dashboard/*" element={<RequireBusiness><Dashboard /></RequireBusiness>} />

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router';
 import { Icon } from '../components/Icon.tsx';
-import { Empty, ErrorBox, Field, Input, Modal, PageTitle, Select, Spinner, TagInput, Textarea, Visibility, VisibilitySelect } from '../components/ui.tsx';
+import { Empty, ErrorBox, Field, Input, Modal, Select, Spinner, TagInput, Textarea, Visibility, VisibilitySelect } from '../components/ui.tsx';
 import { del, get, patch, post, uploadDocument } from '../lib/api.ts';
 import type { Json } from '../lib/api.ts';
 import { useAction, useSession } from '../lib/session.tsx';
@@ -167,8 +166,9 @@ function Documents({ docs, setDocs }: { docs: Json[]; setDocs: (d: Json[]) => vo
   );
 }
 
-export default function CvEditor() {
-  const { me, can } = useSession();
+/** The CV and documents editor. It lives in the CV tab of your own profile. */
+export function CvManager() {
+  const { can } = useSession();
   const act = useAction();
   const [cv, setCv] = useState<Json | null>(null);
   const [docs, setDocs] = useState<Json[]>([]);
@@ -176,7 +176,7 @@ export default function CvEditor() {
   useEffect(() => {
     get('/users/me/cv').then((r) => { setCv(r.cv); setDocs(r.documents); }).catch(() => setCv({}));
   }, []);
-  if (!can('manage_cv')) return <main className="page page-narrow"><div className="card"><Empty icon="lock" title="CV builder is for personal accounts" /></div></main>;
+  if (!can('manage_cv')) return <div className="card"><Empty icon="lock" title="CV builder is for personal accounts" /></div>;
   if (!cv) return <Spinner block />;
 
   const remove = async (id: number) => {
@@ -185,8 +185,8 @@ export default function CvEditor() {
   };
 
   return (
-    <main className="page page-mid">
-      <PageTitle title="My CV & professional profile" subtitle="Recruiters see public and “recruiters only” sections. Private items are only visible to you." actions={<Link to={`/u/${me?.user.username}`} className="btn btn-outline"><Icon name="eye" />Preview profile</Link>} />
+    <>
+      <p className="small muted" style={{ marginBottom: 14 }}>Recruiters see public and “recruiters only” sections. Private items are only visible to you.</p>
       <div className="stack">
         <ProfileForm />
         {SECTIONS.map((s) => (
@@ -212,6 +212,6 @@ export default function CvEditor() {
         <Documents docs={docs} setDocs={setDocs} />
       </div>
       {dialog && <ItemDialog section={dialog.section} item={dialog.item} onClose={() => setDialog(null)} onSaved={(c) => { setCv(c); setDialog(null); }} />}
-    </main>
+    </>
   );
 }

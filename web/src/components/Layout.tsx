@@ -168,7 +168,7 @@ export function MoreMenuItems({ onDone }: { onDone?: () => void }) {
   return (
     <>
       {biz && <Link to="/dashboard" onClick={onDone}><Icon name="dashboard" />Business dashboard</Link>}
-      {can('manage_cv') && <Link to="/me/cv" onClick={onDone}><Icon name="file" />My CV & documents</Link>}
+      {can('manage_cv') && <Link to={`/u/${me?.user.username}?tab=about`} onClick={onDone}><Icon name="file" />My CV & documents</Link>}
       <Link to="/businesses" onClick={onDone}><Icon name="building" />Businesses & map</Link>
       <Link to="/saved" onClick={onDone}><Icon name="bookmark" />Saved</Link>
       {can('purchase') && <Link to="/cart" onClick={onDone}><Icon name="cart" />Cart{counts.cart > 0 && <span className="chip chip-brand" style={{ marginLeft: 'auto', height: 22 }}>{counts.cart}</span>}</Link>}
@@ -309,6 +309,7 @@ export function AppLayout() {
       {/* tablets and computers: navigation panel */}
       <aside className="panel panel-nav" aria-label="Main navigation">
         <Link to="/" className="brand-mark" aria-label="OmniBiz home"><img className="brand-word" src="/brand/omnibiz-logo-sm.png" alt="OmniBiz" /><img className="brand-o" src="/brand/omnibiz-mark.png" alt="" /></Link>
+        {canCreate && <button className="btn btn-primary nav-create" onClick={() => { thump(); create(); }} aria-label="Create" data-label="Create"><Icon name="plus" /><span className="nav-label">Create</span></button>}
         <nav className="nav-list">
           {link('/', <Icon name="home" />, 'Home')}
           {link('/explore', <Icon name="compass" />, 'Discover')}
@@ -322,10 +323,8 @@ export function AppLayout() {
           {link('/notifications', <Icon name="bell" />, 'Notifications', counts.notifications)}
           <span className="nav-sep" />
           {biz && link('/dashboard', <Icon name="dashboard" />, 'Dashboard')}
-          {can('manage_cv') && link('/me/cv', <Icon name="file" />, 'My CV')}
           {link('/saved', <Icon name="bookmark" />, 'Saved')}
         </nav>
-        {canCreate && <button className="btn btn-primary nav-create" onClick={() => { thump(); create(); }} aria-label="Create" data-label="Create"><Icon name="plus" /><span className="nav-label">Create</span></button>}
         <div className="nav-me">
           <button className={`nav-me-btn${side ? ' on' : ''}`} onClick={() => { tick(); setSide((o) => !o); }} aria-expanded={side} aria-controls="side-panel" aria-label="Your profile and account" data-label="Profile">
             <Avatar user={u} size={36} />

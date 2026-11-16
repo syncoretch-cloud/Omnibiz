@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { Icon } from '../components/Icon.tsx';
 import type { IconName } from '../components/Icon.tsx';
 import { Artwork, artBackground, postArt, productArt } from '../components/Artwork.tsx';
+import { CvManager } from './CvEditor.tsx';
 import { Avatar, Dropdown, Empty, LoadMore, Modal, Ring, Spinner, Swap, Tabs, Verified, Visibility } from '../components/ui.tsx';
 import { JobCard, PersonRow } from '../components/Cards.tsx';
 import { ApplicationsOverview } from '../components/Applications.tsx';
@@ -229,13 +230,28 @@ function About({ data }: { data: Json }) {
   );
 }
 
+/** Your own CV: edit it right here, or preview it the way recruiters see it. */
+function SelfCv({ data, onPreview }: { data: Json; onPreview: () => void }) {
+  const [mode, setMode] = useState<'edit' | 'preview'>('edit');
+  const choose = (m: 'edit' | 'preview') => { setMode(m); if (m === 'preview') onPreview(); };
+  return (
+    <div className="stack">
+      <div className="row-wrap">
+        <button className={`chip${mode === 'edit' ? ' active' : ''}`} onClick={() => choose('edit')}><Icon name="edit" />Edit</button>
+        <button className={`chip${mode === 'preview' ? ' active' : ''}`} onClick={() => choose('preview')}><Icon name="eye" />Preview</button>
+      </div>
+      {mode === 'edit' ? <CvManager /> : <About data={data} />}
+    </div>
+  );
+}
+
 export default function Profile() {
   const { username } = useParams();
   const [params, setParams] = useSearchParams();
   const nav = useNavigate();
   const { me, can, industryName } = useSession();
   const act = useAction();
-  const { data, loading, error, setData } = useApi(`/users/${username}${params.get('src') ? `?src=${params.get('src')}` : ''}`);
+  const { data, loading, error, setData, reload } = useApi(`/users/${username}${params.get('src') ? `?src=${params.get('src')}` : ''}`);
   const storyRes = useApi(data?.user ? `/stories/user/${data.user.id}` : null);
   const [viewing, setViewing] = useState(false);
   const [reporting, setReporting] = useState(false);
@@ -290,7 +306,7 @@ export default function Profile() {
         ...(!self && can('message') ? [['Contact', 'send', message] as [string, string, () => void]] : []),
       ]
     : u.account_type === 'personal'
-      ? [['CV', 'file', () => setTab('about')], ['Skills', 'zap', () => setTab('about'), true], ...(!self && can('message') ? [['Message', 'send', message] as [string, string, () => void]] : []), ...(self ? [['Edit CV', 'edit', () => nav('/me/cv'), true] as [string, string, () => void, boolean]] : [])]
+      ? [['CV', 'file', () => setTab('about')], ['Skills', 'zap', () => setTab('about'), true], ...(!self && can('message') ? [['Message', 'send', message] as [string, string, () => void]] : [])]
       : [];
 
   const avatar = <Avatar user={u} size={112} />;
@@ -312,7 +328,7 @@ export default function Profile() {
               <>
                 <Link to={isBiz ? '/settings/business' : '/settings/account'} className="btn btn-sm btn-primary"><Icon name="edit" />Edit profile</Link>
                 {isBiz && <Link to="/dashboard" className="btn btn-sm btn-outline"><Icon name="chart" />Dashboard</Link>}
-                {can('manage_cv') && <Link to="/me/cv" className="btn btn-sm btn-outline"><Icon name="file" />Edit CV</Link>}
+                {can('manage_cv') && <button className="btn btn-sm btn-outline" onClick={() => setTab('about')}><Icon name="file" />Edit CV</button>}
                 <Link to="/settings" className="btn btn-sm btn-ghost btn-icon" aria-label="Settings"><Icon name="settings" /></Link>
               </>
             ) : (
@@ -359,7 +375,7 @@ export default function Profile() {
           {tab === 'shop' && <ShopGrid userId={u.id} />}
           {tab === 'jobs' && <JobsList userId={u.id} />}
           {tab === 'updates' && <Updates userId={u.id} />}
-          {tab === 'about' && <About data={data} />}
+          {tab === 'about' && (self && !isBiz && can('manage_cv') ? <SelfCv data={data} onPreview={reload} /> : <About data={data} />)}
           {tab === 'applications' && <ApplicationsOverview />}
         </Swap>
       </div>

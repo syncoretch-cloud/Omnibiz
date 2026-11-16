@@ -52,7 +52,7 @@ export function Board({ onClose, account }: { onClose?: () => void; account?: Re
         </Link>
         <div className="me-links">
           <Link to={`/u/${u.username}`}><Icon name="user" />Profile</Link>
-          {isBusinessType(u.account_type) ? <Link to="/dashboard"><Icon name="chart" />Dashboard</Link> : can('manage_cv') ? <Link to="/me/cv"><Icon name="file" />My CV</Link> : <Link to="/orders"><Icon name="package" />Orders</Link>}
+          {isBusinessType(u.account_type) ? <Link to="/dashboard"><Icon name="chart" />Dashboard</Link> : can('manage_cv') ? <Link to={`/u/${u.username}?tab=about`}><Icon name="file" />My CV</Link> : <Link to="/orders"><Icon name="package" />Orders</Link>}
           <Link to="/saved"><Icon name="bookmark" />Saved</Link>
         </div>
       </div>

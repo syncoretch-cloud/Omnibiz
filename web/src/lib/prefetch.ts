@@ -16,7 +16,6 @@ const LOADERS: [RegExp, () => Promise<unknown>][] = [
   [/^\/notifications/, () => import('../pages/Notifications.tsx')],
   [/^\/messages/, () => import('../pages/Messages.tsx')],
   [/^\/u\//, () => import('../pages/Profile.tsx')],
-  [/^\/me\/cv/, () => import('../pages/CvEditor.tsx')],
   [/^\/saved/, () => import('../pages/Saved.tsx')],
   [/^\/settings/, () => import('../pages/Settings.tsx')],
   [/^\/dashboard/, () => import('../pages/dashboard/Dashboard.tsx')],

@@ -317,7 +317,7 @@ export default function Profile() {
     : ((data.cv?.portfolio ?? []) as Json[]).filter((i) => i.url).map((i, k) => ({ url: i.url as string, label: (i.title as string) || host(i.url), site: k === 0 }));
   const category = isBiz ? `${b.category === 'other' && b.custom_category ? b.custom_category : industryName(b.category)} · ${ACCOUNT_LABEL[u.account_type]}` : p?.headline || ACCOUNT_LABEL[u.account_type];
   return (
-    <main className="page page-wide">
+    <main className="page page-profile">
       <section className="profile-hero">
         <div className="profile-avatar">
           {story ? <Ring seen={storySeen} square={isBiz} onClick={() => setViewing(true)} title="View story">{avatar}</Ring> : avatar}

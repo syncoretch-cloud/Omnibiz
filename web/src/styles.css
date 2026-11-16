@@ -184,6 +184,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .page-narrow { max-width: 680px; }
 .page-mid { max-width: 960px; }
 .page-wide { max-width: 1560px; }
+.page-profile { max-width: 1040px; }
 .page-home { max-width: 1110px; }
 .layout-2 { display: grid; grid-template-columns: minmax(0, 1fr) clamp(280px, 30cqi, 340px); gap: clamp(16px, 2.4cqi, 24px); align-items: start; }
 .layout-side { display: grid; grid-template-columns: clamp(210px, 22cqi, 250px) minmax(0, 1fr); gap: clamp(16px, 2.4cqi, 24px); align-items: start; }

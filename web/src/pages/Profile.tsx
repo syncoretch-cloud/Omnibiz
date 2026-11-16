@@ -6,8 +6,8 @@ import { Artwork, postArt, productArt } from '../components/Artwork.tsx';
 import { CvManager } from './CvEditor.tsx';
 import { useAvatarUpload } from '../components/AvatarUpload.tsx';
 import { RichText } from '../components/PostCard.tsx';
-import { Avatar, Dropdown, Empty, LoadMore, Modal, Ring, Spinner, Swap, Tabs, Verified, Visibility } from '../components/ui.tsx';
-import { JobCard, PersonRow } from '../components/Cards.tsx';
+import { Avatar, Dropdown, Empty, LoadMore, Ring, Spinner, Swap, Tabs, Verified, Visibility } from '../components/ui.tsx';
+import { JobCard } from '../components/Cards.tsx';
 import { ApplicationsOverview } from '../components/Applications.tsx';
 import { MapView } from '../components/MapView.tsx';
 import { ReportDialog } from '../components/Report.tsx';
@@ -114,15 +114,6 @@ export function CvView({ cv: fullCv, documents: allDocs }: { cv: Json; documents
         </div>
       )}
     </div>
-  );
-}
-
-function FollowList({ userId, kind, onClose }: { userId: number; kind: 'followers' | 'following'; onClose: () => void }) {
-  const { data, loading } = useApi(`/users/${userId}/${kind}`);
-  return (
-    <Modal title={kind === 'followers' ? 'Followers' : 'Following'} onClose={onClose}>
-      {loading ? <Spinner /> : data?.users.length ? <div className="stagger">{data.users.map((u: Json) => <PersonRow key={u.id} u={u} />)}</div> : <Empty icon="users" title="Nobody yet" />}
-    </Modal>
   );
 }
 
@@ -280,7 +271,6 @@ export default function Profile() {
   const storyRes = useApi(data?.user ? `/stories/user/${data.user.id}` : null);
   const [viewing, setViewing] = useState(false);
   const [reporting, setReporting] = useState(false);
-  const [followList, setFollowList] = useState<'followers' | 'following' | null>(null);
   const pic = useAvatarUpload();
 
   if (loading && !data) return <Spinner block />;
@@ -407,8 +397,6 @@ export default function Profile() {
           </div>
           <div className="profile-stats">
             <div><b>{compact(data.stats.posts)}</b> {data.stats.posts === 1 ? 'post' : 'posts'}</div>
-            <button onClick={() => setFollowList('followers')}><b>{compact(data.stats.followers)}</b> {data.stats.followers === 1 ? 'follower' : 'followers'}</button>
-            <button onClick={() => setFollowList('following')}><b>{compact(data.stats.following)}</b> following</button>
             {data.rating?.count > 0 && <div className="profile-rating" title={`${data.rating.avg} out of 5`}><b>{data.rating.avg}<span className="stars"> ★</span></b><span>{data.rating.count} review{data.rating.count === 1 ? '' : 's'}</span></div>}
           </div>
         </div>
@@ -436,7 +424,6 @@ export default function Profile() {
 
       {viewing && story && <StoryViewer stories={[story]} start={0} onClose={() => { setViewing(false); storyRes.reload(); }} />}
       {reporting && <ReportDialog targetType="user" targetId={u.id} onClose={() => setReporting(false)} />}
-      {followList && <FollowList userId={u.id} kind={followList} onClose={() => setFollowList(null)} />}
     </main>
   );
 }

@@ -700,3 +700,37 @@ test('password recovery: the code goes by email or text message, only to the acc
     setSenders({ email: null, sms: null });
   }
 });
+
+test('business dashboard: orders received and the customers dealt with', async () => {
+  const { c: seller, me: sellerMe } = await register('retailer', { category: 'retail' });
+  const p = await seller.post('/api/products', { name: 'Desk Lamp', category: 'electronics', price: 20000, quantity: 100 });
+  const pid = p.body.product.id;
+  const order = async (c: Client, qty: number) => {
+    assert.equal((await c.post('/api/cart', { product_id: pid, qty })).status, 200);
+    const r = await c.post('/api/orders/checkout', { payment_method: 'cash_on_delivery', delivery_address: 'Arusha', delivery_phone: '+255711111111' });
+    assert.equal(r.status, 201, JSON.stringify(r.body));
+    return r.body.order_ids[0] as number;
+  };
+  const { c: a } = await register('customer');
+  const { c: b } = await register('customer');
+  const { c: chatOnly, me: chatMe } = await register('customer');
+  const first = await order(a, 1);
+  await order(a, 2); // the same customer again
+  await order(b, 1);
+  assert.equal((await chatOnly.post('/api/messages/start', { user_id: sellerMe.id, body: 'Do you deliver to Moshi?' })).status, 201);
+  assert.equal((await seller.post(`/api/orders/${first}/status`, { status: 'confirmed' })).status, 200);
+
+  const o = (await seller.get('/api/analytics/overview?days=30')).body;
+  assert.equal(o.orders.total, 3);
+  assert.equal(o.orders.pending, 2);
+  assert.equal(o.orders.confirmed, 1);
+  assert.equal(o.orders.awaiting, 2);
+  assert.equal(o.customers.ordered, 2, 'two different buyers');
+  assert.equal(o.customers.chatted, 1);
+  assert.equal(o.customers.total, 3, 'buyers plus the person who only messaged');
+  assert.equal(o.customers.repeat, 1);
+  assert.equal(o.recentOrders.length, 3);
+  assert.ok(o.recentOrders[0].buyer.display_name);
+  assert.equal(o.followers, undefined, 'follower counts are no longer part of the dashboard');
+  void chatMe;
+});

@@ -6,6 +6,7 @@ import { all, get, sqlTime, DAY } from '../db/index.ts';
 import type { Row } from '../db/index.ts';
 import { validate } from '../lib/http.ts';
 import { requirePerm } from '../lib/auth.ts';
+import { userCards } from '../services/users.ts';
 
 export const analyticsRouter = Router();
 analyticsRouter.use(requirePerm('view_analytics'));
@@ -34,7 +35,6 @@ function overview(ownerId: number, days: number) {
       (SELECT COUNT(*) FROM saves s JOIN products p ON p.id = s.target_id AND s.target_type = 'product' WHERE p.seller_id = ? AND s.created_at > ?) AS product_saves`,
     ownerId, from, ownerId, from, ownerId, from, ownerId, from,
   )!;
-  const followers = get('SELECT COUNT(*) AS total, SUM(CASE WHEN created_at > ? THEN 1 ELSE 0 END) AS new FROM follows WHERE followee_id = ?', from, ownerId)!;
 
   const daily = all(
     `SELECT date(created_at) AS day, type, COUNT(*) AS n FROM analytics_events
@@ -84,7 +84,43 @@ function overview(ownerId: number, days: number) {
     ownerId, from,
   )!;
 
-  return { days, totals, engagement, followers, series: { days: daysList, ...series }, topProducts, topPosts, applicationSources, searchTerms, viewSources, sales };
+  // Orders received, and the people the business has dealt with: buyers plus anyone it exchanged messages with.
+  const orderRow = (start: string, end: string | null) =>
+    get(
+      `SELECT COUNT(*) AS total, COALESCE(SUM(status = 'pending'), 0) AS pending, COALESCE(SUM(status = 'confirmed'), 0) AS confirmed,
+              COALESCE(SUM(status = 'shipped'), 0) AS shipped, COALESCE(SUM(status = 'delivered'), 0) AS delivered, COALESCE(SUM(status = 'cancelled'), 0) AS cancelled
+       FROM orders WHERE seller_id = ? AND created_at > ? ${end ? 'AND created_at <= ?' : ''}`,
+      ownerId, start, ...(end ? [end] : []),
+    )!;
+  const buyersIn = (start: string, end: string | null) =>
+    all(`SELECT DISTINCT buyer_id AS uid FROM orders WHERE seller_id = ? AND status != 'cancelled' AND created_at > ? ${end ? 'AND created_at <= ?' : ''}`, ownerId, start, ...(end ? [end] : [])).map((r) => r.uid as number);
+  const chattersIn = (start: string, end: string | null) =>
+    all(
+      `SELECT DISTINCT other.user_id AS uid FROM conversation_members mine
+       JOIN conversation_members other ON other.conversation_id = mine.conversation_id AND other.user_id != mine.user_id
+       JOIN messages m ON m.conversation_id = mine.conversation_id
+       WHERE mine.user_id = ? AND m.created_at > ? ${end ? 'AND m.created_at <= ?' : ''}`,
+      ownerId, start, ...(end ? [end] : []),
+    ).map((r) => r.uid as number);
+  const buyers = buyersIn(from, null);
+  const chatters = chattersIn(from, null);
+  const everyone = new Set([...buyers, ...chatters]);
+  const previousEveryone = new Set([...buyersIn(prevFrom, from), ...chattersIn(prevFrom, from)]);
+  const repeat = get(
+    `SELECT COUNT(*) AS n FROM (SELECT buyer_id FROM orders WHERE seller_id = ? AND status != 'cancelled' AND created_at > ? GROUP BY buyer_id HAVING COUNT(*) >= 2)`,
+    ownerId, from,
+  )!.n as number;
+  const orders = {
+    ...orderRow(from, null),
+    previous: orderRow(prevFrom, from).total,
+    awaiting: get("SELECT COUNT(*) AS n FROM orders WHERE seller_id = ? AND status = 'pending'", ownerId)!.n as number,
+  };
+  const customers = { total: everyone.size, previous: previousEveryone.size, ordered: buyers.length, chatted: chatters.length, repeat };
+  const recentRows = all('SELECT id, buyer_id, status, subtotal, currency, created_at FROM orders WHERE seller_id = ? ORDER BY id DESC LIMIT 5', ownerId);
+  const cards = userCards(recentRows.map((r) => r.buyer_id));
+  const recentOrders = recentRows.map((r) => ({ id: r.id, status: r.status, subtotal: r.subtotal, currency: r.currency, created_at: r.created_at, buyer: cards.get(r.buyer_id) }));
+
+  return { days, totals, engagement, orders, customers, recentOrders, series: { days: daysList, ...series }, topProducts, topPosts, applicationSources, searchTerms, viewSources, sales };
 }
 
 function pct(cur: number, prev: number) {
@@ -101,7 +137,8 @@ function insights(o: ReturnType<typeof overview>): string[] {
   if (t.profile_view.value) out.push(`Profile views: ${t.profile_view.value} (${pct(t.profile_view.value, t.profile_view.previous)}).`);
   if (t.search_appearance.value) out.push(`You appeared in search ${t.search_appearance.value} times${o.searchTerms[0] ? `, most often for “${o.searchTerms[0].term}”` : ''}.`);
   if (t.inquiry.value) out.push(`${t.inquiry.value} customer inquiries started a conversation with you.`);
-  if (o.followers.new) out.push(`You gained ${o.followers.new} new followers (now ${o.followers.total}).`);
+  if (o.orders.awaiting) out.push(`${o.orders.awaiting} order${o.orders.awaiting === 1 ? ' is' : 's are'} waiting for you to confirm.`);
+  if (o.customers.total) out.push(`You dealt with ${o.customers.total} customer${o.customers.total === 1 ? '' : 's'}: ${o.customers.ordered} ordered and ${o.customers.chatted} messaged you${o.customers.repeat ? `, and ${o.customers.repeat} bought more than once` : ''}.`);
   if (t.application.value) out.push(`${t.application.value} job applications received${o.applicationSources[0] ? `, mostly via ${o.applicationSources[0].source}` : ''}.`);
   const lowConv = (o.topProducts as Row[]).find((p) => p.views >= 20 && !p.inquiries && !p.units_sold);
   if (lowConv) out.push(`“${lowConv.name}” gets attention (${lowConv.views} views) but no inquiries — consider clearer pricing, photos or a promotion.`);
@@ -127,8 +164,8 @@ analyticsRouter.post('/ask', (req, res) => {
   if (/product|selling|perform|best|top/.test(q)) {
     table = (o.topProducts as Row[]).slice(0, 5).map((p) => ({ product: p.name, views: p.views, saves: p.saves, inquiries: p.inquiries, units_sold: p.units_sold }));
     answer = table.length ? `Your top products ${period}, ranked by views:` : 'You have no product activity yet.';
-  } else if (/follower/.test(q)) {
-    answer = `You have ${o.followers.total} followers, ${o.followers.new ?? 0} of them new ${period}.`;
+  } else if (/customer|client|buyer/.test(q)) {
+    answer = `You dealt with ${o.customers.total} customers ${period}: ${o.customers.ordered} placed orders, ${o.customers.chatted} messaged you, and ${o.customers.repeat} bought more than once.`;
   } else if (/applica|candidate|hiring|recruit/.test(q)) {
     answer = `You received ${t.application.value} applications ${period} (${pct(t.application.value, t.application.previous)}).`;
     table = (o.applicationSources as Row[]).map((s) => ({ source: s.source, applications: s.n }));

@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { Link, NavLink, Route, Routes } from 'react-router';
 import { Icon } from '../../components/Icon.tsx';
-import { Empty, PageTitle, Select, Spinner, Verified, SectionSwap } from '../../components/ui.tsx';
+import { Avatar, Empty, PageTitle, Select, Spinner, Verified, SectionSwap } from '../../components/ui.tsx';
 import { ActivityMatrix, BarList, Kpi, LineChart } from '../../components/Charts.tsx';
 import { post } from '../../lib/api.ts';
 import type { Json } from '../../lib/api.ts';
 import { useApi } from '../../lib/hooks.ts';
 import { useAction, useSession } from '../../lib/session.tsx';
-import { label, money } from '../../lib/format.ts';
+import { label, money, timeAgo } from '../../lib/format.ts';
 import { OrderList } from '../Orders.tsx';
 import { ProductsManager } from './Products.tsx';
 import { JobsManager } from './JobsManager.tsx';
@@ -26,7 +26,7 @@ function Assistant() {
     setBusy(false);
     if (r) setAnswer(r);
   };
-  const examples = ['Show me my best-performing products this month', 'How many followers did I gain this week?', 'Where do my job applications come from?', 'What did people search to find me?'];
+  const examples = ['Show me my best-performing products this month', 'How many customers did I deal with this month?', 'Where do my job applications come from?', 'What did people search to find me?'];
   return (
     <div className="card">
       <div className="card-header"><h3 className="row"><Icon name="sparkles" size={18} />Business assistant</h3></div>
@@ -69,15 +69,54 @@ function Overview() {
         <h2>Performance</h2>
         <Select value={days} onChange={(e) => setDays(e.target.value)} options={[{ value: '7', label: 'Last 7 days' }, { value: '30', label: 'Last 30 days' }, { value: '90', label: 'Last 90 days' }]} style={{ width: 'auto' }} aria-label="Date range" />
       </div>
+      <div className="grid-3">
+        <Link to="/dashboard/orders" className="card card-link"><Kpi label="Orders received" value={data.orders.total} previous={data.orders.previous} /></Link>
+        <Kpi label="Customers you dealt with" value={data.customers.total} previous={data.customers.previous} />
+        <Kpi label="Revenue (not counting cancelled orders)" value={data.sales.revenue} format={(n) => money(n, data.sales.currency ?? 'TZS')} />
+      </div>
+      <div className="grid-2">
+        <div className="card">
+          <div className="card-header">
+            <h3>Orders</h3>
+            <Link to="/dashboard/orders" className="small">See all</Link>
+          </div>
+          <div className="card-body stack">
+            {data.orders.awaiting > 0 && (
+              <Link to="/dashboard/orders" className="banner banner-info small"><Icon name="package" /><span className="grow"><b>{data.orders.awaiting}</b> order{data.orders.awaiting === 1 ? ' is' : 's are'} waiting for you to confirm.</span></Link>
+            )}
+            <div className="row-wrap">
+              {(['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'] as const).map((s) => <span key={s} className="chip">{label(s)} <b>{data.orders[s]}</b></span>)}
+            </div>
+            {data.recentOrders.length ? data.recentOrders.map((o: Json) => (
+              <Link key={o.id} to={`/orders/${o.id}`} className="list-item" style={{ padding: 0 }}>
+                <Avatar user={o.buyer} size={34} />
+                <div className="grow"><div className="bold small">Order #{o.id} · {o.buyer?.display_name}</div><div className="xsmall muted">{timeAgo(o.created_at)} · {label(o.status)}</div></div>
+                <span className="small bold">{money(o.subtotal, o.currency)}</span>
+              </Link>
+            )) : <p className="small muted">No orders yet. They will appear here as customers check out.</p>}
+          </div>
+        </div>
+        <div className="card">
+          <div className="card-header"><h3>Customers</h3><Link to="/messages" className="small">Open messages</Link></div>
+          <div className="card-body stack">
+            <p className="small muted">People you dealt with in the last {days} days: everyone who ordered from you or exchanged messages with you.</p>
+            <BarList valueLabel="people" rows={[
+              { key: 'ordered', value: data.customers.ordered, label: 'Placed an order' },
+              { key: 'chatted', value: data.customers.chatted, label: 'Messaged you' },
+              { key: 'repeat', value: data.customers.repeat, label: 'Bought more than once' },
+            ]} />
+          </div>
+        </div>
+      </div>
       <div className="grid-4">
         <Kpi label="Profile views" value={t.profile_view.value} previous={t.profile_view.previous} />
         <Kpi label="Product views" value={t.product_view.value} previous={t.product_view.previous} />
         <Kpi label="Post reach" value={t.post_impression.value} previous={t.post_impression.previous} />
         <Kpi label="Search appearances" value={t.search_appearance.value} previous={t.search_appearance.previous} />
         <Kpi label="Customer inquiries" value={t.inquiry.value} previous={t.inquiry.previous} />
-        <Kpi label="New followers" value={data.followers.new ?? 0} />
+        <Kpi label="Product saves" value={data.engagement.product_saves ?? 0} />
         <Kpi label="Engagement" value={data.engagement.likes + data.engagement.comments + data.engagement.reposts} />
-        {company ? <Kpi label="Job applications" value={t.application.value} previous={t.application.previous} /> : <Kpi label={`Sales (${data.sales.orders} orders)`} value={data.sales.revenue} format={(n) => money(n, data.sales.currency ?? 'TZS')} />}
+        {company && <Kpi label="Job applications" value={t.application.value} previous={t.application.previous} />}
       </div>
       <div className="card card-pad hero-card">
         <div className="row-between" style={{ marginBottom: 12 }}>

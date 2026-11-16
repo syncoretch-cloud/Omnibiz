@@ -118,7 +118,7 @@ export function BusinessCard({ b, onFollow }: { b: Json; onFollow?: () => void }
       {b.description && <div className="small muted clamp-2">{b.description}</div>}
       {b.services?.length > 0 && <div className="row-wrap">{b.services.slice(0, 3).map((s: string) => <span key={s} className="chip">{s}</span>)}</div>}
       <div className="row-between">
-        <span className="xsmall muted">{b.followers != null ? `${b.followers} follower${b.followers === 1 ? '' : 's'}` : ''}{b.rating ? ` · ★ ${b.rating.avg}` : ''}</span>
+        <span className="xsmall muted">{b.rating ? `★ ${b.rating.avg}` : ''}</span>
         {can('follow') && me?.user.id !== b.id && (
           <button className={`btn btn-sm ${following ? 'btn-outline' : 'btn-brand-outline'}`} onClick={follow} aria-pressed={following}>
             {following ? <><Icon name="check" />Following</> : <><Icon name="plus" />Follow</>}

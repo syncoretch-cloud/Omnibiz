@@ -7,7 +7,7 @@ import type { Spec } from '../lib/http.ts';
 import { requireAuth, requirePerm } from '../lib/auth.ts';
 import { EDUCATION_LEVELS, EMPLOYMENT_TYPES, VISIBILITY, isBusiness } from '../lib/constants.ts';
 import { staffCan } from '../lib/permissions.ts';
-import { canonicalCity, cityCoords, coarsen } from '../lib/geo.ts';
+import { canonicalCity, cityCoords, coarsen, fillPlace } from '../lib/geo.ts';
 import { userCards } from '../services/users.ts';
 import { reindexUser } from '../services/search-index.ts';
 import { notify } from '../services/notify.ts';
@@ -240,6 +240,9 @@ usersRouter.patch('/me', requireAuth, (req, res) => {
   }
   if (d.city !== undefined) {
     d.city = canonicalCity(d.city);
+    const place = fillPlace({ country: d.country, region: d.region, city: d.city });
+    if (!d.country) d.country = place.country;
+    if (!d.region) d.region = place.region;
     if (d.lat === undefined && d.city) {
       const c = cityCoords(d.city);
       if (c) Object.assign(d, c);

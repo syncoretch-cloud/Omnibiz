@@ -6,6 +6,7 @@ import multer from 'multer';
 import { run, tx, MINUTE } from './db/index.ts';
 import { config } from './config.ts';
 import { HttpError } from './lib/http.ts';
+import { backfillPlaces } from './lib/geo.ts';
 import { loadUser } from './lib/auth.ts';
 import { rateLimit } from './lib/ratelimit.ts';
 import { MEDIA_DIR } from './lib/storage.ts';
@@ -33,6 +34,10 @@ import { ensurePlans } from './services/subscriptions.ts';
 import { verificationRouter } from './modules/verification.ts';
 import { storiesRouter } from './modules/stories.ts';
 
+export function backfillUserPlaces() {
+  tx(() => backfillPlaces(run));
+}
+
 export function ensureCategories() {
   tx(() => {
     INDUSTRIES.forEach(([slug, name], i) => run("INSERT OR IGNORE INTO categories (scope, slug, name, sort) VALUES ('industry', ?, ?, ?)", slug, name, i));
@@ -47,6 +52,7 @@ export function createApp(opts: { dist?: string } = {}) {
   const dist = opts.dist ?? config.webDist;
   ensureCategories();
   ensurePlans();
+  backfillUserPlaces();
   ensureBlockedTerms();
   if (!handlersRegistered) {
     registerEventHandlers();

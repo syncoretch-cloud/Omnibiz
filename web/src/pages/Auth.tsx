@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { LocationFields } from '../components/LocationFields.tsx';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Icon } from '../components/Icon.tsx';
 import { ErrorBox, Input, Select, Swap } from '../components/ui.tsx';
@@ -187,8 +188,7 @@ function RegisterPanel() {
               <Input className={bad('phone')} type="tel" placeholder="Phone number (+255…)" value={f.phone ?? ''} onChange={set('phone')} required autoComplete="tel" />
               <Input className={bad('email')} type="email" placeholder="Email address" value={f.email ?? ''} onChange={set('email')} required autoComplete="email" />
               <Input className={bad('password')} type="password" placeholder="Password (8+ letters & numbers)" value={f.password ?? ''} onChange={set('password')} required autoComplete="new-password" minLength={8} />
-              <Input placeholder="City (e.g. Arusha)" value={f.city ?? ''} onChange={set('city')} list="city-list" />
-              <datalist id="city-list">{meta?.cities.map((c) => <option key={c.name} value={c.name} />)}</datalist>
+              <LocationFields value={{ country: f.country ?? '', region: f.region ?? '', city: f.city ?? '' }} onChange={(p) => setF((x) => ({ ...x, ...p }))} />
               <ErrorBox error={error} />
               <button className="btn btn-primary btn-lg btn-block" style={{ marginTop: 6 }} disabled={busy}>{busy ? 'Creating…' : 'Sign up'}</button>
               <p className="xsmall muted center" style={{ marginTop: 4 }}>By signing up you agree to our Terms and Privacy Policy.</p>

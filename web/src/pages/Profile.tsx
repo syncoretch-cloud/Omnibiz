@@ -401,7 +401,7 @@ export default function Profile() {
             </div>
           )}
           <div className="profile-facts">
-            {(u.city || u.country) && <span className="chip"><Icon name="mapPin" />{[u.city, u.country].filter(Boolean).join(', ')}</span>}
+            {(u.city || u.region || u.country) && <span className="chip"><Icon name="mapPin" />{[...new Set([u.city, u.region, u.country].filter(Boolean))].join(', ')}</span>}
             {isBiz && b.opening_hours && <span className="chip"><Icon name="clock" />{b.opening_hours}</span>}
             {p?.open_to_work && <span className="chip chip-success"><Icon name="briefcase" />Open to work</span>}
           </div>

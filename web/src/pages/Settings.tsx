@@ -4,6 +4,7 @@ import QRCode from 'qrcode';
 import { Icon } from '../components/Icon.tsx';
 import { Avatar, Empty, ErrorBox, Field, Input, Modal, PageTitle, Select, Spinner, TagInput, Textarea, SectionSwap } from '../components/ui.tsx';
 import { useAvatarUpload } from '../components/AvatarUpload.tsx';
+import { LocationFields } from '../components/LocationFields.tsx';
 import { PlanSettings } from './PlanSettings.tsx';
 import { ProfileForm } from './CvEditor.tsx';
 import { MapView } from '../components/MapView.tsx';
@@ -111,12 +112,7 @@ function Account() {
       <div className="card card-pad stack">
         <h3>Location & privacy</h3>
         <div className="form-grid">
-          <Field label="Country"><Input value={f.country} onChange={(e) => setF({ ...f, country: e.target.value })} /></Field>
-          <Field label="Region"><Input value={f.region} onChange={(e) => setF({ ...f, region: e.target.value })} /></Field>
-          <Field label="City / town">
-            <Input value={f.city} onChange={(e) => setF({ ...f, city: e.target.value })} list="settings-cities" />
-            <datalist id="settings-cities">{meta?.cities.map((c) => <option key={c.name} value={c.name} />)}</datalist>
-          </Field>
+          <LocationFields labelled value={{ country: f.country ?? '', region: f.region ?? '', city: f.city ?? '' }} onChange={(p) => setF((x: Json) => ({ ...x, ...p }))} />
           <div className="field" style={{ justifyContent: 'flex-end' }}><button type="button" className="btn btn-outline" onClick={useMyLocation}><Icon name="target" />Use my current location</button></div>
         </div>
         {!biz && (

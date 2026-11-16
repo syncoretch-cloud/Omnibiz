@@ -622,3 +622,25 @@ test('verification: paid request, staff approval, badge and feed boost; staff ca
   assert.equal((await new Client().post('/api/auth/login', { identifier: victim.username, password: 'Secret123' })).status, 401);
   assert.equal((await admin.post(`/api/admin/users/${adminMe.id}/delete`, { reason: 'self' })).status, 400);
 });
+
+test('location: countries and regions are offered, and missing ones are filled from a known city', async () => {
+  const meta = await new Client().get('/api/meta');
+  const tz = meta.body.countries.find((c: Json) => c.name === 'Tanzania');
+  assert.equal(tz.regions.length, 31);
+  assert.ok(meta.body.countries.find((c: Json) => c.name === 'Kenya').regions.includes('Nairobi'));
+  assert.equal(meta.body.countries.find((c: Json) => c.name === 'Zambia').regions, null);
+  // Register with only a city: country and region come from it.
+  const { me } = await register('personal', { city: 'Moshi' });
+  assert.equal(me.country, 'Tanzania');
+  assert.equal(me.region, 'Kilimanjaro');
+  // Choosing a country and region by hand is kept.
+  const { me: other } = await register('personal', { country: 'Kenya', region: 'Nakuru', city: 'Naivasha' });
+  assert.equal(other.country, 'Kenya');
+  assert.equal(other.region, 'Nakuru');
+  assert.equal(other.city, 'Naivasha');
+  // Changing city in settings fills in a missing region.
+  const { c } = await register('personal', { city: 'Arusha' });
+  const upd = await c.patch('/api/users/me', { city: 'Mbeya', country: 'Tanzania', region: '' });
+  assert.equal(upd.status, 200, JSON.stringify(upd.body));
+  assert.equal(upd.body.user.region, 'Mbeya');
+});

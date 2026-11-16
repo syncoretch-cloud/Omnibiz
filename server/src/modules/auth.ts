@@ -10,7 +10,7 @@ import { rateLimit, hit } from '../lib/ratelimit.ts';
 import { sendEmail, sendSms } from '../lib/outbox.ts';
 import { ACCOUNT_TYPES, isBusiness } from '../lib/constants.ts';
 import { ACCOUNT_PERMISSIONS, staffPermissions } from '../lib/permissions.ts';
-import { canonicalCity, cityCoords } from '../lib/geo.ts';
+import { canonicalCity, cityCoords, fillPlace } from '../lib/geo.ts';
 import { selfView } from '../services/users.ts';
 import { reindexUser } from '../services/search-index.ts';
 import { deleteAccount } from '../services/accounts.ts';
@@ -148,12 +148,13 @@ authRouter.post('/register', rateLimit('register', 10, 60 * MINUTE, (r) => r.ip 
 
   const city = canonicalCity(base.city);
   const coords = cityCoords(city);
+  const place = fillPlace({ country: base.country, region: base.region, city });
   const userId = tx(() => {
     const { id } = run(
       `INSERT INTO users (account_type, username, email, phone, password_hash, display_name, country, region, city, lat, lng)
        VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
       type, base.username, base.email, phone, hashPassword(base.password),
-      business ? base.business_name : base.full_name, base.country ?? null, base.region ?? null, city, coords?.lat ?? null, coords?.lng ?? null,
+      business ? base.business_name : base.full_name, place.country, place.region, city, coords?.lat ?? null, coords?.lng ?? null,
     );
     if (business) {
       run(

@@ -4,7 +4,7 @@ import {
   ACCOUNT_TYPES, ANNOUNCEMENT_KINDS, CURRENCIES, DOC_KINDS, EDUCATION_LEVELS, EMPLOYMENT_TYPES,
   ORDER_STATUSES, PAYMENT_METHODS, PIPELINE, POST_KINDS, REPORT_REASONS,
 } from '../lib/constants.ts';
-import { KNOWN_CITIES } from '../lib/geo.ts';
+import { COUNTRIES, KNOWN_CITIES } from '../lib/geo.ts';
 import { ACCOUNT_PERMISSIONS } from '../lib/permissions.ts';
 
 export const metaRouter = Router();
@@ -28,6 +28,7 @@ metaRouter.get('/', (_req, res) => {
     payment_methods: PAYMENT_METHODS,
     report_reasons: REPORT_REASONS,
     currencies: CURRENCIES,
+    countries: Object.entries(COUNTRIES).map(([name, regions]) => ({ name, regions })),
     cities: Object.entries(KNOWN_CITIES).map(([name, c]) => ({ name, ...c })),
   });
 });

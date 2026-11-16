@@ -10,7 +10,7 @@ export const KNOWN_CITIES: Record<string, { lat: number; lng: number; country: s
   Mbeya: { lat: -8.9094, lng: 33.4608, country: 'Tanzania', region: 'Mbeya' },
   Morogoro: { lat: -6.8278, lng: 37.6591, country: 'Tanzania', region: 'Morogoro' },
   Tanga: { lat: -5.0689, lng: 39.0988, country: 'Tanzania', region: 'Tanga' },
-  Zanzibar: { lat: -6.1659, lng: 39.2026, country: 'Tanzania', region: 'Zanzibar' },
+  Zanzibar: { lat: -6.1659, lng: 39.2026, country: 'Tanzania', region: 'Mjini Magharibi' },
   Iringa: { lat: -7.7700, lng: 35.6930, country: 'Tanzania', region: 'Iringa' },
   Tabora: { lat: -5.0162, lng: 32.8266, country: 'Tanzania', region: 'Tabora' },
   Kigoma: { lat: -4.8769, lng: 29.6267, country: 'Tanzania', region: 'Kigoma' },
@@ -25,6 +25,37 @@ export const KNOWN_CITIES: Record<string, { lat: number; lng: number; country: s
   Kampala: { lat: 0.3476, lng: 32.5825, country: 'Uganda', region: 'Central' },
   Kigali: { lat: -1.9441, lng: 30.0619, country: 'Rwanda', region: 'Kigali' },
 };
+
+/** Countries people can pick, with their regions. `null` means we have no list, so the region is typed in. */
+export const COUNTRIES: Record<string, string[] | null> = {
+  Tanzania: ['Arusha', 'Dar es Salaam', 'Dodoma', 'Geita', 'Iringa', 'Kagera', 'Katavi', 'Kigoma', 'Kilimanjaro', 'Kaskazini Pemba', 'Kaskazini Unguja', 'Kusini Pemba', 'Kusini Unguja', 'Lindi', 'Manyara', 'Mara', 'Mbeya', 'Mjini Magharibi', 'Morogoro', 'Mtwara', 'Mwanza', 'Njombe', 'Pwani', 'Rukwa', 'Ruvuma', 'Shinyanga', 'Simiyu', 'Singida', 'Songwe', 'Tabora', 'Tanga'],
+  Kenya: ['Baringo', 'Bomet', 'Bungoma', 'Busia', 'Elgeyo-Marakwet', 'Embu', 'Garissa', 'Homa Bay', 'Isiolo', 'Kajiado', 'Kakamega', 'Kericho', 'Kiambu', 'Kilifi', 'Kirinyaga', 'Kisii', 'Kisumu', 'Kitui', 'Kwale', 'Laikipia', 'Lamu', 'Machakos', 'Makueni', 'Mandera', 'Marsabit', 'Meru', 'Migori', 'Mombasa', "Murang'a", 'Nairobi', 'Nakuru', 'Nandi', 'Narok', 'Nyamira', 'Nyandarua', 'Nyeri', 'Samburu', 'Siaya', 'Taita-Taveta', 'Tana River', 'Tharaka-Nithi', 'Trans Nzoia', 'Turkana', 'Uasin Gishu', 'Vihiga', 'Wajir', 'West Pokot'],
+  Uganda: ['Central', 'Eastern', 'Northern', 'Western'],
+  Rwanda: ['Kigali', 'Eastern', 'Northern', 'Southern', 'Western'],
+  Burundi: null,
+  'DR Congo': null,
+  Zambia: null,
+  Malawi: null,
+  Mozambique: null,
+  'South Africa': null,
+  Ethiopia: null,
+  Nigeria: null,
+  Ghana: null,
+};
+
+/** Existing accounts that gave only a city get the country and region of that city (runs on start-up, changes nothing already set). */
+export function backfillPlaces(exec: (sql: string, ...params: unknown[]) => unknown) {
+  for (const [name, c] of Object.entries(KNOWN_CITIES)) {
+    exec("UPDATE users SET country = ? WHERE city = ? COLLATE NOCASE AND (country IS NULL OR country = '')", c.country, name);
+    exec("UPDATE users SET region = ? WHERE city = ? COLLATE NOCASE AND country = ? AND (region IS NULL OR region = '')", c.region, name, c.country);
+  }
+}
+
+/** Fills a missing country or region from a city we know (e.g. Arusha → Tanzania, Arusha). */
+export function fillPlace(p: { country?: string | null; region?: string | null; city?: string | null }) {
+  const known = p.city ? KNOWN_CITIES[canonicalCity(p.city) ?? ''] : undefined;
+  return { country: p.country || known?.country || null, region: p.region || known?.region || null };
+}
 
 export function cityCoords(city?: string | null): { lat: number; lng: number } | null {
   if (!city) return null;

@@ -27,6 +27,7 @@ export interface Meta {
   payment_methods: string[];
   report_reasons: string[];
   currencies: string[];
+  countries: { name: string; regions: string[] | null }[];
   cities: { name: string; lat: number; lng: number; country: string; region: string }[];
 }
 

@@ -1505,3 +1505,90 @@ a.widget-row:hover .bold { color: var(--brand); }
 .kpi { background: var(--card-bg); }
 .kpi .label { letter-spacing: 0.01em; }
 .kpi .value { font-weight: 800; }
+
+/* ─────────────────────────── life: icon motion, press feedback, smart bars ─────────────────────────── */
+/* Every icon answers a touch. The current destination plays its own small move once, the moment it becomes current. */
+button, a, [role='button'], summary { touch-action: manipulation; }
+.dock a svg, .nav-link svg, .topbar .icon-btn svg { transform-origin: 50% 55%; transition: transform 0.35s var(--spring); }
+.dock a:active { transform: scale(0.9); }
+.nav-link:hover svg { transform: translateX(2px) scale(1.1); }
+.nav-link:active { transform: scale(0.97); }
+.topbar .icon-btn:active svg { transform: scale(0.82); }
+.tab:active, button.chip:active, .choice:active, .create-option:active, .list-item:active { transform: scale(0.97); }
+.tab, button.chip, .choice { transition-property: background, color, padding, box-shadow, transform; }
+
+@keyframes ic-pop { 0% { transform: scale(0.6); } 55% { transform: scale(1.22); } 100% { transform: scale(1); } }
+@keyframes ic-home { 0% { transform: translateY(0) scale(1); } 28% { transform: translateY(-6px) scale(1.14); } 52% { transform: translateY(1px) scale(0.95); } 72% { transform: translateY(-2px) scale(1.04); } 100% { transform: none; } }
+@keyframes ic-compass { 0% { transform: rotate(-140deg) scale(0.7); } 55% { transform: rotate(24deg) scale(1.16); } 78% { transform: rotate(-9deg); } 100% { transform: none; } }
+@keyframes ic-reels { 0% { transform: scale(0.7) rotate(-10deg); } 45% { transform: scale(1.2) rotate(6deg); } 70% { transform: scale(0.96) rotate(-2deg); } 100% { transform: none; } }
+@keyframes ic-swing { 0% { transform: rotate(0); } 20% { transform: rotate(-16deg); } 45% { transform: rotate(12deg); } 65% { transform: rotate(-6deg); } 82% { transform: rotate(3deg); } 100% { transform: none; } }
+@keyframes ic-ring { 0% { transform: rotate(0); } 12% { transform: rotate(18deg); } 28% { transform: rotate(-16deg); } 44% { transform: rotate(12deg); } 60% { transform: rotate(-8deg); } 76% { transform: rotate(4deg); } 100% { transform: none; } }
+@keyframes ic-chat { 0% { transform: scale(0.7) translateY(4px); } 50% { transform: scale(1.18) translateY(-2px); } 100% { transform: none; } }
+@keyframes ic-grid { 0% { transform: rotate(-90deg) scale(0.6); } 60% { transform: rotate(10deg) scale(1.1); } 100% { transform: none; } }
+@keyframes tile-in { from { transform: scale(0.82); opacity: 0.4; } }
+
+.dock a.active, .nav-link.active { animation: tile-in 0.4s var(--spring); }
+.dock a.active svg, .nav-link.active svg { animation: ic-pop 0.55s var(--spring); }
+.dock a.active[data-icon='home'] svg, .nav-link.active[data-icon='home'] svg { animation: ic-home 0.7s var(--ease-out); }
+.dock a.active[data-icon='discover'] svg, .nav-link.active[data-icon='discover'] svg { animation: ic-compass 0.9s var(--ease-out); }
+.dock a.active[data-icon='reels'] svg, .nav-link.active[data-icon='reels'] svg { animation: ic-reels 0.7s var(--ease-out); }
+.dock a.active[data-icon='jobs'] svg, .nav-link.active[data-icon='jobs'] svg,
+.dock a.active[data-icon='market'] svg, .nav-link.active[data-icon='market'] svg { animation: ic-swing 0.8s var(--ease-out); transform-origin: 50% 8%; }
+.nav-link.active[data-icon='messages'] svg { animation: ic-chat 0.55s var(--spring); }
+.nav-link.active[data-icon='notifications'] svg { animation: ic-ring 0.9s var(--ease-out); transform-origin: 50% 8%; }
+.nav-link.active[data-icon='dashboard'] svg { animation: ic-grid 0.7s var(--ease-out); }
+
+/* Notifications: the bell rings when something new arrives; the badge breathes so it is noticed without nagging. */
+.icon-anim { display: inline-grid; place-items: center; transform-origin: 50% 8%; }
+.icon-btn.has-new[data-icon='bell'] .icon-anim { animation: ic-ring 1s 0.15s var(--ease-out); }
+.icon-btn.has-new[data-icon='message'] .icon-anim { animation: ic-chat 0.6s 0.1s var(--spring); transform-origin: 50% 60%; }
+.badge-dot { animation: pop-in 0.35s var(--spring), badge-breathe 2.8s 0.6s ease-in-out infinite; }
+@keyframes badge-breathe { 50% { box-shadow: 0 0 0 2px var(--surface), 0 0 0 6px rgba(47, 125, 255, 0.2); } }
+
+/* The create button: a slow glow, and it turns into a cross-hair on press. */
+.dock .create-fab svg { transition: transform 0.4s var(--spring); }
+.dock .create-fab:active svg { transform: rotate(135deg) scale(0.9); }
+.dock .create-fab { animation: fab-glow 3.4s ease-in-out infinite; }
+@keyframes fab-glow { 50% { box-shadow: var(--clay), 0 0 0 9px rgba(47, 125, 255, 0.1); } }
+.nav-create svg { transition: transform 0.4s var(--spring); }
+.nav-create:hover svg { transform: rotate(90deg); }
+
+/* Phones: bars slip away while you read down the page and come back as soon as you scroll up. */
+@media (max-width: 767.98px) {
+  .topbar, .dock { transition: transform 0.4s var(--ease-out), opacity 0.3s; will-change: transform; }
+  .shell.chrome-hidden .topbar { transform: translateY(-105%); }
+  .shell.chrome-hidden .dock { transform: translateY(calc(100% + 34px)); }
+  .shell.chrome-hidden ~ .toasts, .toasts { transition: bottom 0.4s var(--ease-out); }
+}
+html.ptr { overscroll-behavior-y: contain; }
+
+/* Pull to refresh */
+.pull {
+  position: fixed; top: calc(64px + env(safe-area-inset-top)); left: 50%; z-index: 70; width: 42px; height: 42px; margin-left: -21px; display: grid; place-items: center; border-radius: 50%;
+  background: var(--glass-strong); border: 1px solid var(--glass-border); box-shadow: var(--shadow-lg); pointer-events: none;
+  transform: translateY(calc(var(--pull) - 36px)) scale(calc(0.55 + var(--fill) * 0.45)); opacity: var(--fill);
+}
+.pull-refreshing { opacity: 1; transition: transform 0.3s var(--ease-out); }
+.pull svg { width: 28px; height: 28px; transform: rotate(-90deg); }
+.pull-track { fill: none; stroke: rgba(150, 180, 240, 0.18); stroke-width: 3; }
+.pull-arc { fill: none; stroke: var(--brand-strong); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 1 1; stroke-dashoffset: calc(1 - var(--fill)); }
+.pull-ready .pull-arc { stroke: var(--pink); }
+.pull-refreshing svg { animation: spin 0.8s linear infinite; }
+.pull-refreshing .pull-arc { stroke-dashoffset: 0.7; stroke: var(--brand-strong); }
+
+/* Keyboard: j / k highlight a post, l likes it. */
+article.post { transition: box-shadow 0.25s var(--ease), transform 0.25s var(--ease); scroll-margin-block: 90px; }
+article.post.kb-focus { box-shadow: 0 0 0 2px var(--brand), 0 0 32px -6px rgba(47, 125, 255, 0.5), var(--card-shadow); }
+.shortcuts { display: flex; flex-direction: column; }
+.shortcut { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 11px 2px; font-size: 0.92rem; }
+.shortcut + .shortcut { border-top: 1px solid var(--border); }
+.shortcut .kbd { display: inline-grid; place-items: center; min-width: 26px; height: 26px; padding: 0 8px; border-radius: 8px; background: var(--surface-3); border: 1px solid var(--border-strong); font: 700 0.76rem var(--font); color: var(--text); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.5); }
+
+/* Media eases in instead of popping. */
+.post img, .carousel img, .media-grid img { animation: img-in 0.55s var(--ease-out) both; }
+@keyframes img-in { from { opacity: 0; filter: blur(10px); transform: scale(1.03); } }
+/* Feed cards rise in one after another as they arrive. */
+.feed > .post { animation: rise 0.5s var(--ease-out) both; }
+.feed > .post:nth-child(2) { animation-delay: 0.05s; }
+.feed > .post:nth-child(3) { animation-delay: 0.1s; }
+.feed > .post:nth-child(n + 4) { animation-delay: 0.14s; }

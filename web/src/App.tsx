@@ -1,6 +1,6 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
-import { Navigate, Route, Routes, useLocation } from 'react-router';
+import { Navigate, Route, Routes, useLocation, useNavigationType } from 'react-router';
 import { useSession, isBusinessType } from './lib/session.tsx';
 import { Ambient, AppLayout, MobileMenu } from './components/Layout.tsx';
 import { Spinner } from './components/ui.tsx';
@@ -33,13 +33,39 @@ const Settings = lazy(() => import('./pages/Settings.tsx'));
 const Dashboard = lazy(() => import('./pages/dashboard/Dashboard.tsx'));
 const Admin = lazy(() => import('./pages/admin/Admin.tsx'));
 
+/** New pages open at the top; going Back returns to exactly where you were (waiting for the page to be tall enough again). */
+const scrollMemory = new Map<string, number>();
+const readY = () => Math.max(window.scrollY, document.getElementById('app-scroll')?.scrollTop ?? 0);
 function ScrollTop() {
-  const { pathname } = useLocation();
+  const loc = useLocation();
+  const type = useNavigationType();
+  const keyRef = useRef(loc.key);
+  // Track the position of whichever page is showing (the window on phones, the content panel on bigger screens).
   useEffect(() => {
-    // On a phone the page scrolls; on bigger screens the content panel does.
-    window.scrollTo(0, 0);
-    document.getElementById('app-scroll')?.scrollTo(0, 0);
-  }, [pathname]);
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+    const onScroll = () => scrollMemory.set(keyRef.current, readY());
+    document.addEventListener('scroll', onScroll, { capture: true, passive: true });
+    return () => document.removeEventListener('scroll', onScroll, true);
+  }, []);
+  useEffect(() => {
+    keyRef.current = loc.key;
+    const target = type === 'POP' ? scrollMemory.get(loc.key) : undefined;
+    const go = (y: number) => {
+      window.scrollTo(0, y);
+      document.getElementById('app-scroll')?.scrollTo(0, y);
+    };
+    if (!target) {
+      go(0);
+      scrollMemory.set(loc.key, 0);
+      return;
+    }
+    let tries = 0;
+    const id = setInterval(() => {
+      go(target);
+      if (Math.abs(readY() - target) < 4 || ++tries > 25) clearInterval(id);
+    }, 60);
+    return () => clearInterval(id);
+  }, [loc.key, type]);
   return null;
 }
 

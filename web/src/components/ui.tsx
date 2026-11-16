@@ -291,3 +291,17 @@ export function PageTitle({ title, subtitle, actions, back }: { title: ReactNode
     </div>
   );
 }
+
+/** Pull-to-refresh indicator: a ring that fills as you pull, spins while refreshing. */
+export function PullIndicator({ pull, state }: { pull: number; state: 'idle' | 'pulling' | 'ready' | 'refreshing' }) {
+  if (state === 'idle') return null;
+  const fill = Math.min(1, pull / 72);
+  return (
+    <div className={`pull pull-${state}`} style={{ '--pull': `${pull}px`, '--fill': fill } as CSSProperties} role="status" aria-label={state === 'refreshing' ? 'Refreshing' : 'Pull to refresh'}>
+      <svg viewBox="0 0 36 36" aria-hidden="true">
+        <circle cx="18" cy="18" r="13" className="pull-track" />
+        <circle cx="18" cy="18" r="13" className="pull-arc" pathLength="1" />
+      </svg>
+    </div>
+  );
+}

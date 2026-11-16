@@ -10,6 +10,7 @@ import type { Json } from '../lib/api.ts';
 import { useAction, useSession, useToast } from '../lib/session.tsx';
 import { ACCOUNT_LABEL, compact, dateLabel, timeAgo } from '../lib/format.ts';
 import { toggleMusic, usePlaying } from '../lib/music.ts';
+import { thump, tick } from '../lib/haptics.ts';
 
 /** Renders text with clickable #hashtags, @mentions and links. */
 export function RichText({ text }: { text: string }) {
@@ -139,7 +140,7 @@ export function PostCard({ post: initial, onRemoved, showReason = false, expandC
   const like = async () => {
     const liked = !p.liked;
     setP({ ...p, liked, like_count: p.like_count + (liked ? 1 : -1) });
-    if (liked) { setPop(true); setTimeout(() => setPop(false), 500); }
+    if (liked) { setPop(true); setTimeout(() => setPop(false), 500); thump(); } else tick();
     const r = await act(() => (liked ? post(`/posts/${p.id}/like`) : del(`/posts/${p.id}/like`)));
     if (r) setP((x: Json) => ({ ...x, like_count: r.like_count }));
     else setP((x: Json) => ({ ...x, liked: !liked, like_count: x.like_count + (liked ? -1 : 1) }));
@@ -151,6 +152,7 @@ export function PostCard({ post: initial, onRemoved, showReason = false, expandC
   };
   const save = async () => {
     const saved = !p.saved;
+    tick();
     setP({ ...p, saved });
     await act(() => (saved ? post('/saves', { target_type: 'post', target_id: p.id }) : del('/saves', { target_type: 'post', target_id: p.id })), saved ? 'Saved' : undefined);
   };

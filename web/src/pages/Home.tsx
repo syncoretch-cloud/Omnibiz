@@ -1,13 +1,15 @@
 import { useEffect } from 'react';
 import { Link, useOutletContext } from 'react-router';
 import { Icon } from '../components/Icon.tsx';
-import { Empty, LoadMore } from '../components/ui.tsx';
+import { Empty, LoadMore, PullIndicator } from '../components/ui.tsx';
 import { PostCard } from '../components/PostCard.tsx';
 import { StoriesBar } from '../components/Stories.tsx';
 import { POSTED_EVENT } from '../components/CreatePost.tsx';
 import type { ShellContext } from '../components/Layout.tsx';
 import { isBusinessType, useSession } from '../lib/session.tsx';
-import { usePaged } from '../lib/hooks.ts';
+import { REFRESH_EVENT, usePaged, usePullToRefresh } from '../lib/hooks.ts';
+import { buzz } from '../lib/haptics.ts';
+import { useToast } from '../lib/session.tsx';
 
 function greeting() {
   const h = new Date().getHours();
@@ -19,6 +21,10 @@ export function Home() {
   const { openCreate } = useOutletContext<ShellContext>();
   const feed = usePaged('/posts/feed');
   const { setItems } = feed;
+  const { reload } = feed;
+  const toast = useToast();
+  const refresh = async () => { buzz(); reload(); };
+  const pull = usePullToRefresh(refresh);
   const u = me!.user;
   const counts = me?.counts ?? { notifications: 0, messages: 0, cart: 0 };
   const first = (u.display_name ?? u.username).split(' ')[0];
@@ -35,8 +41,16 @@ export function Home() {
     return () => window.removeEventListener(POSTED_EVENT, onPosted);
   }, [setItems]);
 
+  // Re-tapping Home refreshes too.
+  useEffect(() => {
+    const on = () => { reload(); toast('Feed refreshed'); };
+    window.addEventListener(REFRESH_EVENT, on);
+    return () => window.removeEventListener(REFRESH_EVENT, on);
+  }, [reload, toast]);
+
   return (
-    <div className="page page-home">
+    <div className="page page-home" style={pull.state === 'idle' ? undefined : { transform: `translateY(${pull.pull * 0.55}px)`, transition: pull.state === 'refreshing' ? 'transform 0.3s var(--ease-out)' : 'none' }}>
+      <PullIndicator {...pull} />
       <header className="today">
         <div>
           <span className="eyebrow"><span className="orbit" />{today}</span>

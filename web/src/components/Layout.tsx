@@ -2,14 +2,17 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { Icon } from './Icon.tsx';
-import { Avatar, Portal } from './ui.tsx';
+import { Avatar, Modal, Portal } from './ui.tsx';
 import { Board } from './Board.tsx';
 import { CreatePostModal } from './CreatePost.tsx';
 import { StoryCreator } from './StoryCreator.tsx';
-import { isBusinessType, useSession } from '../lib/session.tsx';
+import { isBusinessType, useSession, useToast } from '../lib/session.tsx';
 import { get } from '../lib/api.ts';
 import type { Json } from '../lib/api.ts';
-import { useDebounced } from '../lib/hooks.ts';
+import { REFRESH_EVENT, useDebounced, useScrollHide } from '../lib/hooks.ts';
+import { tick, thump } from '../lib/haptics.ts';
+import { warm } from '../lib/prefetch.ts';
+import { SHORTCUTS, useShortcuts } from '../lib/shortcuts.tsx';
 
 export interface ShellContext {
   openCreate: () => void;
@@ -211,6 +214,8 @@ export function AppLayout() {
   const [composer, setComposer] = useState(false);
   const [storying, setStorying] = useState(false);
   const [meMenu, setMeMenu] = useState(false);
+  const [help, setHelp] = useState(false);
+  const toast = useToast();
   const meRef = useRef<HTMLDivElement>(null);
   const closeSearch = useCallback(() => setSearch(false), []);
   const closeSheet = useCallback(() => setSheet(false), []);
@@ -242,8 +247,28 @@ export function AppLayout() {
   }, [meMenu]);
 
   const openCreate = useCallback(() => setComposer(true), []);
+
+  // The browser tab shows where you are and how much is waiting for you: "(3) Messages · OmniBiz".
+  const unread = counts.notifications + counts.messages;
+  useEffect(() => {
+    const t = pageTitle(loc.pathname);
+    document.title = `${unread > 0 ? `(${unread > 99 ? '99+' : unread}) ` : ''}${t && t !== 'Home' ? `${t} · ` : ''}OmniBiz`;
+  }, [loc.pathname, unread]);
+
+  // Say so when the connection drops or comes back, as a browser would.
+  useEffect(() => {
+    const off = () => toast('You’re offline. Changes will fail until you reconnect.', 'error');
+    const on = () => toast('Back online', 'success');
+    window.addEventListener('offline', off);
+    window.addEventListener('online', on);
+    return () => { window.removeEventListener('offline', off); window.removeEventListener('online', on); };
+  }, [toast]);
+
+  // Phones: the bars slip away while you read down the page and return the moment you scroll up.
+  const hidden = useScrollHide();
   const create = () => setSheet(true);
   const isReels = loc.pathname.startsWith('/reels');
+  useShortcuts({ search: () => setSearch(true), create: () => (canCreate ? setSheet(true) : undefined), help: () => setHelp(true), jobs: showJobs });
   const root = loc.pathname in ROOTS;
   const wide = WIDE.some((re) => re.test(loc.pathname));
   const title = pageTitle(loc.pathname);
@@ -251,14 +276,23 @@ export function AppLayout() {
   const back = () => ((window.history.state?.idx ?? 0) > 0 ? nav(-1) : nav('/'));
   const mac = /Mac|iPhone|iPad/.test(navigator.platform);
 
-  const link = (to: string, icon: ReactNode, label: string, badge = 0) => (
-    <NavLink to={to} end={to === '/'} className="nav-link" title={label}>
+  // Tapping the tab you are already on takes you back to the top; on Home it also refreshes the feed (like every social app).
+  const retap = (to: string) => (e: React.MouseEvent) => {
+    tick();
+    if (loc.pathname !== to) return;
+    e.preventDefault();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.getElementById('app-scroll')?.scrollTo({ top: 0, behavior: 'smooth' });
+    if (to === '/') window.dispatchEvent(new Event(REFRESH_EVENT));
+  };
+  const link = (to: string, icon: ReactNode, label: string, badge = 0, key = label.toLowerCase()) => (
+    <NavLink to={to} end={to === '/'} className="nav-link" title={label} data-icon={key} onClick={retap(to)} {...warm(to)}>
       {icon}<span className="nav-label">{label}</span><Badge n={badge} />
     </NavLink>
   );
 
   return (
-    <div className={`shell${wide ? ' no-side' : ''}${isReels ? ' reels-page' : ''}`}>
+    <div className={`shell${wide ? ' no-side' : ''}${isReels ? ' reels-page' : ''}${hidden ? ' chrome-hidden' : ''}`}>
       {/* phones: top bar */}
       <header className="topbar glass">
         {root ? (
@@ -270,8 +304,8 @@ export function AppLayout() {
           </>
         )}
         <button className="icon-btn" onClick={() => setSearch(true)} aria-label="Search"><Icon name="search" /></button>
-        <Link to="/notifications" className="icon-btn" aria-label="Notifications"><Icon name="bell" /><Badge n={counts.notifications} /></Link>
-        <Link to="/messages" className="icon-btn" aria-label="Messages"><Icon name="message" /><Badge n={counts.messages} /></Link>
+        <Link to="/notifications" className={`icon-btn${counts.notifications > 0 ? ' has-new' : ''}`} data-icon="bell" aria-label="Notifications" onClick={tick} {...warm('/notifications')}><span key={counts.notifications} className="icon-anim"><Icon name="bell" /></span><Badge n={counts.notifications} /></Link>
+        <Link to="/messages" className={`icon-btn${counts.messages > 0 ? ' has-new' : ''}`} data-icon="message" aria-label="Messages" onClick={tick} {...warm('/messages')}><span key={counts.messages} className="icon-anim"><Icon name="message" /></span><Badge n={counts.messages} /></Link>
         <Link to="/menu" className="topbar-me" aria-label="Your account"><Avatar user={u} size={30} /></Link>
       </header>
 
@@ -282,17 +316,19 @@ export function AppLayout() {
           {link('/', <Icon name="home" />, 'Home')}
           {link('/explore', <Icon name="compass" />, 'Discover')}
           {link('/reels', <Icon name="reels" />, 'Reels')}
+          <span className="nav-sep" />
           {showJobs && link('/jobs', <Icon name="briefcase" />, 'Jobs')}
           {link('/marketplace', <Icon name="bag" />, 'Market')}
           {link('/businesses', <Icon name="building" />, 'Businesses')}
           <span className="nav-sep" />
           {link('/messages', <Icon name="message" />, 'Messages', counts.messages)}
           {link('/notifications', <Icon name="bell" />, 'Notifications', counts.notifications)}
+          <span className="nav-sep" />
           {biz && link('/dashboard', <Icon name="dashboard" />, 'Dashboard')}
           {can('manage_cv') && link('/me/cv', <Icon name="file" />, 'My CV')}
           {link('/saved', <Icon name="bookmark" />, 'Saved')}
         </nav>
-        {canCreate && <button className="btn btn-primary nav-create" onClick={create} title="Create"><Icon name="plus" /><span className="nav-label">Create</span></button>}
+        {canCreate && <button className="btn btn-primary nav-create" onClick={() => { thump(); create(); }} title="Create"><Icon name="plus" /><span className="nav-label">Create</span></button>}
         <div className="nav-me" ref={meRef}>
           <button className="nav-me-btn" onClick={() => setMeMenu((m) => !m)} aria-expanded={meMenu} aria-label="Account menu">
             <Avatar user={u} size={36} />
@@ -332,19 +368,28 @@ export function AppLayout() {
 
       {/* phones: bottom tabs */}
       <nav className="dock glass" aria-label="Main">
-        <NavLink to="/" end><Icon name="home" /><span className="dock-label">Home</span></NavLink>
-        <NavLink to="/explore"><Icon name="compass" /><span className="dock-label">Discover</span></NavLink>
-        {canCreate && <button className="create-fab" onClick={create} aria-label="Create"><Icon name="plus" /></button>}
-        <NavLink to="/reels"><Icon name="reels" /><span className="dock-label">Reels</span></NavLink>
+        <NavLink to="/" end data-icon="home" onClick={retap('/')}><Icon name="home" /><span className="dock-label">Home</span></NavLink>
+        <NavLink to="/explore" data-icon="discover" onClick={retap('/explore')} {...warm('/explore')}><Icon name="compass" /><span className="dock-label">Discover</span></NavLink>
+        {canCreate && <button className="create-fab" onClick={() => { thump(); create(); }} aria-label="Create"><Icon name="plus" /></button>}
+        <NavLink to="/reels" data-icon="reels" onClick={retap('/reels')} {...warm('/reels')}><Icon name="reels" /><span className="dock-label">Reels</span></NavLink>
         {personal && showJobs
-          ? <NavLink to="/jobs"><Icon name="briefcase" /><span className="dock-label">Jobs</span></NavLink>
-          : <NavLink to="/marketplace"><Icon name="bag" /><span className="dock-label">Market</span></NavLink>}
+          ? <NavLink to="/jobs" data-icon="jobs" onClick={retap('/jobs')} {...warm('/jobs')}><Icon name="briefcase" /><span className="dock-label">Jobs</span></NavLink>
+          : <NavLink to="/marketplace" data-icon="market" onClick={retap('/marketplace')} {...warm('/marketplace')}><Icon name="bag" /><span className="dock-label">Market</span></NavLink>}
       </nav>
 
       {sheet && <CreateSheet onPost={openCreate} onStory={() => setStorying(true)} onClose={closeSheet} />}
       {search && <SearchPalette onClose={closeSearch} />}
       {composer && <CreatePostModal onClose={() => setComposer(false)} />}
       {storying && <StoryCreator onClose={() => setStorying(false)} />}
+      {help && (
+        <Modal title="Keyboard shortcuts" onClose={() => setHelp(false)}>
+          <div className="shortcuts">
+            {SHORTCUTS.map(([keys, what]) => (
+              <div key={keys} className="shortcut"><span>{what}</span><span className="row" style={{ gap: 4 }}>{keys.split(' ').map((k, i) => (k === '/' && keys.includes(' / ') ? <span key={i} className="muted">or</span> : k === 'then' ? <span key={i} className="muted xsmall">then</span> : <kbd key={i} className="kbd">{k}</kbd>))}</span></div>
+            ))}
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

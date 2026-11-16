@@ -20,6 +20,9 @@ CREATE TABLE IF NOT EXISTS users (
   lng REAL,
   share_precise_location INTEGER NOT NULL DEFAULT 0,
   delivery_address TEXT,
+  public_email TEXT,                          -- optional contact details shown on the public profile
+  public_phone TEXT,
+  links TEXT NOT NULL DEFAULT '[]',           -- optional web links (website, LinkedIn, GitHub…), a JSON list of URLs
   email_verified INTEGER NOT NULL DEFAULT 0,
   phone_verified INTEGER NOT NULL DEFAULT 0,
   totp_secret_enc TEXT,

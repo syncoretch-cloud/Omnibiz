@@ -1,4 +1,4 @@
-import { all, get, qs } from '../db/index.ts';
+import { all, get, parseJson, qs } from '../db/index.ts';
 import type { Row } from '../db/index.ts';
 
 const CARD_SQL = `SELECT u.id, u.username, u.display_name, u.avatar_url, u.account_type, u.city, u.country, u.role,
@@ -71,6 +71,9 @@ export function selfView(u: Row) {
     lng: u.lng,
     share_precise_location: !!u.share_precise_location,
     delivery_address: u.delivery_address ?? null,
+    public_email: u.public_email ?? null,
+    public_phone: u.public_phone ?? null,
+    links: parseJson(u.links, []),
     email_verified: !!u.email_verified,
     phone_verified: !!u.phone_verified,
     totp_enabled: !!u.totp_enabled,

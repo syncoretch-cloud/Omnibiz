@@ -33,8 +33,8 @@ A **deep-blue dark theme**, Inter type, flat surfaces with hairline borders, and
 - **Tabs** are separate pills; the chosen one is blue.
 - **Home:** a "Today" greeting, the stories strip, then the feed.
 - **Market:** an **Ads** row of promotions, offers, new products and services from businesses sits above the products (businesses can use *Post an ad*). It hides while you search or filter.
-- **Profiles:** no banner. The picture sits top-left, then name, @username and role, then the bio (emails and links are clickable), website and portfolio links, and counts. Your own CV is edited in the **CV** tab of your profile.
-- **Settings** (every role): *Account* (profile picture or logo, saved as soon as you pick one, with a square crop), *Professional* (personal accounts), *Business profile* (company, wholesaler and retailer), *Delivery* (a saved address that checkout starts from), *Interests* and *Security*.
+- **Profiles:** no banner. The picture sits top-left, then name, @username and role, then the bio (emails and links are clickable), website and portfolio links, and counts. Your own CV is edited in the **CV** tab of your profile, where you can upload a PDF or Word file, add a link to a CV kept online (LinkedIn, Google Drive…), or both; each has its own visibility.
+- **Settings** (every role): *Account* (profile picture or logo, saved as soon as you pick one, with a square crop; and an optional **Contact & links** card with a public email, phone and up to 8 links, all shown on your profile), *Professional* (personal accounts), *Business profile* (company, wholesaler and retailer), *Delivery* (a saved address that checkout starts from), *Interests* and *Security*.
 - **Discover** is a bento grid of posts, products and jobs.
 - **Brand:** the OmniBiz logo artwork (`web/public/brand/omnibiz-logo.png`, cut out of its background) appears wherever the name is shown: navigation, top bar, sign-in, onboarding, the splash and the browser tab (the "O" ring, `omnibiz-mark.png`).
 - **Type:** Bricolage Grotesque for headings, titles, post text and stories; Plus Jakarta Sans for everything else.

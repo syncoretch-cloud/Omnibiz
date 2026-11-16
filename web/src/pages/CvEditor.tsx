@@ -8,7 +8,9 @@ import { DOC_LABEL, fileSize, label, timeAgo } from '../lib/format.ts';
 
 type FieldDef = { key: string; label: string; type?: 'text' | 'textarea' | 'select' | 'month' | 'number' | 'checkbox' | 'url'; options?: string[]; required?: boolean; span?: boolean };
 
-const SECTIONS: { id: string; title: string; icon: string; fields: FieldDef[]; summary: (d: Json) => string; sub?: (d: Json) => string }[] = [
+type Section = { id: string; title: string; icon: string; fields: FieldDef[]; summary: (d: Json) => string; sub?: (d: Json) => string; defaults?: Json; noun?: string };
+
+const SECTIONS: Section[] = [
   { id: 'experience', title: 'Work experience', icon: 'briefcase', summary: (d) => `${d.position} · ${d.company}`, sub: (d) => `${d.start_date ?? ''} – ${d.current ? 'Present' : d.end_date ?? ''}`,
     fields: [
       { key: 'position', label: 'Position / title', required: true }, { key: 'company', label: 'Company', required: true },
@@ -33,7 +35,18 @@ const SECTIONS: { id: string; title: string; icon: string; fields: FieldDef[]; s
     fields: [{ key: 'title', label: 'Project title', required: true, span: true }, { key: 'url', label: 'Link (website, GitHub, video…)', type: 'url', span: true }, { key: 'description', label: 'Description', type: 'textarea', span: true }] },
 ];
 
-function ItemDialog({ section, item, onClose, onSaved }: { section: (typeof SECTIONS)[number]; item?: Json; onClose: () => void; onSaved: (cv: Json) => void }) {
+/** A link to a CV kept somewhere else online. It is stored as a portfolio entry marked "cv". */
+const CV_LINK: Section = {
+  id: 'portfolio', title: 'Online CV link', noun: 'online CV link', icon: 'link', defaults: { kind: 'cv' },
+  summary: (d) => d.title, sub: (d) => d.url ?? '',
+  fields: [
+    { key: 'title', label: 'Name', required: true, span: true },
+    { key: 'url', label: 'Link to your CV (LinkedIn, Google Drive, Dropbox, Notion, your own site…)', type: 'url', required: true, span: true },
+  ],
+};
+const isCvLink = (i: Json) => i.kind === 'cv';
+
+function ItemDialog({ section, item, onClose, onSaved }: { section: Section; item?: Json; onClose: () => void; onSaved: (cv: Json) => void }) {
   const [data, setData] = useState<Json>(() => {
     if (!item) return {};
     const { id: _id, visibility: _v, ...rest } = item;
@@ -43,7 +56,7 @@ function ItemDialog({ section, item, onClose, onSaved }: { section: (typeof SECT
   const [error, setError] = useState<string | null>(null);
   const save = async () => {
     setError(null);
-    const clean = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== '' && v !== undefined));
+    const clean = { ...section.defaults, ...Object.fromEntries(Object.entries(data).filter(([, v]) => v !== '' && v !== undefined)) };
     try {
       const r = item ? await patch(`/users/me/cv/${item.id}`, { data: clean, visibility }) : await post('/users/me/cv', { section: section.id, data: clean, visibility });
       onSaved(r.cv);
@@ -52,7 +65,7 @@ function ItemDialog({ section, item, onClose, onSaved }: { section: (typeof SECT
     }
   };
   return (
-    <Modal title={`${item ? 'Edit' : 'Add'} ${section.title.toLowerCase().replace(/s$/, '')}`} onClose={onClose} footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={save}>Save</button></>}>
+    <Modal title={`${item ? 'Edit' : 'Add'} ${section.noun ?? section.title.toLowerCase().replace(/s$/, '')}`} onClose={onClose} footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={save}>Save</button></>}>
       <div className="stack">
         <ErrorBox error={error} />
         <div className="form-grid">
@@ -121,10 +134,84 @@ export function ProfileForm() {
   );
 }
 
+/** Bring your CV in: upload a PDF or Word file, link to one you keep online, or both. */
+function YourCv({ cv, setCv, docs, setDocs, onAddLink, onEditLink }: { cv: Json; setCv: (c: Json) => void; docs: Json[]; setDocs: (d: Json[]) => void; onAddLink: () => void; onEditLink: (i: Json) => void }) {
+  const act = useAction();
+  const ref = useRef<HTMLInputElement>(null);
+  const [visibility, setVisibility] = useState('public');
+  const [busy, setBusy] = useState(false);
+  const files = docs.filter((d) => d.kind === 'cv');
+  const links = ((cv.portfolio ?? []) as Json[]).filter(isCvLink);
+  const upload = async (list: FileList | null) => {
+    const file = list?.[0];
+    if (ref.current) ref.current.value = '';
+    if (!file) return;
+    if (!/\.(pdf|docx?|odt|rtf)$/i.test(file.name) && !/pdf|word|msword|opendocument|rtf/i.test(file.type)) return void act(async () => { throw new Error('Choose a PDF or Word file.'); });
+    setBusy(true);
+    const d = await act(() => uploadDocument(file, 'cv', visibility), 'CV uploaded');
+    setBusy(false);
+    if (d) setDocs([d, ...docs]);
+  };
+  const removeFile = async (id: number) => {
+    if (confirm('Delete this CV file?') && (await act(() => del(`/documents/${id}`)))) setDocs(docs.filter((d) => d.id !== id));
+  };
+  const fileVis = async (id: number, v: string) => {
+    if (await act(() => patch(`/documents/${id}`, { visibility: v }))) setDocs(docs.map((d) => (d.id === id ? { ...d, visibility: v } : d)));
+  };
+  const linkVis = async (i: Json, v: string) => {
+    const { id, visibility: _v, ...data } = i;
+    const r = await act(() => patch(`/users/me/cv/${id}`, { data, visibility: v }));
+    if (r) setCv(r.cv);
+  };
+  const removeLink = async (id: number) => {
+    const r = await act(() => del(`/users/me/cv/${id}`));
+    if (r) setCv(r.cv);
+  };
+  const host = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
+  return (
+    <div className="card">
+      <div className="card-header">
+        <div><h3 className="row"><Icon name="file" size={18} />Your CV</h3><p className="xsmall muted" style={{ marginTop: 2 }}>Upload a PDF or Word file, link to a CV you keep online (LinkedIn, Google Drive…), or do both.</p></div>
+      </div>
+      <div className="card-body row-wrap">
+        <button className="btn btn-primary btn-sm" onClick={() => ref.current?.click()} disabled={busy}><Icon name="upload" />{busy ? 'Uploading…' : 'Upload PDF or Word'}</button>
+        <button className="btn btn-outline btn-sm" onClick={onAddLink}><Icon name="link" />Add an online CV link</button>
+        <span className="xsmall muted">New uploads are visible to:</span>
+        <VisibilitySelect value={visibility} onChange={setVisibility} />
+        <input ref={ref} type="file" hidden accept=".pdf,.doc,.docx,.odt,.rtf,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => upload(e.target.files)} />
+      </div>
+      {files.map((d) => (
+        <div key={`f${d.id}`} className="list-item">
+          <Icon name="file" />
+          <div className="grow">
+            <a href={d.url} target="_blank" rel="noreferrer" className="small bold">{d.name}</a>
+            <div className="xsmall muted">CV file · {fileSize(d.size)} · {timeAgo(d.created_at)}</div>
+          </div>
+          <VisibilitySelect value={d.visibility} onChange={(v) => fileVis(d.id, v)} />
+          <button className="icon-btn" onClick={() => removeFile(d.id)} aria-label="Delete CV file"><Icon name="trash" /></button>
+        </div>
+      ))}
+      {links.map((l) => (
+        <div key={`l${l.id}`} className="list-item">
+          <Icon name="link" />
+          <div className="grow">
+            <a href={l.url} target="_blank" rel="noreferrer noopener" className="small bold">{l.title}</a>
+            <div className="xsmall muted">Online CV · {host(l.url)}</div>
+          </div>
+          <VisibilitySelect value={l.visibility} onChange={(v) => linkVis(l, v)} />
+          <button className="icon-btn" onClick={() => onEditLink(l)} aria-label="Edit link"><Icon name="edit" /></button>
+          <button className="icon-btn" onClick={() => removeLink(l.id)} aria-label="Delete link"><Icon name="trash" /></button>
+        </div>
+      ))}
+      {!files.length && !links.length && <div className="card-body small muted" style={{ paddingTop: 0 }}>No CV yet. Upload a file or add a link, so recruiters can open it from your profile.</div>}
+    </div>
+  );
+}
+
 function Documents({ docs, setDocs }: { docs: Json[]; setDocs: (d: Json[]) => void }) {
   const act = useAction();
   const ref = useRef<HTMLInputElement>(null);
-  const [kind, setKind] = useState('cv');
+  const [kind, setKind] = useState('certificate');
   const [visibility, setVisibility] = useState('private');
   const [busy, setBusy] = useState(false);
   const upload = async (files: FileList | null) => {
@@ -143,14 +230,14 @@ function Documents({ docs, setDocs }: { docs: Json[]; setDocs: (d: Json[]) => vo
   };
   return (
     <div className="card">
-      <div className="card-header"><h3>Documents</h3><span className="xsmall muted">CVs, certificates, IDs — PDF/Word/images up to 25 MB</span></div>
+      <div className="card-header"><h3>Documents</h3><span className="xsmall muted">Certificates, IDs, letters — PDF/Word/images up to 25 MB</span></div>
       <div className="card-body row-wrap">
-        <Select value={kind} onChange={(e) => setKind(e.target.value)} options={['cv', 'certificate', 'portfolio', 'cover_letter', 'id', 'academic', 'other'].map((k) => ({ value: k, label: DOC_LABEL[k] }))} style={{ width: 'auto' }} aria-label="Document type" />
+        <Select value={kind} onChange={(e) => setKind(e.target.value)} options={['certificate', 'portfolio', 'cover_letter', 'id', 'academic', 'other'].map((k) => ({ value: k, label: DOC_LABEL[k] }))} style={{ width: 'auto' }} aria-label="Document type" />
         <VisibilitySelect value={visibility} onChange={setVisibility} />
         <button className="btn btn-primary btn-sm" onClick={() => ref.current?.click()} disabled={busy}><Icon name="upload" />{busy ? 'Uploading…' : 'Upload'}</button>
         <input ref={ref} type="file" hidden accept=".pdf,.doc,.docx,image/*" onChange={(e) => upload(e.target.files)} />
       </div>
-      {docs.map((d) => (
+      {docs.filter((d) => d.kind !== 'cv').map((d) => (
         <div key={d.id} className="list-item">
           <Icon name="file" />
           <div className="grow">
@@ -161,7 +248,7 @@ function Documents({ docs, setDocs }: { docs: Json[]; setDocs: (d: Json[]) => vo
           <button className="icon-btn" onClick={() => remove(d.id)} aria-label="Delete"><Icon name="trash" /></button>
         </div>
       ))}
-      {!docs.length && <Empty icon="file" title="No documents yet">Upload your CV and certificates once, then attach them to any application.</Empty>}
+      {!docs.some((d) => d.kind !== 'cv') && <Empty icon="file" title="No other documents yet">Upload certificates and letters once, then attach them to any application.</Empty>}
     </div>
   );
 }
@@ -172,7 +259,7 @@ export function CvManager() {
   const act = useAction();
   const [cv, setCv] = useState<Json | null>(null);
   const [docs, setDocs] = useState<Json[]>([]);
-  const [dialog, setDialog] = useState<{ section: (typeof SECTIONS)[number]; item?: Json } | null>(null);
+  const [dialog, setDialog] = useState<{ section: Section; item?: Json } | null>(null);
   useEffect(() => {
     get('/users/me/cv').then((r) => { setCv(r.cv); setDocs(r.documents); }).catch(() => setCv({}));
   }, []);
@@ -189,13 +276,14 @@ export function CvManager() {
       <p className="small muted" style={{ marginBottom: 14 }}>Recruiters see public and “recruiters only” sections. Private items are only visible to you.</p>
       <div className="stack">
         <ProfileForm />
+        <YourCv cv={cv} setCv={setCv} docs={docs} setDocs={setDocs} onAddLink={() => setDialog({ section: CV_LINK })} onEditLink={(item) => setDialog({ section: CV_LINK, item })} />
         {SECTIONS.map((s) => (
           <div key={s.id} className="card">
             <div className="card-header">
               <h3 className="row"><Icon name={s.icon} size={18} />{s.title}</h3>
               <button className="btn btn-outline btn-sm" onClick={() => setDialog({ section: s })}><Icon name="plus" />Add</button>
             </div>
-            {(cv[s.id] ?? []).map((item: Json) => (
+            {((cv[s.id] ?? []) as Json[]).filter((i) => !isCvLink(i)).map((item: Json) => (
               <div key={item.id} className="list-item">
                 <div className="grow">
                   <div className="small bold">{s.summary(item)}</div>
@@ -206,7 +294,7 @@ export function CvManager() {
                 <button className="icon-btn" onClick={() => remove(item.id)} aria-label="Delete"><Icon name="trash" /></button>
               </div>
             ))}
-            {!(cv[s.id] ?? []).length && <div className="card-body small muted">Nothing added yet.</div>}
+            {!((cv[s.id] ?? []) as Json[]).filter((i) => !isCvLink(i)).length && <div className="card-body small muted">Nothing added yet.</div>}
           </div>
         ))}
         <Documents docs={docs} setDocs={setDocs} />

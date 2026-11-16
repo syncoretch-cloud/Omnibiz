@@ -33,6 +33,45 @@ function PictureEditor() {
   );
 }
 
+/** Optional public contact details and links. Anything filled in here is shown on your public profile. */
+function ContactLinks() {
+  const { me, setMe } = useSession();
+  const act = useAction();
+  const u = me!.user;
+  const [email, setEmail] = useState<string>(u.public_email ?? '');
+  const [phone, setPhone] = useState<string>(u.public_phone ?? '');
+  const [links, setLinks] = useState<string[]>(u.links ?? []);
+  const setLink = (i: number, v: string) => setLinks((l) => l.map((x, k) => (k === i ? v : x)));
+  const save = async () => {
+    const r = await act(() => patch('/users/me', { public_email: email.trim(), public_phone: phone.trim(), links: links.map((l) => l.trim()).filter(Boolean) }), 'Contact details and links saved');
+    if (r) { setMe(r); setLinks(r.user.links ?? []); }
+  };
+  return (
+    <div className="card card-pad stack">
+      <div>
+        <h3>Contact & links</h3>
+        <p className="small muted">All optional. Whatever you add here is shown on your public profile so anyone can reach you. The email and phone you sign in with are separate: they are never shown to the public, and recruiters see them only if your privacy choices under Professional allow it.</p>
+      </div>
+      <div className="form-grid">
+        <Field label="Public email" hint="Leave empty to show none."><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="hello@yourname.com" autoComplete="off" /></Field>
+        <Field label="Public phone" hint="Leave empty to show none."><Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+255 7XX XXX XXX" autoComplete="off" /></Field>
+      </div>
+      <Field label="Links" hint="Website, LinkedIn, GitHub, Instagram, portfolio… Up to 8.">
+        <div className="stack-sm">
+          {links.map((l, i) => (
+            <div key={i} className="row">
+              <div className="input-icon grow"><Icon name="link" /><Input value={l} onChange={(e) => setLink(i, e.target.value)} placeholder="linkedin.com/in/yourname" autoComplete="off" /></div>
+              <button type="button" className="icon-btn" onClick={() => setLinks((x) => x.filter((_, k) => k !== i))} aria-label="Remove link"><Icon name="trash" /></button>
+            </div>
+          ))}
+          {links.length < 8 && <button type="button" className="btn btn-outline btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setLinks((x) => [...x, ''])}><Icon name="plus" />Add a link</button>}
+        </div>
+      </Field>
+      <div className="form-actions"><button className="btn btn-primary" onClick={save}>Save contact & links</button></div>
+    </div>
+  );
+}
+
 function Account() {
   const { me, meta, setMe } = useSession();
   const act = useAction();
@@ -58,10 +97,16 @@ function Account() {
           <Field label={biz ? 'Business name' : 'Display name'}><Input value={f.display_name} onChange={(e) => setF({ ...f, display_name: e.target.value })} /></Field>
           <Field label="Username"><Input value={u.username} disabled /></Field>
           <Field label="Bio" className="span-2"><Textarea value={f.bio} onChange={(e) => setF({ ...f, bio: e.target.value })} maxLength={1000} style={{ minHeight: 70 }} /></Field>
-          <Field label="Email" hint={me?.features?.contact_verification ? (u.email_verified ? '✓ Verified' : 'Not verified') : undefined}><Input type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
-          <Field label="Phone" hint={me?.features?.contact_verification ? (u.phone_verified ? '✓ Verified' : 'Not verified') : undefined}><Input value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
+          <Field label="Sign-in email" hint={me?.features?.contact_verification ? (u.email_verified ? '✓ Verified' : 'Not verified') : undefined}><Input type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
+          <Field label="Sign-in phone" hint={me?.features?.contact_verification ? (u.phone_verified ? '✓ Verified' : 'Not verified') : undefined}><Input value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
         </div>
       </div>
+      {biz ? (
+        <div className="card card-pad row-between">
+          <div><h3>Contact & links</h3><p className="small muted">A business's public email, phone, website and links are set in its business profile.</p></div>
+          <NavLink to="/settings/business" className="btn btn-outline btn-sm">Open business profile</NavLink>
+        </div>
+      ) : <ContactLinks />}
       <div className="card card-pad stack">
         <h3>Location & privacy</h3>
         <div className="form-grid">

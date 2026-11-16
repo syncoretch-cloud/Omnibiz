@@ -349,6 +349,43 @@ test('settings: profile picture, removing it, and a saved delivery address', asy
   assert.equal(bad.status, 400);
 });
 
+test('contact details and links are optional, public, and cleaned', async () => {
+  const { c: person, me } = await register('personal');
+  const { c: other } = await register('customer');
+  const set = await person.patch('/api/users/me', { public_email: 'hello@me.dev', public_phone: '+255 712 345 678', links: ['linkedin.com/in/me', 'https://github.com/me', 'github.com/me', ''] });
+  assert.equal(set.status, 200);
+  assert.deepEqual(set.body.user.links, ['https://linkedin.com/in/me', 'https://github.com/me']);
+  assert.equal(set.body.user.public_phone, '+255712345678');
+  const seen = await other.get(`/api/users/${me.username}`);
+  assert.equal(seen.body.user.public_email, 'hello@me.dev');
+  assert.equal(seen.body.user.links.length, 2);
+  assert.ok(!('email' in seen.body.user), 'the sign-in email stays private');
+  assert.equal((await person.patch('/api/users/me', { links: ['not a link'] })).status, 400);
+  assert.equal((await person.patch('/api/users/me', { links: ['javascript:alert(1)'] })).status, 400);
+  const cleared = await person.patch('/api/users/me', { public_email: '', public_phone: '', links: [] });
+  assert.equal(cleared.status, 200);
+  assert.equal(cleared.body.user.public_email, null);
+  assert.deepEqual(cleared.body.user.links, []);
+});
+
+test('online CV link and CV file: public ones are visible, private ones are not', async () => {
+  const { c: person, me } = await register('personal');
+  const { c: viewer } = await register('customer');
+  await person.post('/api/users/me/cv', { section: 'portfolio', data: { title: 'My LinkedIn CV', url: 'https://linkedin.com/in/me', kind: 'cv' }, visibility: 'public' });
+  await person.post('/api/users/me/cv', { section: 'portfolio', data: { title: 'Private CV', url: 'https://drive.google.com/x', kind: 'cv' }, visibility: 'private' });
+  const form = new FormData();
+  form.append('file', new Blob([new TextEncoder().encode('%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF')], { type: 'application/pdf' }), 'cv.pdf');
+  form.append('kind', 'cv');
+  form.append('visibility', 'public');
+  const up = await person.req('POST', '/api/documents', undefined, { form });
+  assert.equal(up.status, 201, JSON.stringify(up.body));
+  const seen = await viewer.get(`/api/users/${me.username}`);
+  const links = seen.body.cv.portfolio.filter((i: Json) => i.kind === 'cv');
+  assert.equal(links.length, 1);
+  assert.equal(links[0].title, 'My LinkedIn CV');
+  assert.ok(seen.body.documents.some((d: Json) => d.kind === 'cv' && d.name === 'cv.pdf'));
+});
+
 test('post details: music, tagged people, location, alt text, hidden likes and comments off', async () => {
   const { c: author } = await register('company', { business_name: 'Studio Co', category: 'software' });
   const { c: friend, me: friendMe } = await register('personal');

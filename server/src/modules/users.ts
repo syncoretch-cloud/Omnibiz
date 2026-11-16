@@ -103,6 +103,7 @@ usersRouter.get('/:username', (req, res) => {
     user: {
       id: u.id, username: u.username, display_name: u.display_name, account_type: u.account_type,
       avatar_url: u.avatar_url, cover_url: u.cover_url, bio: u.bio, country: u.country, region: u.region, city: u.city,
+      public_email: u.public_email ?? null, public_phone: u.public_phone ?? null, links: parseJson(u.links, []),
       created_at: u.created_at, status: aud === 'owner' ? u.status : undefined,
     },
     stats,
@@ -185,9 +186,29 @@ usersRouter.delete('/:id/follow', requireAuth, (req, res) => {
 });
 
 // ───────────── own account ─────────────
+/** Optional public links: a list of web addresses. People type "linkedin.com/in/me"; we store a full https:// URL. */
+function cleanLinks(list: string[]) {
+  const out: string[] = [];
+  for (const raw of list) {
+    const text = raw.trim();
+    if (!text) continue;
+    let url: URL;
+    try { url = new URL(/^https?:\/\//i.test(text) ? text : `https://${text}`); } catch { throw badRequest(`"${text.slice(0, 40)}" is not a valid web address`); }
+    if (!['http:', 'https:'].includes(url.protocol) || !url.hostname.includes('.')) throw badRequest(`"${text.slice(0, 40)}" is not a valid web address`);
+    const href = url.toString();
+    if (href.length > 300) throw badRequest('A link is too long');
+    if (!out.includes(href)) out.push(href);
+  }
+  return out;
+}
+
 usersRouter.patch('/me', requireAuth, (req, res) => {
   const me = req.user!;
-  const d = validate(req.body, {
+  // An empty contact field means "remove it".
+  const body = { ...req.body };
+  const cleared: Record<string, null> = {};
+  for (const k of ['public_email', 'public_phone']) if (body[k] === '' || body[k] === null) { delete body[k]; cleared[k] = null; }
+  const d = validate(body, {
     display_name: { type: 'string', min: 2, max: 100 },
     bio: { type: 'text', max: 1000 },
     avatar_url: { type: 'string', max: 300 },
@@ -201,7 +222,16 @@ usersRouter.patch('/me', requireAuth, (req, res) => {
     lng: { type: 'number', min: -180, max: 180 },
     share_precise_location: { type: 'bool' },
     delivery_address: { type: 'text', max: 300 },
+    public_email: { type: 'email' },
+    public_phone: { type: 'string', max: 20 },
+    links: { type: 'strings', max: 8 },
   }, { partial: true });
+  Object.assign(d, cleared);
+  if (d.links !== undefined) d.links = cleanLinks(d.links);
+  if (d.public_phone) {
+    d.public_phone = String(d.public_phone).replace(/[\s\-()]/g, '');
+    if (!/^\+?\d{7,15}$/.test(d.public_phone)) throw badRequest('Enter a valid contact phone number');
+  }
 
   for (const k of ['avatar_url', 'cover_url'] as const) {
     if (d[k] && !String(d[k]).startsWith('/uploads/media/') && !/^https:\/\//.test(d[k])) throw badRequest('Invalid image');
@@ -302,6 +332,8 @@ const CV_SPECS: Record<string, Spec> = {
   portfolio: {
     title: { type: 'string', required: true, max: 120 }, description: { type: 'text', max: 1500 },
     url: { type: 'url' }, media_url: { type: 'string', max: 300 },
+    // 'cv' marks a link to a CV kept somewhere else online (LinkedIn, Google Drive, a personal site…)
+    kind: { type: 'enum', values: ['work', 'cv'] },
   },
 };
 

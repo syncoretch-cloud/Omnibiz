@@ -21,6 +21,9 @@ function ensureColumn(table: string, column: string, definition: string) {
   if (!cols.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
 }
 ensureColumn('users', 'delivery_address', 'TEXT');
+ensureColumn('users', 'public_email', 'TEXT');
+ensureColumn('users', 'public_phone', 'TEXT');
+ensureColumn('users', 'links', "TEXT NOT NULL DEFAULT '[]'");
 
 const cache = new Map<string, StatementSync>();
 function stmt(sql: string): StatementSync {

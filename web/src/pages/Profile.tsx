@@ -18,7 +18,21 @@ import { useApi, usePaged } from '../lib/hooks.ts';
 import { useAction, useSession } from '../lib/session.tsx';
 import { ACCOUNT_LABEL, ANNOUNCEMENT_LABEL, DOC_LABEL, compact, dateLabel, fileSize, label, money, timeAgo } from '../lib/format.ts';
 
-export function CvView({ cv, documents }: { cv: Json; documents?: Json[] }) {
+/** "linkedin.com" → "LinkedIn" and so on; anything else shows its domain. */
+const SITE_NAMES: [RegExp, string][] = [
+  [/(^|\.)linkedin\.com$/, 'LinkedIn'], [/(^|\.)github\.com$/, 'GitHub'], [/(^|\.)(twitter|x)\.com$/, 'X'], [/(^|\.)instagram\.com$/, 'Instagram'],
+  [/(^|\.)facebook\.com$/, 'Facebook'], [/(^|\.)(youtube\.com|youtu\.be)$/, 'YouTube'], [/(^|\.)tiktok\.com$/, 'TikTok'], [/(^|\.)behance\.net$/, 'Behance'],
+  [/(^|\.)dribbble\.com$/, 'Dribbble'], [/(^|\.)medium\.com$/, 'Medium'], [/(^|\.)drive\.google\.com$/, 'Google Drive'], [/(^|\.)notion\.(so|site)$/, 'Notion'],
+];
+const hostOf = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; } };
+const siteName = (url: string) => { const h = hostOf(url); return SITE_NAMES.find(([re]) => re.test(h))?.[1] ?? h; };
+
+export function CvView({ cv: fullCv, documents: allDocs }: { cv: Json; documents?: Json[] }) {
+  // CV files and links to a CV kept online are shown together at the top; the rest of the portfolio stays in its own section.
+  const cvFiles = (allDocs ?? []).filter((d) => d.kind === 'cv');
+  const documents = (allDocs ?? []).filter((d) => d.kind !== 'cv');
+  const cvLinks = ((fullCv.portfolio ?? []) as Json[]).filter((i) => i.kind === 'cv');
+  const cv = { ...fullCv, portfolio: ((fullCv.portfolio ?? []) as Json[]).filter((i) => i.kind !== 'cv') };
   const sections: [string, string, string, (d: Json) => React.ReactNode][] = [
     ['experience', 'Experience', 'briefcase', (d) => (
       <>
@@ -50,10 +64,19 @@ export function CvView({ cv, documents }: { cv: Json; documents?: Json[] }) {
       </>
     )],
   ];
-  const any = Object.values(cv).some((x) => (x as Json[]).length) || documents?.length;
+  const any = Object.values(cv).some((x) => (x as Json[]).length) || documents.length || cvFiles.length || cvLinks.length;
   if (!any) return <div className="card"><Empty icon="file" title="No professional details yet" /></div>;
   return (
     <div className="stack">
+      {(cvFiles.length > 0 || cvLinks.length > 0) && (
+        <div className="card card-pad">
+          <h3 style={{ marginBottom: 12 }}>Curriculum vitae</h3>
+          <div className="row-wrap">
+            {cvFiles.map((d) => <a key={`f${d.id}`} href={d.url} target="_blank" rel="noreferrer" className="btn btn-primary btn-sm"><Icon name="file" />{d.name}<span className="xsmall" style={{ opacity: 0.8 }}>{fileSize(d.size)}</span></a>)}
+            {cvLinks.map((l) => <a key={`l${l.id}`} href={l.url} target="_blank" rel="noreferrer noopener" className="btn btn-outline btn-sm"><Icon name="link" />{l.title} · {siteName(l.url)}</a>)}
+          </div>
+        </div>
+      )}
       {cv.skill.length > 0 && (
         <div className="card card-pad">
           <h3 style={{ marginBottom: 12 }}>Skills</h3>
@@ -78,7 +101,7 @@ export function CvView({ cv, documents }: { cv: Json; documents?: Json[] }) {
           <div className="row-wrap">{cv.language.map((l: Json) => <span key={l.id} className="chip">{l.name}{l.proficiency ? ` · ${label(l.proficiency)}` : ''}</span>)}</div>
         </div>
       )}
-      {documents && documents.length > 0 && (
+      {documents.length > 0 && (
         <div className="card">
           <div className="card-header"><h3>Documents</h3></div>
           {documents.map((d) => (
@@ -313,11 +336,21 @@ export default function Profile() {
       : [];
 
   const avatar = <Avatar user={u} size={120} />;
-  // Websites and portfolio links shown under the bio: a business's site and links, or the links in a person's public portfolio.
-  const host = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; } };
-  const links: { url: string; label: string; site?: boolean }[] = isBiz
-    ? [...(b.website ? [{ url: b.website as string, label: host(b.website), site: true }] : []), ...((b.portfolio_links ?? []) as string[]).filter((l) => l !== b.website).map((l) => ({ url: l, label: host(l) }))]
-    : ((data.cv?.portfolio ?? []) as Json[]).filter((i) => i.url).map((i, k) => ({ url: i.url as string, label: (i.title as string) || host(i.url), site: k === 0 }));
+  // Under the bio: contact details and links. A business shows its website and links; a person shows what they chose to make public
+  // (email, phone, links), their CV, and the links in their public portfolio.
+  type HeadLink = { href: string; label: string; icon: string; external: boolean };
+  const links: HeadLink[] = [];
+  const addLink = (href: string, label: string, icon: string, external = true) => { if (href && !links.some((l) => l.href === href)) links.push({ href, label, icon, external }); };
+  if (isBiz) {
+    if (b.website) addLink(b.website, hostOf(b.website), 'globe');
+    ((b.portfolio_links ?? []) as string[]).forEach((l) => addLink(l, siteName(l), 'link'));
+  } else {
+    if (u.public_email) addLink(`mailto:${u.public_email}`, u.public_email, 'mail', false);
+    if (u.public_phone) addLink(`tel:${u.public_phone}`, u.public_phone, 'phone', false);
+    ((u.links ?? []) as string[]).forEach((l, k) => addLink(l, siteName(l), k === 0 && !/linkedin|github|instagram|facebook|twitter|x\.com|youtube|tiktok/.test(l) ? 'globe' : 'link'));
+    ((data.documents ?? []) as Json[]).filter((d) => d.kind === 'cv').forEach((d) => addLink(d.url, 'CV', 'file'));
+    ((data.cv?.portfolio ?? []) as Json[]).filter((i) => i.url).forEach((i) => addLink(i.url as string, i.kind === 'cv' ? `CV · ${siteName(i.url)}` : (i.title as string) || siteName(i.url), i.kind === 'cv' ? 'file' : 'link'));
+  }
   const category = isBiz ? `${b.category === 'other' && b.custom_category ? b.custom_category : industryName(b.category)} · ${ACCOUNT_LABEL[u.account_type]}` : p?.headline || ACCOUNT_LABEL[u.account_type];
   return (
     <main className="page page-profile">
@@ -361,10 +394,10 @@ export default function Profile() {
           {u.bio && <p className="profile-about pre"><RichText text={u.bio} /></p>}
           {links.length > 0 && (
             <div className="profile-links">
-              {links.slice(0, 5).map((l, i) => (
-                <a key={l.url} href={l.url} target="_blank" rel="noreferrer noopener" className="profile-link" title={l.url}><Icon name={i === 0 && l.site ? 'globe' : 'link'} />{l.label}</a>
+              {links.slice(0, 6).map((l) => (
+                <a key={l.href} href={l.href} {...(l.external ? { target: '_blank', rel: 'noreferrer noopener' } : {})} className="profile-link" title={l.href.replace(/^(mailto|tel):/, '')}><Icon name={l.icon} />{l.label}</a>
               ))}
-              {links.length > 5 && <button className="profile-link more" onClick={() => setTab('about')}>+{links.length - 5} more</button>}
+              {links.length > 6 && <button className="profile-link more" onClick={() => setTab('about')}>+{links.length - 6} more</button>}
             </div>
           )}
           <div className="profile-facts">

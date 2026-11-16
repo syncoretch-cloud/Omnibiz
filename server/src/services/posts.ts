@@ -112,7 +112,8 @@ export function rankedFeed(viewer: Row | undefined, offset: number, limit: numbe
       if (pc && distanceKm(viewerCoords, pc) < 100) local = 6;
     }
     if (local) reasons.push([local, `Near you in ${p.city ?? author?.city}`]);
-    const trust = author?.verified ? 8 : 0;
+    // Verified accounts are shown higher in feeds (a ranking boost, not a guarantee of reach).
+    const trust = author?.verified ? 20 : 0;
     const engagement = Math.log1p(p.like_count + 2 * p.comment_count + 3 * p.share_count) * 4;
     if (engagement > 12) reasons.push([engagement, 'Popular right now']);
     const ageHours = (now - Date.parse(p.created_at.replace(' ', 'T') + 'Z')) / 3_600_000;

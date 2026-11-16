@@ -600,3 +600,9 @@ CREATE TABLE IF NOT EXISTS blocked_terms (
   term TEXT PRIMARY KEY,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Small admin-editable settings (for example the verification fee).
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);

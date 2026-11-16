@@ -1,0 +1,19 @@
+# Keeps OmniBiz (app on :4000, OmniBiz Manager on :4001) running in the background and starts it at login.
+# Install:
+#   1. Run `npm run build && npm run build:admin` once in the project folder.
+#   2. Copy this file to ~/.config/systemd/user/omnibiz.service and edit WorkingDirectory below.
+#   3. systemctl --user daemon-reload && systemctl --user enable --now omnibiz
+#   4. To keep it running when you are logged out: loginctl enable-linger $USER
+[Unit]
+Description=OmniBiz and OmniBiz Manager
+After=network.target
+
+[Service]
+WorkingDirectory=/home/danny/omnibiz/Omnibiz
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/env npm start
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

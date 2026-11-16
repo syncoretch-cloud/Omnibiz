@@ -8,7 +8,7 @@ import { patch, post, qs } from '@web/lib/api.ts';
 import type { Json } from '@web/lib/api.ts';
 import { useApi, useDebounced } from '@web/lib/hooks.ts';
 import { useAction, useSession } from '@web/lib/session.tsx';
-import { ACCOUNT_LABEL, compact, label, parseTime, timeAgo } from '@web/lib/format.ts';
+import { ACCOUNT_LABEL, compact, label, money, parseTime, timeAgo } from '@web/lib/format.ts';
 
 function fillDays(rows: { day: string; n: number }[], days = 30) {
   const list: string[] = [];
@@ -56,6 +56,7 @@ function UserDetail({ id, onClose, onChanged }: { id: number; onClose: () => voi
   const act = useAction();
   const { data, loading, reload } = useApi(`/admin/users/${id}`);
   const [reason, setReason] = useState('');
+  const [removeReason, setRemoveReason] = useState('');
   if (loading || !data) return <Modal title="User" onClose={onClose}><Spinner /></Modal>;
   const u = data.user;
   const done = () => { reload(); onChanged(); };
@@ -81,6 +82,13 @@ function UserDetail({ id, onClose, onChanged }: { id: number; onClose: () => voi
             ) : (
               <div className="row"><Input placeholder="Reason for suspension" value={reason} onChange={(e) => setReason(e.target.value)} /><button className="btn btn-danger btn-sm" disabled={!reason} onClick={async () => { if (await act(() => post(`/admin/users/${u.id}/suspend`, { reason }), 'Account suspended')) done(); }}>Suspend</button></div>
             )}
+          </div>
+        )}
+        {staffCan('users.delete') && u.id !== me?.user.id && u.status !== 'deleted' && (
+          <div className="card card-pad stack-sm">
+            <h3>Remove account</h3>
+            <p className="small muted">Signs them out for good, clears their name, and takes down their posts, products and jobs. They are told why by email.</p>
+            <div className="row"><Input placeholder="Reason for removal" value={removeReason} onChange={(e) => setRemoveReason(e.target.value)} /><button className="btn btn-danger btn-sm" disabled={!removeReason} onClick={async () => { if (confirm(`Remove @${u.username} permanently?`) && (await act(() => post(`/admin/users/${u.id}/delete`, { reason: removeReason }), 'Account removed'))) { onChanged(); onClose(); } }}>Remove</button></div>
           </div>
         )}
         {staffCan('*') && u.id !== me?.user.id && (
@@ -236,11 +244,12 @@ export function Verification() {
           <div className="row">
             <Avatar user={v.user} size={44} square />
             <div className="grow">
-              <a href={appUrl(`/u/${v.user?.username}`)} target="_blank" rel="noreferrer" className="bold">{v.business?.name}</a>
-              <div className="xsmall muted">{label(v.business?.kind)} · {v.business?.category} · {v.business?.address} · requested {timeAgo(v.created_at)}</div>
+              <a href={appUrl(`/u/${v.user?.username}`)} target="_blank" rel="noreferrer" className="bold">{v.business?.name ?? v.user?.display_name}</a>
+              <div className="xsmall muted">{v.business ? `${label(v.business.kind)} · ${v.business.category} · ${v.business.address ?? ''}` : ACCOUNT_LABEL[v.user?.account_type]} · requested {timeAgo(v.created_at)}</div>
             </div>
           </div>
           <div className="row-wrap small">
+            <span className={`chip ${v.paid_amount > 0 ? 'chip-success' : ''}`}>{v.paid_amount > 0 ? `Paid ${money(v.paid_amount)}` : 'No fee'}</span>
             <span className={`chip ${v.checks?.email_verified ? 'chip-success' : 'chip-danger'}`}>Email {v.checks?.email_verified ? '✓' : '✗'}</span>
             <span className={`chip ${v.checks?.phone_verified ? 'chip-success' : 'chip-danger'}`}>Phone {v.checks?.phone_verified ? '✓' : '✗'}</span>
             <span className={`chip ${v.business?.has_registration_number ? 'chip-success' : ''}`}>Registration no. {v.business?.has_registration_number ? 'on file' : 'missing'}</span>
@@ -251,7 +260,7 @@ export function Verification() {
           {status === 'pending' ? (
             <div className="row-wrap">
               <Input placeholder="Notes to the business (required when rejecting)" value={notes[v.id] ?? ''} onChange={(e) => setNotes({ ...notes, [v.id]: e.target.value })} style={{ flex: 1, minWidth: 200 }} />
-              <button className="btn btn-primary btn-sm" onClick={async () => { if (await act(() => post(`/admin/verifications/${v.id}`, { decision: 'approve', notes: notes[v.id] }), 'Business verified')) reload(); }}><Icon name="check" />Approve</button>
+              <button className="btn btn-primary btn-sm" onClick={async () => { if (await act(() => post(`/admin/verifications/${v.id}`, { decision: 'approve', notes: notes[v.id] }), 'Account verified')) reload(); }}><Icon name="check" />Approve</button>
               <button className="btn btn-outline btn-sm" disabled={!notes[v.id]} onClick={async () => { if (await act(() => post(`/admin/verifications/${v.id}`, { decision: 'reject', notes: notes[v.id] }), 'Request rejected')) reload(); }}>Reject</button>
             </div>
           ) : v.review_notes && <div className="xsmall muted">Reviewer: {v.review_notes}</div>}

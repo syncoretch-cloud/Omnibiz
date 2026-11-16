@@ -12,6 +12,8 @@ import { userCards } from '../services/users.ts';
 import { notify } from '../services/notify.ts';
 import { reindexJob, reindexPost, reindexProduct, reindexUser, unindex } from '../services/search-index.ts';
 import { sendEmail } from '../lib/outbox.ts';
+import { invalidateTerms, termCounts } from '../services/moderation.ts';
+import { deleteAccount } from '../services/accounts.ts';
 
 export const adminRouter = Router();
 export const reportsRouter = Router();
@@ -115,6 +117,18 @@ adminRouter.post('/users/:id/suspend', requireStaff('users.suspend'), (req, res)
   reindexUser(u.id);
   audit(req.user!.id, 'user.suspend', 'user', u.id, { reason });
   sendEmail(u.email, 'Your OmniBiz account has been suspended', `Reason: ${reason}. Contact support if you believe this is a mistake.`);
+  res.json({ ok: true });
+});
+
+adminRouter.post('/users/:id/delete', requireStaff('users.delete'), (req, res) => {
+  const { reason } = validate(req.body, { reason: { type: 'text', required: true, max: 500 } });
+  const u = get("SELECT * FROM users WHERE id = ? AND status != 'deleted'", intParam(req));
+  if (!u) throw notFound('User');
+  if (u.id === req.user!.id) throw badRequest('You cannot remove your own account here');
+  assertOutranks(req.user!.role, u.role);
+  sendEmail(u.email, 'Your OmniBiz account has been removed', `Reason: ${reason}. Contact support if you believe this is a mistake.`);
+  deleteAccount(u.id);
+  audit(req.user!.id, 'user.delete', 'user', u.id, { reason, username: u.username });
   res.json({ ok: true });
 });
 
@@ -302,13 +316,14 @@ adminRouter.post('/verifications/:id', requireStaff('verification'), (req, res) 
   tx(() => {
     run("UPDATE verification_requests SET status = ?, reviewer_id = ?, review_notes = ?, reviewed_at = datetime('now') WHERE id = ?", approved ? 'approved' : 'rejected', req.user!.id, d.notes ?? null, v.id);
     run('UPDATE businesses SET verified = ?, verification_status = ? WHERE user_id = ?', approved, approved ? 'verified' : 'rejected', v.user_id);
+    run('UPDATE users SET verified = ? WHERE id = ?', approved ? 1 : 0, v.user_id);
   });
   audit(req.user!.id, `verification.${d.decision}`, 'user', v.user_id, { notes: d.notes });
   notify([v.user_id], {
     type: 'verification',
-    title: approved ? 'Your business is now verified ✓' : 'Business verification was not approved',
-    body: approved ? 'The Verified Business badge now appears on your profile.' : (d.notes ?? 'Please check your documents and try again.'),
-    link: '/settings/business',
+    title: approved ? 'Your account is now verified ✓' : 'Verification was not approved',
+    body: approved ? 'The verified badge now appears on your profile and your posts get a boost in feeds.' : (d.notes ?? 'Please check your documents and try again.'),
+    link: '/settings/verification',
   });
   res.json({ ok: true });
 });
@@ -364,21 +379,23 @@ adminRouter.get('/audit', requireStaff('audit'), (req, res) => {
   res.json({ items: rows.map((r) => ({ ...r, details: parseJson(r.details, null), actor: cards.get(r.actor_id) })) });
 });
 
-// ───────────── Blocked terms: new posts that contain one are held for review ─────────────
+// ───────────── Blocked terms: "block" is rejected outright, "review" is held for a moderator ─────────────
 adminRouter.get('/moderation/terms', requireStaff('content'), (_req, res) => {
-  res.json({ items: all('SELECT term, created_at FROM blocked_terms ORDER BY term') });
+  res.json({ items: all('SELECT term, action, created_at FROM blocked_terms ORDER BY term'), counts: termCounts() });
 });
 
 adminRouter.post('/moderation/terms', requireStaff('content'), (req, res) => {
-  const { term } = validate(req.body, { term: { type: 'string', required: true, max: 60 } });
-  const t = term.toLowerCase().trim();
-  run('INSERT OR IGNORE INTO blocked_terms (term) VALUES (?)', t);
-  audit(req.user!.id, 'moderation.term.add', null, null, { term: t });
+  const d = validate(req.body, { term: { type: 'string', required: true, max: 60 }, action: { type: 'enum', values: ['block', 'review'] } });
+  const t = d.term.toLowerCase().trim();
+  run('INSERT INTO blocked_terms (term, action) VALUES (?, ?) ON CONFLICT(term) DO UPDATE SET action = excluded.action', t, d.action ?? 'review');
+  invalidateTerms();
+  audit(req.user!.id, 'moderation.term.add', null, null, { term: t, action: d.action ?? 'review' });
   res.status(201).json({ ok: true });
 });
 
 adminRouter.delete('/moderation/terms/:term', requireStaff('content'), (req, res) => {
   run('DELETE FROM blocked_terms WHERE term = ?', String(req.params.term).toLowerCase());
+  invalidateTerms();
   audit(req.user!.id, 'moderation.term.remove', null, null, { term: req.params.term });
   res.json({ ok: true });
 });

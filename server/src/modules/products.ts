@@ -14,6 +14,8 @@ import { track } from '../services/analytics.ts';
 import { recordActivity } from '../services/personalization.ts';
 import { createPost } from './posts.ts';
 import { assertWithinLimit } from '../services/subscriptions.ts';
+import { screenFields } from '../services/moderation.ts';
+import { notify } from '../services/notify.ts';
 
 export const productsRouter = Router();
 
@@ -188,8 +190,14 @@ productsRouter.post('/', requirePerm('manage_products'), (req, res) => {
   d.currency ??= 'TZS';
   if (d.city === undefined) Object.assign(d, { city: me.city, lat: me.lat, lng: me.lng });
   if (get("SELECT COUNT(*) AS n FROM products WHERE seller_id = ? AND status = 'active'", me.id)!.n >= 5000) throw badRequest('Catalogue limit reached');
+  const held = screenFields(d.name, d.description);
+  if (held) d.status = 'flagged';
   const keys = Object.keys(d);
   const { id } = run(`INSERT INTO products (seller_id, ${keys.join(', ')}) VALUES (?, ${qs(keys.length)})`, me.id, ...keys.map((k) => d[k]));
+  if (held) {
+    notify([me.id], { type: 'system', title: 'Your product is under review', body: 'A moderator will check it shortly.' });
+    return res.status(201).json({ product: hydrateProducts([get('SELECT * FROM products WHERE id = ?', id)!], me.id)[0], held: true });
+  }
   reindexProduct(id);
   emit('product.created', { productId: id });
   if (announce) {
@@ -205,6 +213,8 @@ productsRouter.patch('/:id', requirePerm('manage_products'), (req, res) => {
   if (!r || r.status === 'removed') throw notFound('Product');
   if (r.seller_id !== req.user!.id) throw forbidden();
   const d = cleanProduct(validate(req.body, PRODUCT_SPEC, { partial: true }), req.user!);
+  const held = screenFields(d.name, d.description);
+  if (held) d.status = 'flagged';
   const keys = Object.keys(d);
   if (keys.length) run(`UPDATE products SET ${keys.map((k) => `${k} = ?`).join(', ')}, updated_at = datetime('now') WHERE id = ?`, ...keys.map((k) => d[k]), r.id);
   reindexProduct(r.id);

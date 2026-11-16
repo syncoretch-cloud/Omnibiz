@@ -6,6 +6,8 @@ import { audit, requireAuth, requireStaff } from '../lib/auth.ts';
 import { userCards } from '../services/users.ts';
 import { allPlans, currentPlan, hydratePlan, subscribe, usage } from '../services/subscriptions.ts';
 import { notify } from '../services/notify.ts';
+import { setSetting } from '../services/settings.ts';
+import { VERIFICATION_CURRENCY, verificationFee } from '../services/verification.ts';
 
 export const subscriptionsRouter = Router();
 export const billingAdminRouter = Router();
@@ -93,4 +95,16 @@ billingAdminRouter.get('/subscribers', requireStaff('billing'), (req, res) => {
   const cards = userCards(rows.map((r) => r.user_id));
   const revenue = get("SELECT COALESCE(SUM(price), 0) AS n FROM subscriptions WHERE status = 'active'")?.n ?? 0;
   res.json({ items: rows.map((r) => ({ ...r, user: cards.get(r.user_id) })), monthly_total: revenue });
+});
+
+// ───────────── Admin: the verification fee ─────────────
+billingAdminRouter.get('/settings', requireStaff('billing'), (_req, res) => {
+  res.json({ verification_fee: verificationFee(), currency: VERIFICATION_CURRENCY });
+});
+
+billingAdminRouter.put('/settings', requireStaff('billing'), (req, res) => {
+  const d = validate(req.body, { verification_fee: { type: 'number', required: true, min: 0 } });
+  setSetting('verification_fee', String(Math.round(d.verification_fee)));
+  audit(req.user!.id, 'settings.verification_fee', null, null, { fee: d.verification_fee });
+  res.json({ verification_fee: verificationFee(), currency: VERIFICATION_CURRENCY });
 });

@@ -12,7 +12,7 @@ import { hydratePosts, rankedFeed } from '../services/posts.ts';
 import { reindexPost, unindex } from '../services/search-index.ts';
 import { userCards } from '../services/users.ts';
 import { notify } from '../services/notify.ts';
-import { screenText } from '../services/moderation.ts';
+import { screenFields } from '../services/moderation.ts';
 import { recordActivity } from '../services/personalization.ts';
 import { hydrateProducts } from './products.ts';
 import { hydrateJobs } from './jobs.ts';
@@ -53,7 +53,7 @@ export function createPost(author: Row, input: { kind: string; body: string; med
   const handles = [...new Set((input.body.match(/@([a-zA-Z0-9_.]{3,30})/g) ?? []).map((m) => m.slice(1)))].slice(0, 20);
   const mentioned = handles.length ? all(`SELECT id FROM users WHERE username IN (${qs(handles.length)}) AND status = 'active'`, ...handles).map((r) => r.id as number) : [];
   const biz = get('SELECT category FROM businesses WHERE user_id = ?', author.id);
-  const held = screenText(input.body) !== null;
+  const held = screenFields(input.body);
   const id = tx(() => {
     const { id } = run(
       'INSERT INTO posts (author_id, kind, body, media, data, category, city, repost_of, status) VALUES (?,?,?,?,?,?,?,?,?)',
@@ -208,6 +208,12 @@ postsRouter.post('/:id/comments', requirePerm('interact'), (req, res) => {
   if (parseJson<Row>(p.data, {}).comments_off && p.author_id !== req.user!.id) throw forbidden('Comments are turned off for this post');
   const { body } = validate(req.body, { body: { type: 'text', required: true, max: 2000 } });
   if (!hit(`comment:${req.user!.id}`, 60, HOUR)) throw new HttpError(429, 'You are commenting too quickly');
+  const held = screenFields(body);
+  if (held) {
+    // Held for a moderator: the author is told, nobody else sees it until it is released.
+    const { id } = run("INSERT INTO comments (post_id, author_id, body, status) VALUES (?,?,?,'flagged')", p.id, req.user!.id, body);
+    return res.status(201).json({ comment: { id, body, created_at: sqlTime(), author: userCards([req.user!.id]).get(req.user!.id), mine: true }, held: true });
+  }
   const { id } = run('INSERT INTO comments (post_id, author_id, body) VALUES (?,?,?)', p.id, req.user!.id, body);
   run('UPDATE posts SET comment_count = comment_count + 1 WHERE id = ?', p.id);
   recordActivity(req.user!.id, 'comment', { category: p.category, targetType: 'post', targetId: p.id });

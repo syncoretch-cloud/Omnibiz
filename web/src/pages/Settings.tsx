@@ -12,7 +12,7 @@ import { get, patch, post, put, uploadDocument, del } from '../lib/api.ts';
 import type { Json } from '../lib/api.ts';
 import { useApi } from '../lib/hooks.ts';
 import { isBusinessType, useAction, useSession, useToast } from '../lib/session.tsx';
-import { label, parseTime, timeAgo } from '../lib/format.ts';
+import { label, money, parseTime, timeAgo } from '../lib/format.ts';
 
 /** Profile picture (a business's logo): saves the moment you pick one. */
 function PictureEditor() {
@@ -258,6 +258,9 @@ function BusinessSettings() {
 
 function VerificationDialog({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
   const toast = useToast();
+  const { me } = useSession();
+  const biz = isBusinessType(me?.user.account_type);
+  const { data: info } = useApi('/verification');
   const [files, setFiles] = useState<Json[]>([]);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -267,7 +270,7 @@ function VerificationDialog({ onClose, onDone }: { onClose: () => void; onDone: 
     setBusy(true);
     setError(null);
     try {
-      await post('/businesses/me/verification', { document_ids: files.map((f) => f.id), notes });
+      await post('/verification', { document_ids: files.map((f) => f.id), notes });
       toast('Verification request sent', 'success');
       onDone();
     } catch (e) {
@@ -277,20 +280,49 @@ function VerificationDialog({ onClose, onDone }: { onClose: () => void; onDone: 
     }
   };
   return (
-    <Modal title="Request business verification" onClose={onClose} footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={busy || !files.length} onClick={submit}>Submit for review</button></>}>
+    <Modal title={biz ? 'Get your business verified' : 'Get verified'} onClose={onClose} footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={busy || !files.length || !info} onClick={submit}>{info?.fee > 0 ? `Pay ${money(info.fee, info.currency)} and submit` : 'Submit for review'}</button></>}>
       <div className="stack">
         <ErrorBox error={error} />
-        <p className="small">Upload your business registration certificate and any licences. Documents are private and only seen by the OmniBiz verification team.</p>
+        <p className="small">{biz ? 'Upload your business registration certificate and any licences.' : 'Upload a photo of your national ID or passport.'} Documents are private and only seen by the OmniBiz verification team.</p>
+        {info?.billing === 'test' && info?.fee > 0 && <p className="xsmall muted">Payments are not connected yet, so nothing is charged for now.</p>}
         {files.map((f) => <div key={f.id} className="row small"><Icon name="file" size={16} />{f.name}</div>)}
         <button className="btn btn-outline btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => ref.current?.click()}><Icon name="upload" />Add document</button>
         <input ref={ref} type="file" hidden accept=".pdf,image/*,.doc,.docx" onChange={async (e) => {
           const file = e.target.files?.[0];
           if (!file) return;
-          try { const d = await uploadDocument(file, 'business_registration', 'private'); setFiles((x) => [...x, d]); } catch (err) { setError((err as Error).message); }
+          try { const d = await uploadDocument(file, biz ? 'business_registration' : 'id', 'private'); setFiles((x) => [...x, d]); } catch (err) { setError((err as Error).message); }
         }} />
         <Field label="Notes for the reviewer"><Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Registration number, TIN, anything that helps us verify you" /></Field>
       </div>
     </Modal>
+  );
+}
+
+/** Settings → Verification: pay the fee, send ID or registration documents, and get the badge once staff approve. */
+function VerificationSettings() {
+  const { setMe } = useSession();
+  const { data, loading, reload } = useApi('/verification');
+  const [open, setOpen] = useState(false);
+  if (loading || !data) return <Spinner block />;
+  const last = data.requests[0];
+  return (
+    <div className="stack">
+      <div className="card card-pad stack">
+        <div className="row" style={{ justifyContent: 'space-between' }}>
+          <div className="row"><Icon name={data.verified ? 'shieldCheck' : 'shield'} /><h3>Verification</h3></div>
+          <span className={`chip ${data.verified ? 'chip-success' : data.status === 'pending' ? 'chip-accent' : data.status === 'rejected' ? 'chip-danger' : ''}`}>{data.verified ? 'Verified' : data.status === 'none' ? 'Not verified' : label(data.status)}</span>
+        </div>
+        <p className="small muted">A verified badge shows people your account is genuine. Verified accounts also appear higher in feeds, so more people see your posts.</p>
+        {data.status === 'rejected' && last?.review_notes && <p className="small">Last review: {last.review_notes}</p>}
+        {data.status === 'pending' && <p className="small">Your request is with the verification team. We will tell you as soon as it has been reviewed.</p>}
+        {!data.verified && data.status !== 'pending' && (
+          <div className="form-actions" style={{ justifyContent: 'flex-start', alignItems: 'center', gap: 12 }}>
+            <button className="btn btn-primary" onClick={() => setOpen(true)}><Icon name="shieldCheck" />{data.fee > 0 ? `Get verified · ${money(data.fee, data.currency)}` : 'Get verified'}</button>
+          </div>
+        )}
+      </div>
+      {open && <VerificationDialog onClose={() => setOpen(false)} onDone={() => { setOpen(false); reload(); get('/auth/me').then(setMe); }} />}
+    </div>
   );
 }
 
@@ -443,6 +475,7 @@ export default function Settings() {
             {can('manage_cv') && <NavLink to="/settings/professional"><Icon name="briefcase" />Professional</NavLink>}
             {biz && <NavLink to="/settings/business"><Icon name="building" />Business profile</NavLink>}
             <NavLink to="/settings/plan"><Icon name="award" />Plan</NavLink>
+            {can('create_posts') && <NavLink to="/settings/verification"><Icon name="shieldCheck" />Verification</NavLink>}
             <NavLink to="/settings/delivery"><Icon name="package" />Delivery</NavLink>
             <NavLink to="/settings/interests"><Icon name="sparkles" />Interests</NavLink>
             <NavLink to="/settings/security"><Icon name="shield" />Security</NavLink>
@@ -454,6 +487,7 @@ export default function Settings() {
             <Route path="account" element={<Account />} />
             <Route path="professional" element={can('manage_cv') ? <Professional /> : <Empty title="Professional profiles are for personal accounts" />} />
             <Route path="plan" element={<PlanSettings />} />
+            <Route path="verification" element={can('create_posts') ? <VerificationSettings /> : <Empty title="Verification is for accounts that post" />} />
             <Route path="delivery" element={<Delivery />} />
             <Route path="business" element={biz ? <BusinessSettings /> : <Empty title="Not a business account" />} />
             <Route path="interests" element={<Interests />} />

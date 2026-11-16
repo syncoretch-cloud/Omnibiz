@@ -15,7 +15,8 @@
     "start": "npm run start --workspace server",
     "test": "npm test --workspace server",
     "typecheck": "npm run typecheck --workspace server && npm run typecheck --workspace web && npm run typecheck --workspace admin",
-    "build:admin": "npm run build --workspace admin"
+    "build:admin": "npm run build --workspace admin",
+    "host": "npm run build && npm run build:admin && npm start"
   },
   "engines": {
     "node": ">=23.6"

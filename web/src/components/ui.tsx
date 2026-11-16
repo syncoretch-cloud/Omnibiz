@@ -36,7 +36,7 @@ export function Ring({ children, seen, square, onClick, title }: { children: Rea
 export function Verified({ show }: { show?: boolean }) {
   if (!show) return null;
   return (
-    <span className="verified" title="Verified business">
+    <span className="verified" title="Verified">
       <Icon name="verified" />
     </span>
   );

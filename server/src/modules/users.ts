@@ -17,6 +17,7 @@ import { sendEmail } from '../lib/outbox.ts';
 import { randomCode, sha256 } from '../lib/crypto.ts';
 import { sqlTime, MINUTE } from '../db/index.ts';
 import { buildMe } from './auth.ts';
+import { screenFields } from '../services/moderation.ts';
 
 export const usersRouter = Router();
 
@@ -103,7 +104,7 @@ usersRouter.get('/:username', (req, res) => {
     user: {
       id: u.id, username: u.username, display_name: u.display_name, account_type: u.account_type,
       avatar_url: u.avatar_url, cover_url: u.cover_url, bio: u.bio, country: u.country, region: u.region, city: u.city,
-      public_email: u.public_email ?? null, public_phone: u.public_phone ?? null, links: parseJson(u.links, []),
+      verified: !!u.verified, public_email: u.public_email ?? null, public_phone: u.public_phone ?? null, links: parseJson(u.links, []),
       created_at: u.created_at, status: aud === 'owner' ? u.status : undefined,
     },
     stats,
@@ -203,6 +204,7 @@ function cleanLinks(list: string[]) {
 }
 
 usersRouter.patch('/me', requireAuth, (req, res) => {
+  screenFields((req.body as { bio?: string })?.bio, (req.body as { display_name?: string })?.display_name);
   const me = req.user!;
   // An empty contact field means "remove it".
   const body = { ...req.body };

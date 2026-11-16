@@ -11,6 +11,7 @@ import { reindexUser, searchIds } from '../services/search-index.ts';
 import { notify } from '../services/notify.ts';
 import { staffCan } from '../lib/permissions.ts';
 import { buildMe } from './auth.ts';
+import { requestVerification } from '../services/verification.ts';
 import { config } from '../config.ts';
 
 export const businessesRouter = Router();
@@ -160,12 +161,8 @@ businessesRouter.post('/me/verification', requirePerm('manage_business_profile')
   const d = validate(req.body, { document_ids: { type: 'ints', required: true, max: 10 }, notes: { type: 'text', max: 1000 } });
   const me = get('SELECT email_verified, phone_verified FROM users WHERE id = ?', req.user!.id)!;
   if (config.contactVerification && (!me.email_verified || !me.phone_verified)) throw badRequest('Verify your email and phone number before requesting business verification');
-  const owned = all(`SELECT id FROM documents WHERE owner_id = ? AND id IN (${(d.document_ids as number[]).join(',')})`, req.user!.id);
-  if (owned.length !== d.document_ids.length || !owned.length) throw badRequest('Attach at least one of your uploaded documents');
-  if (get("SELECT 1 AS x FROM verification_requests WHERE user_id = ? AND status = 'pending'", req.user!.id)) throw conflict('You already have a verification request under review');
-  const { id } = run('INSERT INTO verification_requests (user_id, document_ids, notes) VALUES (?,?,?)', req.user!.id, d.document_ids, d.notes ?? null);
-  run("UPDATE businesses SET verification_status = 'pending' WHERE user_id = ?", req.user!.id);
+  const id = requestVerification(req.user!.id, d.document_ids, d.notes);
   const team = all("SELECT id, role FROM users WHERE role != 'user' AND status = 'active'").filter((u) => staffCan(u.role, 'verification')).map((u) => u.id);
-  notify(team, { type: 'verification', title: 'New business verification request', body: req.user!.display_name, link: '/admin/verification' });
+  notify(team, { type: 'verification', title: 'New business verification request', body: req.user!.display_name });
   res.status(201).json({ id });
 });

@@ -30,6 +30,7 @@ import { exploreRouter } from './modules/explore.ts';
 import { billingAdminRouter, subscriptionsRouter } from './modules/subscriptions.ts';
 import { ensureBlockedTerms } from './services/moderation.ts';
 import { ensurePlans } from './services/subscriptions.ts';
+import { verificationRouter } from './modules/verification.ts';
 import { storiesRouter } from './modules/stories.ts';
 
 export function ensureCategories() {
@@ -41,7 +42,9 @@ export function ensureCategories() {
 
 let handlersRegistered = false;
 
-export function createApp() {
+/** The API plus a built single-page app: the public web app by default, or OmniBiz Manager when given its folder. */
+export function createApp(opts: { dist?: string } = {}) {
+  const dist = opts.dist ?? config.webDist;
   ensureCategories();
   ensurePlans();
   ensureBlockedTerms();
@@ -99,6 +102,7 @@ export function createApp() {
   app.use('/api/analytics', analyticsRouter);
   app.use('/api/reports', reportsRouter);
   app.use('/api/subscriptions', subscriptionsRouter);
+  app.use('/api/verification', verificationRouter);
   app.use('/api/admin/billing', billingAdminRouter);
   app.use('/api/admin', adminRouter);
   app.use('/api', (_req, _res, next) => next(new HttpError(404, 'Not found')));
@@ -106,14 +110,14 @@ export function createApp() {
   app.use('/uploads/media', express.static(MEDIA_DIR, { maxAge: '30d', immutable: true, fallthrough: false }));
 
   // Serve the built web app (single-page app with client-side routing).
-  if (fs.existsSync(path.join(config.webDist, 'index.html'))) {
-    app.use(express.static(config.webDist, { index: false, maxAge: '1h' }));
+  if (fs.existsSync(path.join(dist, 'index.html'))) {
+    app.use(express.static(dist, { index: false, maxAge: '1h' }));
     app.get('/{*splat}', (_req, res) => {
       res.setHeader(
         'Content-Security-Policy',
         "default-src 'self'; img-src 'self' data: blob: https://*.tile.openstreetmap.org; media-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; script-src 'self'; connect-src 'self'; frame-ancestors 'none'",
       );
-      res.sendFile(path.join(config.webDist, 'index.html'));
+      res.sendFile(path.join(dist, 'index.html'));
     });
   }
 

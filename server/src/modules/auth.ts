@@ -13,6 +13,7 @@ import { ACCOUNT_PERMISSIONS, staffPermissions } from '../lib/permissions.ts';
 import { canonicalCity, cityCoords } from '../lib/geo.ts';
 import { selfView } from '../services/users.ts';
 import { reindexUser } from '../services/search-index.ts';
+import { deleteAccount } from '../services/accounts.ts';
 import { notify } from '../services/notify.ts';
 import { config } from '../config.ts';
 
@@ -357,15 +358,7 @@ authRouter.post('/delete-account', requireAuth, (req, res) => {
   const { password } = validate(req.body, { password: { type: 'string', required: true, max: 128 } });
   const user = get('SELECT * FROM users WHERE id = ?', req.user!.id)!;
   if (!verifyPassword(password, user.password_hash)) throw forbidden('Password is incorrect');
-  tx(() => {
-    run("UPDATE users SET status = 'deleted', email = ?, username = ?, phone = NULL, display_name = 'Deleted account', avatar_url = NULL, bio = NULL WHERE id = ?",
-      `deleted-${user.id}@omnibiz.invalid`, `deleted_${user.id}`, user.id);
-    run('DELETE FROM sessions WHERE user_id = ?', user.id);
-    run("UPDATE posts SET status = 'removed' WHERE author_id = ?", user.id);
-    run("UPDATE products SET status = 'archived' WHERE seller_id = ?", user.id);
-    run("UPDATE jobs SET status = 'closed' WHERE company_id = ?", user.id);
-  });
-  reindexUser(user.id);
+  deleteAccount(user.id);
   clearSessionCookie(res);
   res.json({ ok: true });
 });

@@ -19,6 +19,7 @@ import { cvFor } from './users.ts';
 import { createPost } from './posts.ts';
 
 import { assertWithinLimit } from '../services/subscriptions.ts';
+import { screenFields } from '../services/moderation.ts';
 
 export const jobsRouter = Router();
 export const recruitmentRouter = Router();
@@ -273,8 +274,14 @@ jobsRouter.post('/', requirePerm('create_jobs'), (req, res) => {
   d.industry ??= get('SELECT category FROM businesses WHERE user_id = ?', me.id)?.category ?? null;
   d.required_docs ??= ['cv'];
   if (d.city === undefined && !d.remote) Object.assign(d, { city: me.city, lat: me.lat, lng: me.lng });
+  const held = screenFields(d.title, d.description);
+  if (held) d.status = 'flagged';
   const keys = Object.keys(d);
   const { id } = run(`INSERT INTO jobs (company_id, ${keys.join(', ')}) VALUES (?, ${qs(keys.length)})`, me.id, ...keys.map((k) => d[k]));
+  if (held) {
+    notify([me.id], { type: 'system', title: 'Your job is under review', body: 'A moderator will check it shortly.' });
+    return res.status(201).json({ job: hydrateJobs([get('SELECT * FROM jobs WHERE id = ?', id)!], me.id)[0], held: true });
+  }
   reindexJob(id);
   emit('job.published', { jobId: id });
   if (announce !== false) {
@@ -294,6 +301,7 @@ jobsRouter.patch('/:id', requirePerm('create_jobs'), (req, res) => {
   if (j.company_id !== req.user!.id) throw forbidden();
   const d = cleanJob(validate(req.body, { ...JOB_SPEC, status: { type: 'enum', values: ['open', 'closed'] } }, { partial: true }), req.user!);
   if (j.status === 'flagged' || j.status === 'removed') delete d.status;
+  if (screenFields(d.title, d.description)) d.status = 'flagged';
   const keys = Object.keys(d);
   if (keys.length) run(`UPDATE jobs SET ${keys.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`, ...keys.map((k) => d[k]), j.id);
   reindexJob(j.id);

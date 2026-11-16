@@ -365,7 +365,7 @@ export default function Profile() {
           )}
         </div>
         <div className="profile-names">
-          <h1 className="row" style={{ gap: 8 }}>{u.display_name}<Verified show={b?.verified} /></h1>
+          <h1 className="row" style={{ gap: 8 }}>{u.display_name}<Verified show={b?.verified || u.verified} /></h1>
           <div className="profile-handle">@{u.username}</div>
           <div className="profile-role">{category}</div>
         </div>

@@ -24,6 +24,9 @@ export const config = {
   dbPath: process.env.DB_PATH ?? path.join(dataDir, 'omnibiz.db'),
   uploadDir: process.env.UPLOAD_DIR ?? path.join(dataDir, 'uploads'),
   webDist: path.resolve(SERVER_ROOT, '..', 'web', 'dist'),
+  /** OmniBiz Manager (the staff app), served on its own port when it has been built. 0 turns it off. */
+  adminDist: path.resolve(SERVER_ROOT, '..', 'admin', 'dist'),
+  managerPort: Number(process.env.MANAGER_PORT ?? 4001),
   secret: loadSecret(),
   sessionDays: 30,
   /** Minimum job-match score (0-100) before a user is notified about a new vacancy. */

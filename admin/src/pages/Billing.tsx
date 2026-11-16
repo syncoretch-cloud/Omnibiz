@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Empty, Field, Input, Modal, Spinner, Tabs, Textarea, Avatar } from '@web/components/ui.tsx';
-import { patch } from '@web/lib/api.ts';
+import { patch, put } from '@web/lib/api.ts';
 import type { Json } from '@web/lib/api.ts';
 import { useApi } from '@web/lib/hooks.ts';
 import { useAction } from '@web/lib/session.tsx';
@@ -48,6 +48,21 @@ function PlanEditor({ plan, onClose, onSaved }: { plan: Json; onClose: () => voi
   );
 }
 
+function VerificationFee() {
+  const act = useAction();
+  const { data, loading, reload } = useApi('/admin/billing/settings');
+  const [fee, setFee] = useState<string | null>(null);
+  if (loading || !data) return null;
+  const value = fee ?? String(data.verification_fee);
+  const save = async () => { if (await act(() => put('/admin/billing/settings', { verification_fee: Number(value) || 0 }), 'Verification fee saved')) { setFee(null); reload(); } };
+  return (
+    <div className="card card-pad stack">
+      <div><h3>Verification fee</h3><p className="small muted">What an account pays to request the verified badge. Verified accounts rank higher in feeds. Set 0 to make it free.</p></div>
+      <div className="row"><Input inputMode="numeric" value={value} onChange={(e) => setFee(e.target.value)} style={{ maxWidth: 200 }} /><span className="small muted">{data.currency}</span><button className="btn btn-primary btn-sm" onClick={save} disabled={fee === null}>Save</button></div>
+    </div>
+  );
+}
+
 function Plans() {
   const { data, loading, reload } = useApi('/admin/billing/plans');
   const [editing, setEditing] = useState<Json | null>(null);
@@ -55,6 +70,7 @@ function Plans() {
   const groups = ['personal', 'customer', 'company', 'wholesaler', 'retailer'];
   return (
     <div className="stack">
+      <VerificationFee />
       {groups.map((g) => (
         <div key={g} className="card">
           <div className="card-pad"><h3>{ACCOUNT_LABEL[g]}</h3></div>

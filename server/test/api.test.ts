@@ -53,6 +53,7 @@ class Client {
   get = (u: string) => this.req('GET', u);
   post = (u: string, b?: unknown) => this.req('POST', u, b ?? {});
   patch = (u: string, b: unknown) => this.req('PATCH', u, b);
+  put = (u: string, b: unknown) => this.req('PUT', u, b);
   del = (u: string, b?: unknown) => this.req('DELETE', u, b);
 }
 
@@ -548,7 +549,7 @@ test('subscriptions: plans per account type, plan limits and admin edits', async
 
 test('moderation: posts with blocked words are held for review, and a moderator can release them', async () => {
   const { c, me } = await register('personal');
-  const bad = await c.post('/api/posts', { kind: 'update', body: 'Check out this NSFW stuff' });
+  const bad = await c.post('/api/posts', { kind: 'update', body: 'Check out this total bullshit' });
   assert.equal(bad.status, 201, JSON.stringify(bad.body));
   const row = db.prepare('SELECT status FROM posts WHERE id = ?').get(bad.body.post?.id ?? bad.body.id) as { status: string };
   assert.equal(row.status, 'flagged');
@@ -564,4 +565,60 @@ test('moderation: posts with blocked words are held for review, and a moderator 
   assert.equal((db.prepare('SELECT status FROM posts WHERE id = ?').get(second.body.post?.id ?? second.body.id) as { status: string }).status, 'flagged');
   assert.equal((await c.post('/api/admin/moderation/terms', { term: 'x' })).status, 403);
   void me;
+});
+
+test('moderation tiers: blocked words are rejected, review words are held, look-alikes and plain numbers behave', async () => {
+  const { c } = await register('personal');
+  const post = (body: string) => c.post('/api/posts', { kind: 'update', body });
+  assert.equal((await post('Watch this porn now')).status, 400);
+  assert.equal((await post('free p0rn here')).status, 400);
+  assert.equal((await post('PORRRRN')).status, 400);
+  const held = await post('well this is bullshit honestly');
+  assert.equal(held.status, 201);
+  assert.equal((db.prepare('SELECT status FROM posts WHERE id = ?').get(held.body.post?.id ?? held.body.id) as { status: string }).status, 'flagged');
+  // Ordinary text and prices with digits are not caught by look-alike matching.
+  assert.equal((await post('Prices from TZS 455,000 and a classic nude lipstick range at the Arusha shop')).status, 201);
+  const fine = await post('Our new class starts at 5 pm. Come and learn');
+  assert.equal(fine.status, 201);
+  assert.equal((db.prepare('SELECT status FROM posts WHERE id = ?').get(fine.body.post?.id ?? fine.body.id) as { status: string }).status, 'active');
+  // Products and bios are screened too.
+  const { c: shop } = await register('retailer');
+  assert.equal((await shop.post('/api/products', { name: 'hentai poster', category: 'electronics', price: 10 })).status, 400);
+  assert.equal((await c.patch('/api/users/me', { bio: 'I love xxx content' })).status, 400);
+});
+
+test('verification: paid request, staff approval, badge and feed boost; staff can remove users', async () => {
+  const { c: shop, me: shopMe } = await register('company');
+  const st = await shop.get('/api/verification');
+  assert.equal(st.status, 200);
+  assert.equal(st.body.fee, 25000);
+  assert.equal(st.body.status, 'none');
+  // Admin changes the fee.
+  const { me: adminMe, c: admin } = await register('personal');
+  db.prepare("UPDATE users SET role = 'admin' WHERE id = ?").run(adminMe.id);
+  assert.equal((await admin.put('/api/admin/billing/settings', { verification_fee: 40000 })).body.verification_fee, 40000);
+  assert.equal((await shop.get('/api/verification')).body.fee, 40000);
+  // Request with an uploaded document.
+  const form = new FormData();
+  form.append('kind', 'business_registration'); form.append('visibility', 'private');
+  form.append('file', new Blob(['%PDF-1.4 test'], { type: 'application/pdf' }), 'cert.pdf');
+  const doc = await shop.req('POST', '/api/documents', undefined, { form });
+  assert.equal(doc.status, 201, JSON.stringify(doc.body));
+  const sent = await shop.post('/api/verification', { document_ids: [doc.body.document.id] });
+  assert.equal(sent.status, 201, JSON.stringify(sent.body));
+  assert.equal(db.prepare('SELECT paid_amount FROM verification_requests WHERE id = ?').get(sent.body.id)!.paid_amount, 40000);
+  assert.equal((await shop.post('/api/verification', { document_ids: [doc.body.document.id] })).status, 409);
+  const approve = await admin.post(`/api/admin/verifications/${sent.body.id}`, { decision: 'approve' });
+  assert.equal(approve.status, 200, JSON.stringify(approve.body));
+  assert.equal((await shop.get('/api/verification')).body.verified, true);
+  const prof = await shop.get(`/api/users/${shopMe.username}`);
+  assert.equal(prof.body.user.verified, true);
+
+  // An admin can remove a user; they can no longer sign in.
+  const { me: victim, c: v } = await register('personal');
+  assert.equal((await shop.post(`/api/admin/users/${victim.id}/delete`, { reason: 'spam' })).status, 403);
+  assert.equal((await admin.post(`/api/admin/users/${victim.id}/delete`, { reason: 'Posting explicit content repeatedly' })).status, 200);
+  assert.ok(!(await v.get('/api/auth/me')).body?.user, 'their session ends');
+  assert.equal((await new Client().post('/api/auth/login', { identifier: victim.username, password: 'Secret123' })).status, 401);
+  assert.equal((await admin.post(`/api/admin/users/${adminMe.id}/delete`, { reason: 'self' })).status, 400);
 });

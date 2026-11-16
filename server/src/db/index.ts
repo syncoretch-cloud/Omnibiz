@@ -24,6 +24,12 @@ ensureColumn('users', 'delivery_address', 'TEXT');
 ensureColumn('users', 'public_email', 'TEXT');
 ensureColumn('users', 'public_phone', 'TEXT');
 ensureColumn('users', 'links', "TEXT NOT NULL DEFAULT '[]'");
+ensureColumn('users', 'verified', 'INTEGER NOT NULL DEFAULT 0');
+ensureColumn('verification_requests', 'paid_amount', 'REAL NOT NULL DEFAULT 0');
+ensureColumn('verification_requests', 'payment_ref', 'TEXT');
+ensureColumn('blocked_terms', 'action', "TEXT NOT NULL DEFAULT 'review'");
+// Businesses verified before people could be: carry the flag over to the account itself.
+db.exec('UPDATE users SET verified = 1 WHERE verified = 0 AND id IN (SELECT user_id FROM businesses WHERE verified = 1)');
 
 const cache = new Map<string, StatementSync>();
 function stmt(sql: string): StatementSync {

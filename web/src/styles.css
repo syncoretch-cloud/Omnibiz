@@ -971,21 +971,12 @@ button.metric:hover { border-color: var(--brand); transform: translateY(-2px); }
 .today-title em { font-style: normal; color: var(--brand-strong); }
 .today-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .feed { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
-/* Board: the right-hand column of widget cards. */
-.board { display: flex; flex-direction: column; gap: 12px; padding: 12px; }
 .widget { padding: 16px; border-radius: 20px; background: var(--card-bg); border: 1px solid var(--glass-border); box-shadow: var(--clay-soft); }
 .widget-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
 .widget-row, .rail-row { display: flex; align-items: center; gap: 11px; padding: 7px 0; color: inherit; }
 .widget-row:hover, .rail-row:hover { color: inherit; }
 a.widget-row:hover .bold { color: var(--brand); }
 .match-pill { min-width: 46px; height: 26px; padding: 0 9px; border-radius: 999px; display: grid; place-items: center; font-size: 0.74rem; font-weight: 800; color: var(--brand); background: var(--nav-active); }
-.me-widget { display: flex; flex-direction: column; gap: 14px; }
-.me-links { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-.me-links a { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 4px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text-2); font-size: 0.74rem; font-weight: 700; transition: color 0.2s, border-color 0.2s; }
-.me-links a:hover { color: var(--brand); border-color: var(--brand); }
-.me-links svg { width: 18px; height: 18px; }
-.board-foot { font-size: 0.7rem; color: var(--muted); line-height: 1.8; padding: 0 6px; }
-.board-foot div { margin-top: 6px; letter-spacing: 0.1em; }
 
 /* ─────────────────────────── create post: select → crop → edit → details ─────────────────────────── */
 .creator-backdrop { padding: 20px; }
@@ -1266,7 +1257,7 @@ a.widget-row:hover .bold { color: var(--brand); }
 }
 .dock .create-fab:active { transform: scale(0.92); }
 .dock .create-fab svg { width: 26px; height: 26px; stroke-width: 2.4; }
-.panel-nav, .panel-side, .panel-head { display: none; }
+.panel-nav, .panel-head { display: none; }
 .panel-main { position: relative; min-height: var(--app-h); }
 .reel { padding: 10px 10px 92px; }
 .reel-card { height: 100%; max-height: none; width: 100%; aspect-ratio: auto; border-radius: 26px; }
@@ -1313,6 +1304,7 @@ a.widget-row:hover .bold { color: var(--brand); }
 .nav-list { display: flex; flex-direction: column; gap: 2px; flex: 1; min-height: 0; margin-top: 18px; overflow-y: auto; scrollbar-width: none; }
 .nav-list::-webkit-scrollbar { display: none; }
 .nav-link {
+  background: none; border: 0; cursor: pointer; font: inherit;
   position: relative; display: flex; align-items: center; gap: 12px; flex-shrink: 0; height: 44px; padding: 0 14px; border-radius: 999px;
   color: var(--text-2); font-weight: 650; font-size: 0.92rem; transition: background 0.2s, color 0.2s;
 }
@@ -1324,12 +1316,9 @@ a.widget-row:hover .bold { color: var(--brand); }
 .nav-sep { height: 1px; flex-shrink: 0; margin: 8px 10px; background: var(--border); }
 .nav-create { height: 44px; margin: 10px 2px; }
 .nav-me { position: relative; padding-top: 10px; border-top: 1px solid var(--border); }
-.nav-me-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px; border: 0; border-radius: 14px; background: none; color: var(--text); text-align: left; cursor: pointer; }
-.nav-me-btn:hover { background: var(--surface-2); }
 .nav-me-text { display: flex; flex: 1; min-width: 0; flex-direction: column; line-height: 1.25; }
 .nav-me-text b { font-size: 0.86rem; }
 .nav-me-text span { font-size: 0.74rem; color: var(--muted); }
-.nav-me-btn > .nav-label:last-child svg { width: 18px; height: 18px; color: var(--muted); }
 .nav-me-menu { bottom: calc(100% + 8px); left: 0; min-width: 250px; transform-origin: bottom left; background: var(--surface-raised); -webkit-backdrop-filter: none; backdrop-filter: none; }
 /* content panel header */
 .panel-head .icon-btn { color: var(--text); }
@@ -1403,8 +1392,7 @@ a.widget-row:hover .bold { color: var(--brand); }
   .nav-link .badge-dot { position: absolute; top: 5px; left: 28px; margin: 0; }
   .nav-sep { width: 22px; margin: 6px 0; }
   .nav-create { width: 46px; height: 46px; padding: 0; margin: 14px 0 0; flex-shrink: 0; border-radius: 12px; }
-  .nav-me { padding-top: 10px; border-top: 0; }
-  .nav-me-btn { justify-content: center; padding: 4px; border-radius: 50%; }
+  .nav-me { padding-top: 10px; }
   .nav-me-menu { bottom: 0; left: calc(100% + 12px); min-width: 250px; transform-origin: bottom left; }
 
   /* the label appears beside the icon after a short pause, like a tooltip */
@@ -1441,28 +1429,12 @@ a.widget-row:hover .bold { color: var(--brand); }
   .nav-link:hover[data-icon='notifications'] svg { animation: ic-ring 0.9s var(--ease-out); transform-origin: 50% 8%; }
   .nav-link:hover[data-icon='dashboard'] svg { animation: ic-grid 0.7s var(--ease-out); }
 }
-/* The right-hand panel (profile, account, suggestions) is closed until the avatar in the rail is clicked. Until then the page takes the whole width.
-   Wide screens give it its own column; narrower ones slide it over the page. */
-@media (min-width: 768px) {
-  .shell.side-open .panel-side {
-    display: block; position: fixed; z-index: 70; top: 12px; right: 12px; bottom: 12px; width: min(340px, calc(100vw - 24px)); overflow: hidden auto; scrollbar-width: none;
-    background: var(--panel-bg); animation: side-in 0.28s var(--ease-out) both; box-shadow: var(--shadow-lg);
-  }
-  .nav-me-btn.on { box-shadow: 0 0 0 2px var(--brand); }
-}
-@media (min-width: 1100px) {
-  .shell.side-open { grid-template-columns: 64px minmax(0, 1fr) 340px; grid-template-areas: 'nav main side'; }
-  .shell.side-open .panel-side { position: static; grid-area: side; width: auto; min-height: 0; box-shadow: none; }
-}
-@keyframes side-in { from { opacity: 0; transform: translateX(24px); } }
-.account-menu { display: flex; flex-direction: column; padding: 6px; }
-.account-menu a, .account-menu button {
-  display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px; border: 0; border-radius: 10px; background: none; color: var(--text);
-  font-size: 0.9rem; font-weight: 550; text-align: left; cursor: pointer;
-}
-.account-menu a:hover, .account-menu button:hover { background: var(--surface-2); color: var(--text); }
-.account-menu svg { width: 19px; height: 19px; color: var(--text-2); }
-.account-menu hr { border: 0; height: 1px; background: var(--border); margin: 4px 6px; }
+/* Profile and More sit at the bottom of the rail. The profile page fills the middle like any other tab. */
+.nav-me { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.nav-avatar.active .avatar { box-shadow: 0 0 0 2px var(--brand); }
+.nav-avatar:hover svg, .nav-avatar svg { animation: none; }
+.nav-me .nav-link.open { background: rgba(130, 160, 220, 0.1); color: var(--text); }
+.nav-me-menu a, .nav-me-menu button { font-size: 0.9rem; }
 
 /* ─────────────────────────── splash ─────────────────────────── */
 .splash { position: fixed; inset: 0; z-index: 3000; display: grid; place-items: center; overflow: hidden; background: #000; transition: opacity 0.8s var(--ease), visibility 0.8s; }

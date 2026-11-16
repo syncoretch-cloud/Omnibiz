@@ -312,7 +312,7 @@ export default function Profile() {
   const avatar = <Avatar user={u} size={112} />;
   const category = isBiz ? `${b.category === 'other' && b.custom_category ? b.custom_category : industryName(b.category)} · ${ACCOUNT_LABEL[u.account_type]}` : p?.headline || ACCOUNT_LABEL[u.account_type];
   return (
-    <main className="page page-mid">
+    <main className="page page-wide">
       <section className="card profile-hero">
         <div className="profile-cover" style={{ background: u.cover_url ? `center / cover no-repeat url("${u.cover_url}")` : artBackground(`cover-${u.id}`) }} />
         <div className="profile-id">

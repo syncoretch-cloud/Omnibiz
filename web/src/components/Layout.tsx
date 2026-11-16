@@ -3,7 +3,6 @@ import type { ReactNode } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { Icon } from './Icon.tsx';
 import { Avatar, Modal, Portal } from './ui.tsx';
-import { Board } from './Board.tsx';
 import { CreatePostModal } from './CreatePost.tsx';
 import { StoryCreator } from './StoryCreator.tsx';
 import { isBusinessType, useSession, useToast } from '../lib/session.tsx';
@@ -196,7 +195,6 @@ function pageTitle(pathname: string) {
   if (profile) return `@${decodeURIComponent(profile[1])}`;
   return TITLES.find(([re]) => re.test(pathname))?.[1] ?? '';
 }
-/** Only Home has a column on the right (as on Instagram); every other page, a profile included, uses the whole width beside the rail. */
 
 export function AppLayout() {
   const { me, can } = useSession();
@@ -212,8 +210,9 @@ export function AppLayout() {
   const [sheet, setSheet] = useState(false);
   const [composer, setComposer] = useState(false);
   const [storying, setStorying] = useState(false);
-  // The right-hand panel stays closed until the profile icon is clicked, so the page gets the whole width.
-  const [side, setSide] = useState(false);
+  // The "More" menu at the bottom of the rail (settings, saved, orders, log out).
+  const [meMenu, setMeMenu] = useState(false);
+  const meRef = useRef<HTMLDivElement>(null);
   const [help, setHelp] = useState(false);
   const toast = useToast();
   const closeSearch = useCallback(() => setSearch(false), []);
@@ -222,7 +221,7 @@ export function AppLayout() {
   useEffect(() => {
     setSearch(false);
     setSheet(false);
-    setSide(false);
+    setMeMenu(false);
   }, [loc.pathname]);
 
   // Ctrl/⌘ K opens search from anywhere.
@@ -237,12 +236,15 @@ export function AppLayout() {
     return () => document.removeEventListener('keydown', onKey);
   }, []);
 
+  // The menu closes on any click outside it, or Esc.
   useEffect(() => {
-    if (!side) return;
-    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setSide(false);
+    if (!meMenu) return;
+    const close = (e: MouseEvent) => meRef.current && !meRef.current.contains(e.target as Node) && setMeMenu(false);
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setMeMenu(false);
+    document.addEventListener('mousedown', close);
     document.addEventListener('keydown', esc);
-    return () => document.removeEventListener('keydown', esc);
-  }, [side]);
+    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', esc); };
+  }, [meMenu]);
 
   const openCreate = useCallback(() => setComposer(true), []);
 
@@ -289,7 +291,7 @@ export function AppLayout() {
   );
 
   return (
-    <div className={`shell${side ? ' side-open' : ''}${isReels ? ' reels-page' : ''}${hidden ? ' chrome-hidden' : ''}`}>
+    <div className={`shell${isReels ? ' reels-page' : ''}${hidden ? ' chrome-hidden' : ''}`}>
       {/* phones: top bar */}
       <header className="topbar glass">
         {root ? (
@@ -325,10 +327,19 @@ export function AppLayout() {
           {biz && link('/dashboard', <Icon name="dashboard" />, 'Dashboard')}
           {link('/saved', <Icon name="bookmark" />, 'Saved')}
         </nav>
-        <div className="nav-me">
-          <button className={`nav-me-btn${side ? ' on' : ''}`} onClick={() => { tick(); setSide((o) => !o); }} aria-expanded={side} aria-controls="side-panel" aria-label="Your profile and account" data-label="Profile">
-            <Avatar user={u} size={36} />
+        <div className="nav-me" ref={meRef}>
+          {/* Profile: the page opens in the middle, the rail stays where it is */}
+          <NavLink to={`/u/${u.username}`} className="nav-link nav-avatar" aria-label="Profile" data-label="Profile" data-icon="profile" onClick={retap(`/u/${u.username}`)} {...warm(`/u/${u.username}`)}>
+            <Avatar user={u} size={30} />
+          </NavLink>
+          <button className={`nav-link${meMenu ? ' open' : ''}`} onClick={() => { tick(); setMeMenu((m) => !m); }} aria-expanded={meMenu} aria-label="More" data-label="More" data-icon="more">
+            <Icon name="menu" />
           </button>
+          {meMenu && (
+            <div className="popover nav-me-menu">
+              <MoreMenuItems onDone={() => setMeMenu(false)} />
+            </div>
+          )}
         </div>
       </aside>
 
@@ -351,12 +362,6 @@ export function AppLayout() {
         </div>
       </main>
 
-      {/* computers: your profile and account, opened from the avatar in the rail */}
-      {side && (
-        <aside className="panel panel-side" id="side-panel" aria-label="Your profile and account">
-          <Board onClose={() => setSide(false)} account={<MoreMenuItems onDone={() => setSide(false)} />} />
-        </aside>
-      )}
 
       {/* phones: bottom tabs */}
       <nav className="dock glass" aria-label="Main">

@@ -162,7 +162,6 @@ function CreateSheet({ onPost, onStory, onClose }: { onPost: () => void; onStory
 export function MoreMenuItems({ onDone }: { onDone?: () => void }) {
   const { me, can, logout } = useSession();
   const nav = useNavigate();
-  const isStaff = !!me && me.staff_permissions.length > 0;
   const biz = isBusinessType(me?.user.account_type);
   const counts = me?.counts ?? { notifications: 0, messages: 0, cart: 0 };
   return (
@@ -173,7 +172,6 @@ export function MoreMenuItems({ onDone }: { onDone?: () => void }) {
       <Link to="/saved" onClick={onDone}><Icon name="bookmark" />Saved</Link>
       {can('purchase') && <Link to="/cart" onClick={onDone}><Icon name="cart" />Cart{counts.cart > 0 && <span className="chip chip-brand" style={{ marginLeft: 'auto', height: 22 }}>{counts.cart}</span>}</Link>}
       {can('purchase') && <Link to="/orders" onClick={onDone}><Icon name="package" />My orders</Link>}
-      {isStaff && <a href={import.meta.env.VITE_ADMIN_URL ?? 'http://localhost:5180'} target="_blank" rel="noreferrer" onClick={onDone}><Icon name="shield" />OmniBiz Manager</a>}
       <Link to="/settings" onClick={onDone}><Icon name="settings" />Settings</Link>
       <hr />
       <button onClick={async () => { onDone?.(); await logout(); nav('/'); }}><Icon name="logout" />Log out</button>
@@ -302,6 +300,8 @@ export function AppLayout() {
           </>
         )}
         <button className="icon-btn" onClick={() => setSearch(true)} aria-label="Search"><Icon name="search" /></button>
+        {can('purchase') && <Link to="/cart" className={`icon-btn topbar-cart${counts.cart > 0 ? ' has-badge' : ''}`} aria-label="Cart" onClick={tick} {...warm('/cart')}><Icon name="cart" />{counts.cart > 0 && <span className="icon-count">{counts.cart > 9 ? '9+' : counts.cart}</span>}</Link>}
+        {can('purchase') && <Link to="/orders" className="icon-btn topbar-orders" aria-label="Orders" onClick={tick} {...warm('/orders')}><Icon name="package" /></Link>}
         <Link to="/notifications" className={`icon-btn${counts.notifications > 0 ? ' has-new' : ''}`} data-icon="bell" aria-label="Notifications" onClick={tick} {...warm('/notifications')}><span key={counts.notifications} className="icon-anim"><Icon name="bell" /></span><Badge n={counts.notifications} /></Link>
         <Link to="/messages" className={`icon-btn${counts.messages > 0 ? ' has-new' : ''}`} data-icon="message" aria-label="Messages" onClick={tick} {...warm('/messages')}><span key={counts.messages} className="icon-anim"><Icon name="message" /></span><Badge n={counts.messages} /></Link>
         <Link to="/menu" className="topbar-me" aria-label="Your account"><Avatar user={u} size={30} /></Link>
@@ -318,6 +318,13 @@ export function AppLayout() {
           {showJobs && link('/jobs', <Icon name="briefcase" />, 'Jobs')}
           {link('/marketplace', <Icon name="bag" />, 'Market')}
           {link('/businesses', <Icon name="building" />, 'Businesses')}
+          {can('purchase') && (
+            <>
+              <span className="nav-sep" />
+              {link('/cart', <Icon name="cart" />, 'Cart', counts.cart)}
+              {link('/orders', <Icon name="package" />, 'Orders')}
+            </>
+          )}
           <span className="nav-sep" />
           {link('/messages', <Icon name="message" />, 'Messages', counts.messages)}
           {link('/notifications', <Icon name="bell" />, 'Notifications', counts.notifications)}

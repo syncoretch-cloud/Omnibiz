@@ -173,7 +173,7 @@ export function MoreMenuItems({ onDone }: { onDone?: () => void }) {
       <Link to="/saved" onClick={onDone}><Icon name="bookmark" />Saved</Link>
       {can('purchase') && <Link to="/cart" onClick={onDone}><Icon name="cart" />Cart{counts.cart > 0 && <span className="chip chip-brand" style={{ marginLeft: 'auto', height: 22 }}>{counts.cart}</span>}</Link>}
       {can('purchase') && <Link to="/orders" onClick={onDone}><Icon name="package" />My orders</Link>}
-      {isStaff && <a href={import.meta.env.VITE_ADMIN_URL ?? 'http://localhost:5180'} target="_blank" rel="noreferrer" onClick={onDone}><Icon name="shield" />Admin panel</a>}
+      {isStaff && <a href={import.meta.env.VITE_ADMIN_URL ?? 'http://localhost:5180'} target="_blank" rel="noreferrer" onClick={onDone}><Icon name="shield" />OmniBiz Manager</a>}
       <Link to="/settings" onClick={onDone}><Icon name="settings" />Settings</Link>
       <hr />
       <button onClick={async () => { onDone?.(); await logout(); nav('/'); }}><Icon name="logout" />Log out</button>

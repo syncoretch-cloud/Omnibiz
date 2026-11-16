@@ -36,7 +36,7 @@ export function Login() {
       <form className="card card-pad stack" onSubmit={submit}>
         <div>
           <img src="/brand/omnibiz-mark.png" alt="" width={40} height={40} />
-          <h1 className="admin-login-title">OmniBiz Admin</h1>
+          <h1 className="admin-login-title">OmniBiz Manager</h1>
           <p className="small muted">Sign in with your staff account.</p>
         </div>
         {challenge ? (

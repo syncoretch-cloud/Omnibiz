@@ -47,10 +47,10 @@ export function App() {
     <div className={`admin-shell${open ? ' is-open' : ''}`}>
       <header className="admin-top">
         <button className="icon-btn" aria-label="Menu" onClick={() => setOpen((o) => !o)}><Icon name="menu" /></button>
-        <b>{current?.[1] ?? 'OmniBiz Admin'}</b>
+        <b>{current?.[1] ?? 'OmniBiz Manager'}</b>
       </header>
       <aside className="admin-side">
-        <div className="admin-brand"><img src="/brand/omnibiz-mark.png" alt="" width={28} height={28} /><b>OmniBiz</b><span className="chip">Admin</span></div>
+        <div className="admin-brand"><img src="/brand/omnibiz-mark.png" alt="" width={28} height={28} /><b>OmniBiz</b><span className="chip">Manager</span></div>
         <nav>
           {allowed.map(([to, text, icon]) => <NavLink key={to} to={to ? `/${to}` : '/'} end={!to}><Icon name={icon as never} />{text}</NavLink>)}
         </nav>

@@ -183,7 +183,8 @@ button { -webkit-tap-highlight-color: transparent; }
 .page-mid { max-width: 960px; }
 .page-wide { max-width: 1560px; }
 .page-profile { max-width: 1040px; }
-.page-home { max-width: 1320px; }
+.page-home { max-width: 940px; }
+.page-explore { max-width: 940px; }
 .layout-2 { display: grid; grid-template-columns: minmax(0, 1fr) clamp(280px, 30cqi, 340px); gap: clamp(16px, 2.4cqi, 24px); align-items: start; }
 .layout-side { display: grid; grid-template-columns: clamp(210px, 22cqi, 250px) minmax(0, 1fr); gap: clamp(16px, 2.4cqi, 24px); align-items: start; }
 .sticky-side { display: flex; flex-direction: column; gap: 16px; }
@@ -1642,6 +1643,8 @@ article.post.kb-focus { box-shadow: 0 0 0 2px var(--brand); }
 
 /* Masonry: as many columns as fit at a comfortable card width, cards keep their natural height. */
 .feed-grid { column-width: 280px; column-gap: 18px; }
+/* On wide screens keep the gallery to two roomy columns instead of stretching to three narrow ones. */
+@container page (min-width: 860px) { .feed-grid { column-width: 400px; } }
 .feed-grid > * { break-inside: avoid; margin-bottom: 18px; }
 
 /* A gallery card puts the picture first; author, a short caption and the counts sit underneath, as in a shot grid. */

@@ -48,7 +48,7 @@ export default function Explore() {
     ...(can('manage_cv') ? [['/me/cv', 'file', 'My CV'] as [string, string, string]] : []),
   ];
   return (
-    <main className="page">
+    <main className="page page-explore">
       <header className="discover-head">
         <div>
           <span className="eyebrow"><span className="orbit" />Discover</span>

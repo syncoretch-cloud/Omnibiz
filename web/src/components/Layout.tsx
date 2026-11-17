@@ -262,7 +262,7 @@ export function AppLayout() {
   const root = loc.pathname in ROOTS;
   const title = pageTitle(loc.pathname);
   // Back goes to the previous screen in the app, or Home when the page was opened directly.
-  const back = () => ((window.history.state?.idx ?? 0) > 0 ? nav(-1) : nav('/'));
+  const back = () => ((window.history.state?.idx ?? 0) > 0 ? nav(-1) : nav('/', { replace: true }));
   const mac = /Mac|iPhone|iPad/.test(navigator.platform);
 
   // Tapping the tab you are already on takes you back to the top; on Home it also refreshes the feed (like every social app).

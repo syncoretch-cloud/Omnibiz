@@ -503,15 +503,15 @@ export default function Settings() {
       <div className="layout-side">
         <aside className="card sticky-side">
           <nav className="side-nav">
-            <NavLink to="/settings/account"><Icon name="user" />Account</NavLink>
-            {can('manage_cv') && <NavLink to="/settings/professional"><Icon name="briefcase" />Professional</NavLink>}
-            {biz && <NavLink to="/settings/business"><Icon name="building" />Business profile</NavLink>}
-            <NavLink to="/settings/plan"><Icon name="award" />Plan</NavLink>
-            {can('create_posts') && <NavLink to="/settings/verification"><Icon name="shieldCheck" />Verification</NavLink>}
-            <NavLink to="/settings/delivery"><Icon name="package" />Delivery</NavLink>
-            <NavLink to="/settings/alerts"><Icon name="bell" />Alerts</NavLink>
-            <NavLink to="/settings/interests"><Icon name="sparkles" />Interests</NavLink>
-            <NavLink to="/settings/security"><Icon name="shield" />Security</NavLink>
+            <NavLink to="/settings/account" replace><Icon name="user" />Account</NavLink>
+            {can('manage_cv') && <NavLink to="/settings/professional" replace><Icon name="briefcase" />Professional</NavLink>}
+            {biz && <NavLink to="/settings/business" replace><Icon name="building" />Business profile</NavLink>}
+            <NavLink to="/settings/plan" replace><Icon name="award" />Plan</NavLink>
+            {can('create_posts') && <NavLink to="/settings/verification" replace><Icon name="shieldCheck" />Verification</NavLink>}
+            <NavLink to="/settings/delivery" replace><Icon name="package" />Delivery</NavLink>
+            <NavLink to="/settings/alerts" replace><Icon name="bell" />Alerts</NavLink>
+            <NavLink to="/settings/interests" replace><Icon name="sparkles" />Interests</NavLink>
+            <NavLink to="/settings/security" replace><Icon name="shield" />Security</NavLink>
           </nav>
         </aside>
         <section>

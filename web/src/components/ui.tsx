@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode, InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
 import { createPortal } from 'react-dom';
-import { Link, useLocation } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { Icon } from './Icon.tsx';
 import type { IconName } from './Icon.tsx';
 import { Artwork } from './Artwork.tsx';
@@ -271,10 +271,13 @@ export function VisibilitySelect({ value, onChange }: { value: string; onChange:
 }
 
 export function PageTitle({ title, subtitle, actions, back }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode; back?: string }) {
+  const nav = useNavigate();
+  // Back steps out to where you came from, like the browser's own back button; with no history (a page opened directly) it goes to `back`.
+  const goBack = () => ((window.history.state?.idx ?? 0) > 0 ? nav(-1) : nav(back!, { replace: true }));
   return (
     <div className="row-between" style={{ marginBottom: 20, flexWrap: 'wrap' }}>
       <div className="row" style={{ alignItems: 'flex-start' }}>
-        {back && <Link to={back} className="btn btn-icon btn-sm" aria-label="Back"><Icon name="arrowLeft" /></Link>}
+        {back && <button type="button" onClick={goBack} className="btn btn-icon btn-sm" aria-label="Back"><Icon name="arrowLeft" /></button>}
         <div>
           <h1>{title}</h1>
           {subtitle && <p className="muted small" style={{ marginTop: 4 }}>{subtitle}</p>}

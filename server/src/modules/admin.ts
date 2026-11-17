@@ -14,7 +14,7 @@ import { reindexJob, reindexPost, reindexProduct, reindexUser, unindex } from '.
 import { sendEmail } from '../lib/outbox.ts';
 import { invalidateTerms, termCounts } from '../services/moderation.ts';
 import { deleteAccount } from '../services/accounts.ts';
-import { suspendUser } from '../services/safety.ts';
+import { clearStrikes, suspendUser } from '../services/safety.ts';
 import { grantVerification } from '../services/verification.ts';
 
 export const adminRouter = Router();
@@ -75,7 +75,7 @@ adminRouter.get('/users', requireStaff('users.view'), (req, res) => {
   if (req.query.staff === '1') where.push("u.role != 'user'");
   const rows = all(
     `SELECT u.id, u.username, u.email, u.phone, u.display_name, u.account_type, u.role, u.status, u.city, u.created_at, u.last_login_at,
-       u.email_verified, u.phone_verified, b.verified,
+       u.email_verified, u.phone_verified, b.verified, u.suspended_reason, u.suspended_until,
        (SELECT COUNT(*) FROM reports r WHERE r.target_type = 'user' AND r.target_id = u.id) AS reports
      FROM users u LEFT JOIN businesses b ON b.user_id = u.id WHERE ${where.join(' AND ')} ORDER BY u.id DESC LIMIT ? OFFSET ?`,
     ...params, limit, offset,
@@ -133,10 +133,13 @@ adminRouter.post('/users/:id/delete', requireStaff('users.delete'), (req, res) =
 adminRouter.post('/users/:id/unsuspend', requireStaff('users.suspend'), (req, res) => {
   const u = get('SELECT * FROM users WHERE id = ?', intParam(req));
   if (!u) throw notFound('User');
+  if (u.status === 'deleted') throw badRequest('A removed account cannot be restored');
   run("UPDATE users SET status = 'active', suspended_reason = NULL, suspended_until = NULL WHERE id = ?", u.id);
   reindexUser(u.id);
   audit(req.user!.id, 'user.unsuspend', 'user', u.id);
-  notify([u.id], { type: 'moderation', title: 'Your account has been restored', body: 'You can use OmniBiz again.' });
+  clearStrikes(u.id);
+  sendEmail(u.email, 'Your OmniBiz account has been restored', 'The ban on your account was lifted by the OmniBiz team. You can sign in and use OmniBiz again.');
+  notify([u.id], { type: 'moderation', title: 'Your account has been restored', body: 'The ban was lifted by the OmniBiz team. You can use OmniBiz again.' });
   res.json({ ok: true });
 });
 

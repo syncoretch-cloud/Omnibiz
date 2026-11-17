@@ -65,7 +65,7 @@ export default function Jobs() {
   const tab = (params.get('tab') as Tab) ?? (personal ? 'recommended' : 'latest');
   const filters = Object.fromEntries([...params.entries()].filter(([k]) => k !== 'tab'));
   const hasFilters = Object.values(filters).some(Boolean);
-  const setTab = (t: Tab) => setParams({ tab: t });
+  const setTab = (t: Tab) => setParams({ tab: t }, { replace: true });
 
   const tabs: { id: Tab; label: string; icon: IconName }[] = [
     ...(personal ? [{ id: 'recommended' as Tab, label: 'Recommended', icon: 'sparkles' as const }] : []),
@@ -80,7 +80,7 @@ export default function Jobs() {
       <PageTitle title="Jobs" subtitle="Opportunities matched to your skills, education and location." />
       <div className="stack">
         {(tab === 'latest' || tab === 'recommended') && (
-          <Filters value={filters} onChange={(v) => setParams({ tab: 'latest', ...Object.fromEntries(Object.entries(v).filter(([, x]) => x)) })} />
+          <Filters value={filters} onChange={(v) => setParams({ tab: 'latest', ...Object.fromEntries(Object.entries(v).filter(([, x]) => x)) }, { replace: true })} />
         )}
         <Tabs tabs={tabs} value={tab} onChange={setTab} />
         {tab === 'recommended' && <JobList path="/jobs/recommended" emptyTitle="No recommendations yet" emptyText="Add skills, education and preferred locations to your CV to get matched." />}

@@ -36,6 +36,7 @@ ensureColumn('plans', 'perks', "TEXT NOT NULL DEFAULT '{}'");
 ensureColumn('users', 'verified_until', 'TEXT');
 ensureColumn('verification_requests', 'period', 'TEXT');
 ensureColumn('verification_requests', 'months', 'INTEGER');
+ensureColumn('strikes', 'cleared', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('outbox', 'status', "TEXT NOT NULL DEFAULT 'saved'");
 ensureColumn('outbox', 'error', 'TEXT');
 ensureColumn('blocked_terms', 'action', "TEXT NOT NULL DEFAULT 'review'");

@@ -15,6 +15,8 @@ const ICONS: Record<string, string> = {
   security: 'shield', verification: 'shieldCheck', moderation: 'flag', system: 'info', saved_search: 'bell',
 };
 const GROUPS = ['', 'jobs', 'business', 'social', 'system'];
+/** Warnings, bans, restorations and other staff decisions come from OmniBiz itself, not from a person. */
+const fromOmniBiz = (n: Json) => n.type === 'moderation';
 
 function section(n: Json): string {
   if (!n.read_at) return 'New';
@@ -68,16 +70,22 @@ export default function Notifications() {
               const href = n.link && /^\/jobs\/\d+$/.test(n.link) ? `${n.link}?src=notification` : n.link;
               const body = (
                 <>
-                  {n.actor ? (
+                  {fromOmniBiz(n) ? (
+                    <div style={{ position: 'relative' }}>
+                      <img src="/brand/omnibiz-mark.png" alt="OmniBiz" width={44} height={44} style={{ display: 'block', borderRadius: 12 }} />
+                      <span className="notif-icon" style={{ position: 'absolute', right: -4, bottom: -4, width: 22, height: 22, border: '2px solid var(--surface)' }}><Icon name={ICONS[n.type] ?? 'bell'} size={11} /></span>
+                    </div>
+                  ) : n.actor ? (
                     <div style={{ position: 'relative' }}>
                       <Avatar user={n.actor} size={44} />
                       <span className="notif-icon" style={{ position: 'absolute', right: -4, bottom: -4, width: 22, height: 22, border: '2px solid var(--surface)' }}><Icon name={ICONS[n.type] ?? 'bell'} size={11} /></span>
                     </div>
                   ) : <div className="notif-icon"><Icon name={ICONS[n.type] ?? 'bell'} /></div>}
                   <div className="grow small" style={{ lineHeight: 1.4 }}>
+                    {fromOmniBiz(n) && <div className="xsmall bold" style={{ color: 'var(--brand)' }}>OmniBiz <span className="muted">· {timeAgo(n.created_at)}</span></div>}
                     <b>{n.title}</b>
-                    {n.body && <span className="muted"> {n.body}</span>}
-                    <span className="muted xsmall"> · {timeAgo(n.created_at)}</span>
+                    {n.body && (fromOmniBiz(n) ? <div className="muted" style={{ whiteSpace: 'pre-line', marginTop: 2 }}>{n.body}</div> : <span className="muted"> {n.body}</span>)}
+                    {!fromOmniBiz(n) && <span className="muted xsmall"> · {timeAgo(n.created_at)}</span>}
                   </div>
                   {!n.read_at && <span className="unread-dot" />}
                 </>

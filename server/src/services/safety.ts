@@ -21,12 +21,17 @@ export function suspendUser(actorId: number, user: Row, reason: string, days: nu
   reindexUser(user.id);
   audit(actorId, 'user.suspend', 'user', user.id, { reason, days: days ?? null });
   const when = days ? `Your account will be restored automatically in ${days} day${days === 1 ? '' : 's'}.` : 'Your account stays suspended until our team restores it.';
-  notify([user.id], { type: 'moderation', title: days ? `You have been banned for ${days} day${days === 1 ? '' : 's'}` : 'Your account has been banned', body: reason, link: '/' });
+  notify([user.id], { type: 'moderation', title: days ? `You have been banned for ${days} day${days === 1 ? '' : 's'}` : 'Your account has been banned', body: `Due to: ${reason}`, link: '/' });
   sendEmail(user.email, 'Your OmniBiz account has been banned', `Reason: ${reason}\n\n${when}\nIf you think this is a mistake, sign in and use the appeal form on the suspension page.`);
 }
 
+/** A restored account starts again from zero warnings, so one more does not put it straight back in a ban. */
+export function clearStrikes(userId: number) {
+  run('UPDATE strikes SET cleared = 1 WHERE user_id = ? AND cleared = 0', userId);
+}
+
 export function activeStrikes(userId: number): number {
-  return get(`SELECT COUNT(*) AS n FROM strikes WHERE user_id = ? AND created_at > ?`, userId, sqlTime(-STRIKE_WINDOW_DAYS * DAY))?.n ?? 0;
+  return get(`SELECT COUNT(*) AS n FROM strikes WHERE user_id = ? AND cleared = 0 AND created_at > ?`, userId, sqlTime(-STRIKE_WINDOW_DAYS * DAY))?.n ?? 0;
 }
 
 /** Records a warning. Repeat warnings escalate by themselves: a timed ban, then a suspension until staff step in. */
@@ -43,7 +48,7 @@ export function issueStrike(actorId: number, user: Row, reason: string) {
     return { strikes: count, action: 'banned' as const, days: AUTO_BAN_DAYS };
   }
   const left = STRIKES_FOR_BAN - count;
-  notify([user.id], { type: 'moderation', title: 'You have received a warning', body: `${reason}. ${left} more warning${left === 1 ? '' : 's'} will lead to a ${AUTO_BAN_DAYS}-day ban.`, link: '/notifications' });
+  notify([user.id], { type: 'moderation', title: 'You have received a warning', body: `Due to: ${reason}\n${left} more warning${left === 1 ? '' : 's'} will lead to a ${AUTO_BAN_DAYS}-day ban.`, link: '/notifications' });
   sendEmail(user.email, 'A warning about your OmniBiz account', `${reason}\n\nThis is warning ${count} of ${STRIKES_FOR_BAN}. At ${STRIKES_FOR_BAN} warnings your account is banned for ${AUTO_BAN_DAYS} days.`);
   return { strikes: count, action: 'warned' as const };
 }

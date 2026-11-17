@@ -8,7 +8,7 @@ import { sendEmail } from '../lib/outbox.ts';
 import { userCards } from '../services/users.ts';
 import { notify } from '../services/notify.ts';
 import { reindexUser } from '../services/search-index.ts';
-import { STRIKES_FOR_BAN, STRIKE_WINDOW_DAYS, activeStrikes, issueStrike } from '../services/safety.ts';
+import { STRIKES_FOR_BAN, STRIKE_WINDOW_DAYS, activeStrikes, clearStrikes, issueStrike } from '../services/safety.ts';
 
 export const appealsRouter = Router();
 export const safetyAdminRouter = Router();
@@ -53,7 +53,8 @@ safetyAdminRouter.post('/appeals/:id', requireStaff('users.suspend'), (req, res)
   if (decision === 'approve') {
     run("UPDATE users SET status = 'active', suspended_reason = NULL, suspended_until = NULL WHERE id = ? AND status = 'suspended'", user.id);
     reindexUser(user.id);
-    notify([user.id], { type: 'system', title: 'Your appeal was approved', body: response });
+    clearStrikes(user.id);
+    notify([user.id], { type: 'moderation', title: 'Your appeal was approved', body: `Review note: ${response}` });
   }
   audit(req.user!.id, `appeal.${decision}`, 'user', user.id, { response });
   sendEmail(user.email, decision === 'approve' ? 'Your OmniBiz appeal was approved' : 'Your OmniBiz appeal was not approved', `${response}\n\n${decision === 'approve' ? 'Your account is active again.' : 'Your suspension stays in place.'}`);
@@ -66,7 +67,7 @@ safetyAdminRouter.get('/users/:id/strikes', requireStaff('users.view'), (req, re
     active: activeStrikes(id),
     ban_at: STRIKES_FOR_BAN,
     window_days: STRIKE_WINDOW_DAYS,
-    items: all('SELECT s.id, s.reason, s.created_at, u.display_name AS issued_by FROM strikes s LEFT JOIN users u ON u.id = s.issued_by WHERE s.user_id = ? ORDER BY s.id DESC LIMIT 30', id),
+    items: all('SELECT s.id, s.reason, s.created_at, s.cleared, u.display_name AS issued_by FROM strikes s LEFT JOIN users u ON u.id = s.issued_by WHERE s.user_id = ? ORDER BY s.id DESC LIMIT 30', id),
   });
 });
 

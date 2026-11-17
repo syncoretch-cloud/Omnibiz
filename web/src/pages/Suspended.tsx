@@ -21,14 +21,15 @@ export default function Suspended() {
     <main className="page page-narrow" style={{ paddingTop: 40 }}>
       <div className="card card-pad stack">
         <div className="center" style={{ display: 'grid', placeItems: 'center', gap: 8 }}>
-          <span className="notif-icon" style={{ width: 72, height: 72 }}><Icon name="lock" size={30} /></span>
+          <img src="/brand/omnibiz-mark.png" alt="OmniBiz" width={72} height={72} style={{ borderRadius: 18 }} />
+          <div className="xsmall bold" style={{ color: 'var(--brand)' }}>OmniBiz</div>
           <h2>You are banned from using this account</h2>
           <p className="small muted">
             {u.suspended_until ? <>The ban ends on <b>{parseTime(u.suspended_until).toLocaleString()}</b>, and the account comes back by itself.</> : 'The ban stays until our team lifts it.'}
           </p>
         </div>
         <div className="card card-pad small" style={{ background: 'var(--surface-2)' }}>
-          <div className="section-title">Reason</div>
+          <div className="section-title">Due to</div>
           {u.suspended_reason || 'Not provided.'}
         </div>
         {pending ? (

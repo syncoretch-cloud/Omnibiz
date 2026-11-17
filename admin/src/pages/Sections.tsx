@@ -73,7 +73,7 @@ function UserDetail({ id, onClose, onChanged }: { id: number; onClose: () => voi
             <div className="muted">{u.email} {u.email_verified ? '✓' : '(unverified)'} · {u.phone} {u.phone_verified ? '✓' : '(unverified)'}</div>
             <div className="muted">Joined {timeAgo(u.created_at)} · last sign-in {u.last_login_at ? timeAgo(u.last_login_at) : 'never'} · {u.city}</div>
           </div>
-          <span className={`chip ${u.status === 'active' ? 'chip-success' : 'chip-danger'}`}>{label(u.status)}</span>
+          <span className={`chip ${u.status === 'active' ? 'chip-success' : 'chip-danger'}`}>{u.status === 'suspended' ? 'Banned' : label(u.status)}</span>
         </div>
         <div className="grid-4">{Object.entries(data.counts).map(([k, v]) => <div key={k} className="card kpi"><div className="label">{label(k)}</div><div className="value">{v as number}</div></div>)}</div>
         <a href={appUrl(`/u/${u.username}`)} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ alignSelf: 'flex-start' }}>Open profile</a>
@@ -81,7 +81,7 @@ function UserDetail({ id, onClose, onChanged }: { id: number; onClose: () => voi
           <div className="card card-pad stack-sm">
             <h3>Account status</h3>
             {u.status === 'suspended' ? (
-              <><div className="small">Suspended: {u.suspended_reason}{u.suspended_until ? <> · until {u.suspended_until.slice(0, 10)}</> : ' · until restored'}</div><button className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-start' }} onClick={async () => { if (await act(() => post(`/admin/users/${u.id}/unsuspend`), 'Account restored')) done(); }}>Restore account</button></>
+              <><div className="small">Banned: {u.suspended_reason}{u.suspended_until ? <> · until {u.suspended_until.slice(0, 10)}</> : ' · until restored'}</div><button className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-start' }} onClick={async () => { if (await act(() => post(`/admin/users/${u.id}/unsuspend`), 'Account restored')) done(); }}>Restore account</button></>
             ) : (
               <div className="row"><Input placeholder="Reason for suspension" value={reason} onChange={(e) => setReason(e.target.value)} /><Input type="number" min={1} max={3650} placeholder="Days (blank = until restored)" value={days} onChange={(e) => setDays(e.target.value)} style={{ maxWidth: 120 }} aria-label="Days" /><button className="btn btn-danger btn-sm" disabled={!reason} onClick={async () => { if (await act(() => post(`/admin/users/${u.id}/suspend`, { reason, ...(days ? { days: Number(days) } : {}) }), days ? `Account suspended for ${days} day${days === '1' ? '' : 's'}` : 'Account suspended')) done(); }}>Suspend</button></div>
             )}
@@ -92,7 +92,7 @@ function UserDetail({ id, onClose, onChanged }: { id: number; onClose: () => voi
             <div className="row-between"><h3>Warnings</h3><span className="chip chip-accent">{strikes.data?.active ?? 0} of {strikes.data?.ban_at ?? 3} before a ban</span></div>
             <p className="xsmall muted">A warning is emailed to the person. At {strikes.data?.ban_at ?? 3} warnings within {strikes.data?.window_days ?? 90} days they get a 7-day ban automatically; at 5 the account is suspended until you restore it.</p>
             <div className="row"><Input placeholder="What did they do?" value={warning} onChange={(e) => setWarning(e.target.value)} /><button className="btn btn-outline btn-sm" disabled={warning.trim().length < 3} onClick={async () => { const r = await act(() => post(`/admin/users/${u.id}/warn`, { reason: warning }), 'Warning sent'); if (r) { setWarning(''); strikes.reload(); done(); } }}>Warn</button></div>
-            {strikes.data?.items.map((s: Json) => <div key={s.id} className="xsmall muted">{timeAgo(s.created_at)} · {s.reason}{s.issued_by ? ` — ${s.issued_by}` : ''}</div>)}
+            {strikes.data?.items.map((s: Json) => <div key={s.id} className="xsmall muted" style={s.cleared ? { textDecoration: 'line-through' } : undefined}>{timeAgo(s.created_at)} · {s.reason}{s.issued_by ? ` — ${s.issued_by}` : ''}{s.cleared ? ' (cleared)' : ''}</div>)}
           </div>
         )}
         {staffCan('users.delete') && u.id !== me?.user.id && u.status !== 'deleted' && (
@@ -125,28 +125,31 @@ export function Users() {
   const dq = useDebounced(q, 300);
   const { data, loading, reload } = useApi(`/admin/users${qs({ q: dq, type, status, limit: 100 })}`);
   const [open, setOpen] = useState<number | null>(null);
+  const act = useAction();
+  const { staffCan } = useSession();
   return (
     <div className="stack">
       <div className="card card-pad row-wrap">
         <div className="input-icon grow"><Icon name="search" /><Input placeholder="Search username, email, phone or name" value={q} onChange={(e) => setQ(e.target.value)} /></div>
         <Select value={type} onChange={(e) => setType(e.target.value)} placeholder="All types" options={Object.entries(ACCOUNT_LABEL).map(([v, l]) => ({ value: v, label: l }))} style={{ width: 'auto' }} />
-        <Select value={status} onChange={(e) => setStatus(e.target.value)} placeholder="Any status" options={['active', 'suspended']} style={{ width: 'auto' }} />
+        <Select value={status} onChange={(e) => setStatus(e.target.value)} placeholder="Any status" options={[{ value: 'active', label: 'Active' }, { value: 'suspended', label: 'Banned' }]} style={{ width: 'auto' }} />
       </div>
       {loading && !data ? <Spinner block /> : (
         <div className="card table-wrap">
           <div className="card-header"><span className="small muted">{data?.total ?? 0} users</span></div>
           <table className="table">
-            <thead><tr><th>User</th><th>Type</th><th>Role</th><th>Status</th><th>Verified</th><th className="num">Reports</th><th>Joined</th></tr></thead>
+            <thead><tr><th>User</th><th>Type</th><th>Role</th><th>Status</th><th>Verified</th><th className="num">Reports</th><th>Joined</th><th /></tr></thead>
             <tbody>
               {data?.users.map((u: Json) => (
                 <tr key={u.id} className="clickable" onClick={() => setOpen(u.id)}>
                   <td><div className="small bold">{u.display_name}</div><div className="xsmall muted">@{u.username} · {u.email}</div></td>
                   <td className="small">{ACCOUNT_LABEL[u.account_type]}</td>
                   <td className="small">{u.role === 'user' ? '—' : label(u.role)}</td>
-                  <td><span className={`chip ${u.status === 'active' ? 'chip-success' : 'chip-danger'}`}>{label(u.status)}</span></td>
+                  <td><span className={`chip ${u.status === 'active' ? 'chip-success' : 'chip-danger'}`}>{u.status === 'suspended' ? 'Banned' : label(u.status)}</span>{u.status === 'suspended' && <div className="xsmall muted">{u.suspended_until ? `until ${u.suspended_until.slice(0, 10)}` : 'until restored'}</div>}</td>
                   <td className="small">{u.email_verified ? 'Email ' : ''}{u.phone_verified ? 'Phone ' : ''}{u.verified ? '· Business ✓' : ''}</td>
                   <td className="num">{u.reports || ''}</td>
                   <td className="small">{timeAgo(u.created_at)}</td>
+                  <td onClick={(e) => e.stopPropagation()}>{u.status === 'suspended' && staffCan('users.suspend') && <button className="btn btn-primary btn-sm" onClick={async () => { if (await act(() => post(`/admin/users/${u.id}/unsuspend`), `@${u.username} restored`)) reload(); }}>Restore</button>}</td>
                 </tr>
               ))}
             </tbody>

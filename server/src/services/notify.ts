@@ -23,6 +23,6 @@ export function notify(userIds: number[], n: NotificationInput): number {
     }
   });
   pushLive(ids, 'notification', { type: n.type, title: n.title });
-  sendPush(ids, { title: n.title, body: n.body, link: n.link });
+  sendPush(ids, { title: n.type === 'moderation' ? `OmniBiz: ${n.title}` : n.title, body: n.body, link: n.link });
   return ids.length;
 }

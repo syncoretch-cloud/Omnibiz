@@ -64,7 +64,7 @@ export default function Businesses() {
   const set = (k: string, v: string) => {
     const p = new URLSearchParams(params);
     if (v) p.set(k, v); else p.delete(k);
-    setParams(p);
+    setParams(p, { replace: true });
   };
 
   const fallback = useMemo(() => {

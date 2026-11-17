@@ -23,7 +23,7 @@ export default function Marketplace() {
   const set = (k: string, v: string) => {
     const p = new URLSearchParams(params);
     if (v) p.set(k, v); else p.delete(k);
-    setParams(p);
+    setParams(p, { replace: true });
   };
   const near = f.sort === 'nearest' && me?.user.lat != null ? { lat: me.user.lat, lng: me.user.lng } : {};
   const list = usePaged(`/products${qs({ ...f, ...near })}`);
@@ -83,7 +83,7 @@ export default function Marketplace() {
               <label className="checkbox"><input type="checkbox" checked={f.in_stock === '1'} onChange={(e) => set('in_stock', e.target.checked ? '1' : '')} />In stock only</label>
               <label className="checkbox"><input type="checkbox" checked={f.verified === '1'} onChange={(e) => set('verified', e.target.checked ? '1' : '')} />Verified sellers only</label>
             </div>
-            {Object.keys(f).length > 0 && <button className="btn btn-ghost btn-sm span-all" onClick={() => { setParams({}); setText(''); }}>Clear filters</button>}
+            {Object.keys(f).length > 0 && <button className="btn btn-ghost btn-sm span-all" onClick={() => { setParams({}, { replace: true }); setText(''); }}>Clear filters</button>}
           </div>
         </aside>
         <section className="stack">

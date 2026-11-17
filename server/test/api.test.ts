@@ -791,6 +791,7 @@ test('account safety: warnings escalate to a timed ban, and a suspended person c
   assert.ok(appeal);
   assert.equal((await user.post(`/api/admin/appeals/${appeal.id}`, { decision: 'approve', response: 'ok' })).status, 403, 'only staff decide');
   assert.equal((await staff.post(`/api/admin/appeals/${appeal.id}`, { decision: 'approve', response: 'Restored after review.' })).status, 200);
+  assert.equal((await staff.get(`/api/admin/users/${u.id}/strikes`)).body.active, 0, 'an approved appeal starts from zero warnings');
   assert.equal((await user.get('/api/subscriptions')).status, 200);
   assert.equal((await user.post('/api/appeals', { message: 'I am not suspended any more at all.' })).status, 400);
 });
@@ -998,4 +999,32 @@ test('verification terms: 6 months and yearly cost less per month, badges expire
   assert.equal((await shop.get('/api/verification')).body.verified, true);
   assert.equal(await card(), true);
   assert.ok((await shop.get('/api/notifications')).body.items.some((n: Json) => n.title === 'Your verified badge has expired'));
+});
+
+test('warnings come from OmniBiz with the reason, and staff can restore any banned account', async () => {
+  const { c: staff } = await staffClient();
+  const { me: u, c: user } = await register('personal');
+  await staff.post(`/api/admin/users/${u.id}/warn`, { reason: 'Misleading product photos' });
+  const warn = (await user.get('/api/notifications')).body.items.find((n: Json) => n.title === 'You have received a warning');
+  assert.equal(warn.type, 'moderation');
+  assert.equal(warn.actor, null, 'sent by OmniBiz, not by the staff member');
+  assert.match(warn.body, /^Due to: Misleading product photos\n2 more warnings will lead to a 7-day ban\.$/);
+
+  // Ban, then restore: the person is told, and starts again with no warnings.
+  await staff.post(`/api/admin/users/${u.id}/suspend`, { reason: 'Repeated misleading listings', days: 30 });
+  const banned = await staff.get('/api/admin/users?status=suspended');
+  const row = banned.body.users.find((x: Json) => x.id === u.id);
+  assert.equal(row.suspended_reason, 'Repeated misleading listings');
+  assert.ok(row.suspended_until);
+  assert.equal((await user.get('/api/subscriptions')).status, 403);
+  assert.equal((await staff.post(`/api/admin/users/${u.id}/unsuspend`)).status, 200);
+  assert.equal((await user.get('/api/subscriptions')).status, 200);
+  const restored = (await user.get('/api/notifications')).body.items.find((n: Json) => n.title === 'Your account has been restored');
+  assert.equal(restored.type, 'moderation');
+  assert.equal((await staff.get(`/api/admin/users/${u.id}/strikes`)).body.active, 0);
+
+  // Removed accounts stay removed.
+  const { me: gone } = await register('personal');
+  assert.equal((await staff.post(`/api/admin/users/${gone.id}/delete`, { reason: 'Fraud confirmed by review' })).status, 200);
+  assert.equal((await staff.post(`/api/admin/users/${gone.id}/unsuspend`)).status, 400);
 });

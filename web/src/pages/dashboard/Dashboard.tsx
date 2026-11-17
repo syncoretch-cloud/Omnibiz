@@ -221,12 +221,12 @@ export default function Dashboard() {
       <div className="layout-side">
         <aside className="card sticky-side">
           <nav className="side-nav">
-            <NavLink to="/dashboard" end><Icon name="chart" />Analytics</NavLink>
-            <NavLink to="/dashboard/products"><Icon name="tag" />Products & services</NavLink>
-            {company && <NavLink to="/dashboard/jobs"><Icon name="briefcase" />Vacancies</NavLink>}
-            {company && <NavLink to="/dashboard/recruitment"><Icon name="users" />Recruitment</NavLink>}
-            <NavLink to="/dashboard/announcements"><Icon name="megaphone" />Announcements</NavLink>
-            <NavLink to="/dashboard/orders"><Icon name="package" />Orders</NavLink>
+            <NavLink to="/dashboard" end replace><Icon name="chart" />Analytics</NavLink>
+            <NavLink to="/dashboard/products" replace><Icon name="tag" />Products & services</NavLink>
+            {company && <NavLink to="/dashboard/jobs" replace><Icon name="briefcase" />Vacancies</NavLink>}
+            {company && <NavLink to="/dashboard/recruitment" replace><Icon name="users" />Recruitment</NavLink>}
+            <NavLink to="/dashboard/announcements" replace><Icon name="megaphone" />Announcements</NavLink>
+            <NavLink to="/dashboard/orders" replace><Icon name="package" />Orders</NavLink>
             <NavLink to="/settings/business"><Icon name="settings" />Business profile</NavLink>
           </nav>
         </aside>

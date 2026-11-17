@@ -55,7 +55,7 @@ export function App() {
       <aside className="admin-side">
         <div className="admin-brand"><img src="/brand/omnibiz-mark.png" alt="" width={28} height={28} /><b>OmniBiz</b><span className="chip">Manager</span></div>
         <nav>
-          {allowed.map(([to, text, icon]) => <NavLink key={to} to={to ? `/${to}` : '/'} end={!to}><Icon name={icon as never} />{text}</NavLink>)}
+          {allowed.map(([to, text, icon]) => <NavLink key={to} to={to ? `/${to}` : '/'} end={!to} replace><Icon name={icon as never} />{text}</NavLink>)}
         </nav>
         <div className="admin-who">
           <div className="small bold">{me.user.display_name}</div>

@@ -309,7 +309,7 @@ function VerificationSettings() {
           <div className="row"><Icon name={data.verified ? 'shieldCheck' : 'shield'} /><h3>Verification</h3></div>
           <span className={`chip ${data.verified ? 'chip-success' : data.status === 'pending' ? 'chip-accent' : data.status === 'rejected' ? 'chip-danger' : ''}`}>{data.verified ? 'Verified' : data.status === 'none' ? 'Not verified' : label(data.status)}</span>
         </div>
-        <p className="small muted">A verified badge shows people your account is genuine. Verified accounts also appear higher in feeds, so more people see your posts.</p>
+        <p className="small muted">A verified badge shows people your account is genuine. Verified accounts are also shown first in the marketplace, jobs and search, and rank higher in feeds, so more people see you.{data.discount > 0 && <> Your plan takes <b>{data.discount}% off</b> the fee ({money(data.base_fee, data.currency)} → {money(data.fee, data.currency)}).</>}</p>
         {data.status === 'rejected' && last?.review_notes && <p className="small">Last review: {last.review_notes}</p>}
         {data.status === 'pending' && <p className="small">Your request is with the verification team. We will tell you as soon as it has been reviewed.</p>}
         {!data.verified && data.status !== 'pending' && (

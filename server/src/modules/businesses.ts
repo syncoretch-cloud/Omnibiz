@@ -1,3 +1,4 @@
+import { boostSort } from '../services/visibility.ts';
 import { Router } from 'express';
 import { all, get, parseJson, run } from '../db/index.ts';
 import type { Row } from '../db/index.ts';
@@ -78,6 +79,7 @@ businessesRouter.get('/', (req, res) => {
       .sort((a, b) => a.d - b.d)
       .map((x) => x.r);
   }
+  if (!origin) rows = boostSort(rows, (r) => r.user_id);
   const total = rows.length;
   const pageRows = rows.slice(offset, offset + limit);
   const cards = userCards(pageRows.map((r) => r.user_id));
@@ -161,7 +163,7 @@ businessesRouter.post('/me/verification', requirePerm('manage_business_profile')
   const d = validate(req.body, { document_ids: { type: 'ints', required: true, max: 10 }, notes: { type: 'text', max: 1000 } });
   const me = get('SELECT email_verified, phone_verified FROM users WHERE id = ?', req.user!.id)!;
   if (config.contactVerification && (!me.email_verified || (config.contactPhone && !me.phone_verified))) throw badRequest(config.contactPhone ? 'Verify your email and phone number before requesting business verification' : 'Verify your email before requesting business verification');
-  const id = requestVerification(req.user!.id, d.document_ids, d.notes);
+  const id = requestVerification(req.user!, d.document_ids, d.notes);
   const team = all("SELECT id, role FROM users WHERE role != 'user' AND status = 'active'").filter((u) => staffCan(u.role, 'verification')).map((u) => u.id);
   notify(team, { type: 'verification', title: 'New business verification request', body: req.user!.display_name });
   res.status(201).json({ id });

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Empty, Field, Input, Modal, Spinner, Tabs, Textarea, Avatar } from '@web/components/ui.tsx';
+import { Empty, Field, Input, Modal, Select, Spinner, Tabs, Textarea, Avatar } from '@web/components/ui.tsx';
 import { patch, put } from '@web/lib/api.ts';
 import type { Json } from '@web/lib/api.ts';
 import { useApi } from '@web/lib/hooks.ts';
@@ -17,6 +17,10 @@ function PlanEditor({ plan, onClose, onSaved }: { plan: Json; onClose: () => voi
     jobs: plan.limits.jobs === undefined ? '' : plan.limits.jobs === null ? 'unlimited' : String(plan.limits.jobs),
     active: !!plan.active,
     highlight: !!plan.highlight,
+    boost: String(plan.boost ?? 0),
+    discount: String(plan.perks?.verification_discount ?? 0),
+    analytics: !!plan.perks?.analytics,
+    priority: plan.perks?.support === 'priority',
   });
   const set = (k: keyof typeof f, v: string | boolean) => setF((x) => ({ ...x, [k]: v }));
   const limit = (v: string) => (v.trim() === '' ? undefined : /^unl/i.test(v) ? null : Number(v));
@@ -26,7 +30,7 @@ function PlanEditor({ plan, onClose, onSaved }: { plan: Json; onClose: () => voi
       const v = limit(f[k]);
       if (v !== undefined) limits[k] = v;
     }
-    const body = { name: f.name, tagline: f.tagline, price: Number(f.price) || 0, features: f.features.split('\n').map((x) => x.trim()).filter(Boolean), limits, active: f.active, highlight: f.highlight };
+    const body = { name: f.name, tagline: f.tagline, price: Number(f.price) || 0, features: f.features.split('\n').map((x) => x.trim()).filter(Boolean), limits, active: f.active, highlight: f.highlight, boost: Number(f.boost), perks: { verification_discount: Math.min(100, Math.max(0, Number(f.discount) || 0)), analytics: f.analytics, support: f.priority ? 'priority' : 'standard' } };
     if (await act(() => patch(`/admin/billing/plans/${plan.id}`, body), 'Plan saved')) { onSaved(); onClose(); }
   };
   return (
@@ -39,6 +43,14 @@ function PlanEditor({ plan, onClose, onSaved }: { plan: Json; onClose: () => voi
           <Field label="Product limit" hint="A number, “unlimited”, or empty for not applicable."><Input value={f.products} onChange={(e) => set('products', e.target.value)} /></Field>
           <Field label="Open jobs limit"><Input value={f.jobs} onChange={(e) => set('jobs', e.target.value)} /></Field>
         </div>
+        <div className="form-grid">
+          <Field label="Placement" hint="Higher plans are listed first in the marketplace, jobs, businesses and search.">
+            <Select value={f.boost} onChange={(e) => set('boost', e.target.value)} options={[{ value: '0', label: 'Standard' }, { value: '1', label: 'Priority' }, { value: '2', label: 'Top priority (Featured badge)' }]} />
+          </Field>
+          <Field label="Verification fee discount (%)"><Input inputMode="numeric" value={f.discount} onChange={(e) => set('discount', e.target.value)} /></Field>
+        </div>
+        <label className="check"><input type="checkbox" checked={f.analytics} onChange={(e) => set('analytics', e.target.checked)} /> Includes analytics</label>
+        <label className="check"><input type="checkbox" checked={f.priority} onChange={(e) => set('priority', e.target.checked)} /> Priority support</label>
         <Field label="Features" hint="One per line."><Textarea value={f.features} onChange={(e) => set('features', e.target.value)} style={{ minHeight: 110 }} /></Field>
         <label className="check"><input type="checkbox" checked={f.active} onChange={(e) => set('active', e.target.checked)} /> Available to subscribe</label>
         <label className="check"><input type="checkbox" checked={f.highlight} onChange={(e) => set('highlight', e.target.checked)} /> Show as “Most popular”</label>

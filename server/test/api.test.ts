@@ -627,7 +627,9 @@ test('verification: paid request, staff approval, badge and feed boost; staff ca
   assert.equal((await admin.post(`/api/admin/users/${banned.id}/suspend`, { reason: 'Spam', days: 3 })).status, 200);
   const until = db.prepare('SELECT suspended_until AS u FROM users WHERE id = ?').get(banned.id)!.u as string;
   assert.ok(until > new Date().toISOString().slice(0, 10));
-  assert.equal((await b.get('/api/subscriptions')).status, 401, 'sessions are cleared on suspension');
+  assert.equal((await b.get('/api/subscriptions')).status, 403, 'a banned account is refused straight away');
+  assert.equal((await b.get('/api/auth/me')).body.user.status, 'suspended', 'but can still load the ban notice');
+  assert.ok(db.prepare("SELECT 1 FROM notifications WHERE user_id = ? AND title LIKE 'You have been banned%'").get(banned.id), 'and is notified');
   db.prepare("UPDATE users SET suspended_until = datetime('now', '-1 minute') WHERE id = ?").run(banned.id);
   const back = await b.post('/api/auth/login', { identifier: banned.username, password: 'Secret123' });
   assert.equal(back.status, 200, JSON.stringify(back.body));
@@ -903,4 +905,46 @@ test('saved searches alert on new matches; live events reach open streams', asyn
   assert.equal((await shopper.get('/api/push/status')).body.devices, 1);
   assert.equal((await shopper.post('/api/push/unsubscribe', { endpoint: sub.endpoint })).status, 200);
   assert.equal((await shopper.get('/api/push/status')).body.devices, 0);
+});
+
+test('visibility: paid plans and verified accounts are listed first, and the plan chart carries the perks', async () => {
+  const { c: buyer } = await register('customer');
+  const { c: free, me: freeMe } = await register('retailer', { category: 'retail' });
+  const { c: pro, me: proMe } = await register('retailer', { category: 'retail' });
+  const { c: top, me: topMe } = await register('retailer', { category: 'retail' });
+  const { c: checked, me: checkedMe } = await register('retailer', { category: 'retail' });
+  const mk = (c: Client, price = 10000) => c.post('/api/products', { name: 'Rank Test Blender', category: 'electronics', price, quantity: 5 });
+  // Free seller lists last, so on date alone they would come first.
+  const tops = await mk(top); const pros = await mk(pro); const chk = await mk(checked); const frees = await mk(free, 5000);
+  const ids = { free: frees.body.product.id, pro: pros.body.product.id, top: tops.body.product.id, checked: chk.body.product.id };
+  db.prepare("UPDATE products SET created_at = datetime('now', '+1 minute') WHERE id = ?").run(ids.free);
+
+  const plans = (await pro.get('/api/subscriptions')).body.plans;
+  const byCode = (code: string) => plans.find((p: Json) => p.code === code);
+  assert.equal(byCode('retailer_free').boost, 0);
+  assert.equal(byCode('retailer_pro').boost, 1);
+  assert.equal(byCode('retailer_scale').boost, 2);
+  assert.equal(byCode('retailer_scale').perks.support, 'priority');
+  assert.equal(byCode('retailer_pro').perks.verification_discount, 10);
+  assert.ok(byCode('retailer_scale').features.some((f: string) => /Featured badge/.test(f)));
+
+  assert.equal((await pro.post('/api/subscriptions/subscribe', { plan_id: byCode('retailer_pro').id })).status, 200);
+  const scale = (await top.get('/api/subscriptions')).body.plans.find((p: Json) => p.code === 'retailer_scale');
+  assert.equal((await top.post('/api/subscriptions/subscribe', { plan_id: scale.id, period: 'yearly' })).status, 200);
+  db.prepare('UPDATE users SET verified = 1 WHERE id = ?').run(checkedMe.id);
+
+  const order = async (qs = '') => (await buyer.get(`/api/products?q=Rank+Test+Blender${qs}`)).body.items.filter((p: Json) => Object.values(ids).includes(p.id)).map((p: Json) => p.id);
+  assert.deepEqual(await order(), [ids.top, ids.pro, ids.checked, ids.free], 'top plan, then priority plan, then verified, then free');
+  assert.deepEqual(await order('&sort=newest'), [ids.top, ids.pro, ids.checked, ids.free]);
+  assert.equal((await order('&sort=price_asc'))[0], ids.free, 'an explicit price order is respected, so the cheapest leads');
+  const card = (await buyer.get(`/api/products?q=Rank+Test+Blender`)).body.items.find((p: Json) => p.id === ids.top);
+  assert.equal(card.seller.visibility, 2);
+  assert.equal((await buyer.get('/api/products?q=Rank+Test+Blender')).body.items.find((p: Json) => p.id === ids.free).seller.visibility, 0);
+
+  // Verification costs less on a paid plan.
+  const v = await top.get('/api/verification');
+  assert.equal(v.body.discount, 25);
+  assert.equal(v.body.fee, Math.round(v.body.base_fee * 0.75));
+  assert.equal((await free.get('/api/verification')).body.discount, 0);
+  void freeMe; void proMe; void topMe;
 });

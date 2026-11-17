@@ -24,21 +24,53 @@ const SEED: { code: string; audience: string; name: string; tagline: string; pri
   { code: 'retailer_scale', audience: 'retailer', name: 'Scale', tagline: 'Unlimited catalogue.', price: 59000, features: ['Unlimited products', 'Priority support'], limits: { products: null } },
 ];
 
+export const VISIBILITY_LABEL = ['Standard', 'Priority', 'Top priority'] as const;
+
+export interface Perks { analytics: boolean; support: 'standard' | 'priority'; verification_discount: number }
+const FREE: Perks = { analytics: false, support: 'standard', verification_discount: 0 };
+const MID: Perks = { analytics: true, support: 'standard', verification_discount: 10 };
+const TOP: Perks = { analytics: true, support: 'priority', verification_discount: 25 };
+
+// How far each plan lifts its owner in marketplace, job, business and people results (0 none, 1 priority, 2 top priority),
+// and the other perks shown in the plan comparison. Applied once to a plan that has not been edited in the admin panel.
+const TIERS: Record<string, { boost: number; perks: Perks; add: string[] }> = {
+  personal_free: { boost: 0, perks: FREE, add: [] },
+  personal_plus: { boost: 1, perks: MID, add: ['Priority placement in people search', '10% off the verification fee'] },
+  customer_free: { boost: 0, perks: FREE, add: [] },
+  customer_plus: { boost: 0, perks: { analytics: false, support: 'priority', verification_discount: 0 }, add: ['Priority support'] },
+  company_free: { boost: 0, perks: FREE, add: [] },
+  company_business: { boost: 1, perks: MID, add: ['Priority placement for your jobs, products and company page', '10% off the verification fee'] },
+  company_enterprise: { boost: 2, perks: TOP, add: ['Top placement everywhere, ahead of every other plan', 'Featured badge on your products and jobs', '25% off the verification fee'] },
+  wholesaler_free: { boost: 0, perks: FREE, add: [] },
+  wholesaler_pro: { boost: 1, perks: MID, add: ['Priority placement in the marketplace and search', '10% off the verification fee'] },
+  wholesaler_scale: { boost: 2, perks: TOP, add: ['Top placement in the marketplace, ahead of every other plan', 'Featured badge on your products', '25% off the verification fee'] },
+  retailer_free: { boost: 0, perks: FREE, add: [] },
+  retailer_pro: { boost: 1, perks: MID, add: ['Priority placement in the marketplace and search', '10% off the verification fee'] },
+  retailer_scale: { boost: 2, perks: TOP, add: ['Top placement in the marketplace, ahead of every other plan', 'Featured badge on your products', '25% off the verification fee'] },
+};
+
 export function ensurePlans() {
   tx(() => {
     // Plus used to ship switched off with no price; give it one now, but only while it is still untouched.
     run("DELETE FROM plans WHERE code = 'personal_plus' AND price = 0 AND active = 0 AND tagline = 'Pricing to be announced.' AND NOT EXISTS (SELECT 1 FROM subscriptions WHERE plan_id = plans.id)");
-    SEED.forEach((p, i) =>
+    SEED.forEach((p, i) => {
+      const tier = TIERS[p.code];
       run(
-        'INSERT OR IGNORE INTO plans (code, audience, name, tagline, price, features, limits, active, highlight, sort) VALUES (?,?,?,?,?,?,?,?,?,?)',
-        p.code, p.audience, p.name, p.tagline, p.price, JSON.stringify(p.features), JSON.stringify(p.limits), p.active ?? 1, p.highlight ?? 0, i,
-      ),
-    );
+        'INSERT OR IGNORE INTO plans (code, audience, name, tagline, price, features, limits, active, highlight, sort, boost, perks) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+        p.code, p.audience, p.name, p.tagline, p.price, JSON.stringify([...p.features, ...(tier?.add ?? [])]), JSON.stringify(p.limits), p.active ?? 1, p.highlight ?? 0, i, tier?.boost ?? 0, JSON.stringify(tier?.perks ?? FREE),
+      );
+      // Plans created before perks existed: give them their tier once, keeping whatever the admin already changed.
+      const row = get("SELECT id, features FROM plans WHERE code = ? AND perks = '{}'", p.code);
+      if (row && tier) {
+        const features: string[] = parseJson(row.features, []);
+        run('UPDATE plans SET boost = ?, perks = ?, features = ? WHERE id = ?', tier.boost, JSON.stringify(tier.perks), JSON.stringify([...features, ...tier.add.filter((a) => !features.includes(a))]), row.id);
+      }
+    });
   });
 }
 
-export function hydratePlan(r: Row): Row & { features: string[]; limits: Record<string, number | null> } {
-  return { ...r, features: parseJson<string[]>(r.features, []), limits: parseJson<Record<string, number | null>>(r.limits, {}), active: !!r.active, highlight: !!r.highlight };
+export function hydratePlan(r: Row): Row & { features: string[]; limits: Record<string, number | null>; perks: Perks } {
+  return { ...r, perks: { ...FREE, ...parseJson<Partial<Perks>>(r.perks, {}) }, features: parseJson<string[]>(r.features, []), limits: parseJson<Record<string, number | null>>(r.limits, {}), active: !!r.active, highlight: !!r.highlight };
 }
 
 function freePlan(accountType: string): Row {

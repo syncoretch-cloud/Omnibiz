@@ -1,6 +1,7 @@
 // Global search (spec §22) with natural-language interpretation (spec §32 "AI search"):
 // "Find software companies around Arusha hiring junior developers" →
 //   types: companies + jobs · city: Arusha · experience ≤ 1 year · text: "software developer".
+import { boostSort } from '../services/visibility.ts';
 import { Router } from 'express';
 import { all, get, qs } from '../db/index.ts';
 import type { Row } from '../db/index.ts';
@@ -115,8 +116,8 @@ searchRouter.get('/', (req, res) => {
     const order = new Map(bizIds.map((id, i) => [id, i]));
     rows = rows
       .filter((r) => kinds.includes(r.kind) && cityMatch(r.city) && (!category || r.category === category))
-      .sort((a, b) => (order.get(a.user_id) ?? 0) - (order.get(b.user_id) ?? 0))
-      .slice(0, limit);
+      .sort((a, b) => (order.get(a.user_id) ?? 0) - (order.get(b.user_id) ?? 0));
+    rows = boostSort(rows, (r) => r.user_id).slice(0, limit);
     const pageIds = rows.map((r) => r.user_id as number);
     const cards = userCards(pageIds);
     const following = followingSet(viewer?.id, pageIds);
@@ -129,7 +130,7 @@ searchRouter.get('/', (req, res) => {
     const pIds = ids(['person']).map((r) => r.ref_id);
     const rows = pIds.length ? all(`SELECT id, city FROM users WHERE id IN (${qs(pIds.length)}) AND status = 'active'`, ...pIds) : [];
     const order = new Map(pIds.map((id, i) => [id, i]));
-    const keep = rows.filter((r) => cityMatch(r.city)).sort((a, b) => order.get(a.id)! - order.get(b.id)!).slice(0, limit);
+    const keep = boostSort(rows.filter((r) => cityMatch(r.city)).sort((a, b) => order.get(a.id)! - order.get(b.id)!), (r) => r.id).slice(0, limit);
     const cards = userCards(keep.map((r) => r.id));
     results.people = keep.map((r) => cards.get(r.id));
   }
@@ -144,8 +145,8 @@ searchRouter.get('/', (req, res) => {
     if (it.remote) where.push('remote = 1');
     if (category) { where.push('industry = ?'); params.push(category); }
     const order = new Map(jIds.map((id, i) => [id, i]));
-    const rows = all(`SELECT * FROM jobs WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT 300`, ...params)
-      .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
+    const rows = boostSort(all(`SELECT * FROM jobs WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT 300`, ...params)
+      .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0)), (r) => r.company_id)
       .slice(0, limit);
     results.jobs = hydrateJobs(rows, viewer?.id);
     owners.push(...rows.map((r) => r.company_id));
@@ -160,8 +161,8 @@ searchRouter.get('/', (req, res) => {
     if (category) { where.push('category = ?'); params.push(category); }
     if (types.includes('wholesalers') && !types.includes('retailers')) where.push("sale_type = 'wholesale'");
     const order = new Map(pIds.map((id, i) => [id, i]));
-    const rows = all(`SELECT * FROM products WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT 300`, ...params)
-      .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
+    const rows = boostSort(all(`SELECT * FROM products WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT 300`, ...params)
+      .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0)), (r) => r.seller_id)
       .slice(0, limit);
     results.products = hydrateProducts(rows, viewer?.id);
     owners.push(...rows.map((r) => r.seller_id));

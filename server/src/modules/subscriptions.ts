@@ -56,6 +56,8 @@ const PLAN_SPEC: Spec = {
   limits: { type: 'json' },
   active: { type: 'bool' },
   highlight: { type: 'bool' },
+  boost: { type: 'int', min: 0, max: 2 },
+  perks: { type: 'json' },
 };
 
 billingAdminRouter.get('/plans', requireStaff('billing'), (_req, res) => {
@@ -74,11 +76,18 @@ billingAdminRouter.patch('/plans/:id', requireStaff('billing'), (req, res) => {
       if (!['products', 'jobs'].includes(k) || !(v === null || (typeof v === 'number' && v >= 0))) throw badRequest(`Invalid limit: ${k}`);
     }
   }
+  if (d.perks !== undefined) {
+    const k = d.perks;
+    if (!k || typeof k !== 'object' || Array.isArray(k)) throw badRequest('Perks must be an object');
+    if (k.verification_discount !== undefined && !(typeof k.verification_discount === 'number' && k.verification_discount >= 0 && k.verification_discount <= 100)) throw badRequest('Verification discount must be 0 to 100');
+    if (k.support !== undefined && !['standard', 'priority'].includes(k.support)) throw badRequest('Support must be standard or priority');
+    d.perks = { ...hydratePlan(plan).perks, ...k };
+  }
   const sets: string[] = [];
   const params: unknown[] = [];
   for (const [k, v] of Object.entries(d)) {
     sets.push(`${k} = ?`);
-    params.push(k === 'features' || k === 'limits' ? JSON.stringify(v) : typeof v === 'boolean' ? (v ? 1 : 0) : v);
+    params.push(k === 'features' || k === 'limits' || k === 'perks' ? JSON.stringify(v) : typeof v === 'boolean' ? (v ? 1 : 0) : v);
   }
   if (sets.length) run(`UPDATE plans SET ${sets.join(', ')} WHERE id = ?`, ...params, plan.id);
   audit(req.user!.id, 'plan.update', 'plan', plan.id, d);

@@ -1,3 +1,4 @@
+import { boostSort } from '../services/visibility.ts';
 import { Router } from 'express';
 import type { Request } from 'express';
 import { all, get, parseJson, qs, run, tx, sqlTime, DAY } from '../db/index.ts';
@@ -175,8 +176,10 @@ jobsRouter.get('/', (req, res) => {
 
   const sort = qStr(req, 'sort') ?? 'newest';
   const order = sort === 'salary' ? 'COALESCE(j.salary_max, j.salary_min, 0) DESC' : sort === 'deadline' ? 'j.deadline IS NULL, j.deadline ASC' : 'j.created_at DESC';
-  const rows = all(`SELECT j.* FROM jobs j JOIN users u ON u.id = j.company_id WHERE u.status = 'active' AND ${where.join(' AND ')} ORDER BY ${order} LIMIT 2000`, ...params);
+  let rows = all(`SELECT j.* FROM jobs j JOIN users u ON u.id = j.company_id WHERE u.status = 'active' AND ${where.join(' AND ')} ORDER BY ${order} LIMIT 2000`, ...params);
   if (rank && sort === 'relevance') rows.sort((a, b) => rank!.get(a.id)! - rank!.get(b.id)!);
+  // Companies on higher plans, and verified companies, come first unless the seeker sorted by salary or deadline.
+  if (['newest', 'relevance'].includes(sort)) rows = boostSort(rows, (r) => r.company_id);
   res.json({ items: hydrateJobs(rows.slice(offset, offset + limit), req.user?.id), total: rows.length });
 });
 

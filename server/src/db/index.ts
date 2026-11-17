@@ -31,6 +31,8 @@ ensureColumn('verification_requests', 'payment_ref', 'TEXT');
 ensureColumn('subscriptions', 'period', "TEXT NOT NULL DEFAULT 'monthly'");
 ensureColumn('orders', 'payout_status', "TEXT NOT NULL DEFAULT 'held'");
 ensureColumn('orders', 'payout_release_at', 'TEXT');
+ensureColumn('plans', 'boost', 'INTEGER NOT NULL DEFAULT 0');
+ensureColumn('plans', 'perks', "TEXT NOT NULL DEFAULT '{}'");
 ensureColumn('outbox', 'status', "TEXT NOT NULL DEFAULT 'saved'");
 ensureColumn('outbox', 'error', 'TEXT');
 ensureColumn('blocked_terms', 'action', "TEXT NOT NULL DEFAULT 'review'");

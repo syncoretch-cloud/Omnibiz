@@ -135,6 +135,7 @@ adminRouter.post('/users/:id/unsuspend', requireStaff('users.suspend'), (req, re
   run("UPDATE users SET status = 'active', suspended_reason = NULL, suspended_until = NULL WHERE id = ?", u.id);
   reindexUser(u.id);
   audit(req.user!.id, 'user.unsuspend', 'user', u.id);
+  notify([u.id], { type: 'moderation', title: 'Your account has been restored', body: 'You can use OmniBiz again.' });
   res.json({ ok: true });
 });
 

@@ -2,13 +2,15 @@ import { useState } from 'react';
 import { Icon } from '../components/Icon.tsx';
 import { Textarea } from '../components/ui.tsx';
 import { post } from '../lib/api.ts';
-import { useApi } from '../lib/hooks.ts';
+import { useApi, useInterval } from '../lib/hooks.ts';
 import { useAction, useSession } from '../lib/session.tsx';
 import { label, parseTime } from '../lib/format.ts';
 
 /** Shown instead of the app while an account is suspended: why, until when, and a way to appeal. */
 export default function Suspended() {
-  const { me, logout } = useSession();
+  const { me, logout, refresh } = useSession();
+  // Notice when the ban ends or an appeal is approved without the person having to reload.
+  useInterval(() => { refresh(); }, 30_000);
   const act = useAction();
   const u = me!.user;
   const appeals = useApi('/appeals');
@@ -20,9 +22,9 @@ export default function Suspended() {
       <div className="card card-pad stack">
         <div className="center" style={{ display: 'grid', placeItems: 'center', gap: 8 }}>
           <span className="notif-icon" style={{ width: 72, height: 72 }}><Icon name="lock" size={30} /></span>
-          <h2>Your account is suspended</h2>
+          <h2>You are banned from using this account</h2>
           <p className="small muted">
-            {u.suspended_until ? <>It will be restored automatically on <b>{parseTime(u.suspended_until).toLocaleDateString()}</b>.</> : 'It stays suspended until our team restores it.'}
+            {u.suspended_until ? <>The ban ends on <b>{parseTime(u.suspended_until).toLocaleString()}</b>, and the account comes back by itself.</> : 'The ban stays until our team lifts it.'}
           </p>
         </div>
         <div className="card card-pad small" style={{ background: 'var(--surface-2)' }}>

@@ -8,6 +8,8 @@ import { useAction, useSession } from '../lib/session.tsx';
 import { money, parseTime } from '../lib/format.ts';
 
 const LIMIT_LABEL: Record<string, string> = { products: 'products', jobs: 'open jobs' };
+const PLACEMENT = ['Standard', 'Priority', 'Top priority'];
+const BILLING_WORD: Record<string, string> = { monthly: 'monthly', quarterly: '3-month', yearly: 'yearly' };
 
 function Meter({ name, used, max }: { name: string; used: number; max: number | null | undefined }) {
   if (max === undefined) return null;
@@ -20,7 +22,10 @@ function Meter({ name, used, max }: { name: string; used: number; max: number | 
   );
 }
 
-/** Settings → Plan: what you're on, what you've used, and the plans you can move to. */
+const Yes = () => <Icon name="check" />;
+const No = () => <span className="muted">—</span>;
+
+/** Settings → Plan: what you're on, and every plan side by side with what it includes and what paying longer saves. */
 export function PlanSettings() {
   const { me } = useSession();
   const act = useAction();
@@ -28,51 +33,98 @@ export function PlanSettings() {
   const [period, setPeriod] = useState('monthly');
   if (loading || !data) return <Spinner block />;
   const current: Json = data.plan;
-  const paid = data.plans.filter((p: Json) => p.price > 0).length > 0;
+  const plans: Json[] = data.plans;
+  const paid = plans.some((p) => p.price > 0);
+  const periods: Json[] = plans.find((p) => p.payment_plans.length)?.payment_plans ?? [];
   const choose = async (p: Json) => {
     if (await act(() => post('/subscriptions/subscribe', { plan_id: p.id, period }), `You are on the ${p.name} plan`)) reload();
   };
   const cancel = async () => {
     if (await act(() => post('/subscriptions/cancel'), 'Back on the free plan')) reload();
   };
+  const pay = (p: Json, code = period) => p.payment_plans.find((x: Json) => x.period === code);
+  const isCurrent = (p: Json) => p.id === current.id && (!pay(p) || (data.subscription?.period ?? 'monthly') === period);
+  const limitCell = (p: Json, k: string) => (p.limits[k] === undefined ? <No /> : p.limits[k] === null ? 'Unlimited' : p.limits[k]);
+  const limitRows = (['products', 'jobs'] as const).filter((k) => plans.some((p) => p.limits[k] !== undefined));
+  const saving = (pp: Json) => Math.round((pp.saving / (pp.total + pp.saving)) * 100);
+
   return (
     <div className="stack">
       <div className="card card-pad stack">
         <div>
           <h3>Your plan</h3>
           <p className="small muted">
-            You are on <b>{current.name}</b>{data.subscription ? <> ({data.subscription.period === 'yearly' ? 'yearly' : data.subscription.period === 'quarterly' ? '3-month' : 'monthly'} billing, {money(data.subscription.price, current.currency)})</> : null}{data.subscription?.renews_at ? <> · renews {parseTime(data.subscription.renews_at).toLocaleDateString()}</> : null}.
+            You are on <b>{current.name}</b>
+            {data.subscription ? <> ({BILLING_WORD[data.subscription.period] ?? 'monthly'} billing, {money(data.subscription.price, current.currency)})</> : null}
+            {data.subscription?.renews_at ? <> · renews {parseTime(data.subscription.renews_at).toLocaleDateString()}</> : null}.
           </p>
         </div>
         {(['products', 'jobs'] as const).map((k) => <Meter key={k} name={k} used={data.usage[k]} max={current.limits[k]} />)}
         {data.subscription && <div className="form-actions"><button className="btn btn-ghost" onClick={cancel}>Cancel subscription</button></div>}
       </div>
+
       {paid ? (
         <>
-          <div className="row-wrap">
-            {(data.plans.find((p: Json) => p.payment_plans.length)?.payment_plans ?? []).map((pp: Json) => (
-              <button key={pp.period} className={`chip${period === pp.period ? ' active' : ''}`} onClick={() => setPeriod(pp.period)}>
-                {pp.label}{pp.saving > 0 && <> · save {Math.round((pp.saving / (pp.total + pp.saving)) * 100)}%</>}
-              </button>
-            ))}
+          <div className="card card-pad stack-sm">
+            <h3>Choose a plan</h3>
+            <p className="small muted">Accounts on a higher plan, and verified accounts, are shown first in the marketplace, jobs, business directory and search. Free accounts are still listed, after them.</p>
+            <div className="row-wrap">
+              {periods.map((pp) => (
+                <button key={pp.period} className={`chip${period === pp.period ? ' active' : ''}`} onClick={() => setPeriod(pp.period)}>
+                  {pp.label}{pp.saving > 0 && <> · save {saving(pp)}%</>}
+                </button>
+              ))}
+            </div>
           </div>
+
           <div className="plan-grid">
-            {data.plans.map((p: Json) => {
-              const pay = p.payment_plans.find((x: Json) => x.period === period);
+            {plans.map((p) => {
+              const pp = pay(p);
               return (
-              <div key={p.id} className={`card card-pad plan${p.highlight ? ' plan-hot' : ''}${p.id === current.id ? ' plan-current' : ''}`}>
-                {p.highlight && <span className="chip chip-brand">Most popular</span>}
-                <h3>{p.name}</h3>
-                <div className="plan-price">{pay ? <>{money(pay.per_month, p.currency)}<small> / month</small></> : 'Free'}</div>
-                {pay && pay.months > 1 && <p className="xsmall muted">{money(pay.total, p.currency)} billed every {pay.months} months{pay.saving > 0 ? ` · you save ${money(pay.saving, p.currency)}` : ''}</p>}
-                <p className="small muted">{p.tagline}</p>
-                <ul className="plan-features">{p.features.map((f: string) => <li key={f}><Icon name="check" />{f}</li>)}</ul>
-                {p.id === current.id && (!pay || (data.subscription?.period ?? 'monthly') === period)
-                  ? <button className="btn" disabled>Current plan</button>
-                  : <button className={`btn ${p.price > current.price ? 'btn-primary' : ''}`} onClick={() => choose(p)}>{p.price > current.price ? 'Upgrade' : 'Switch'} to {p.name}</button>}
-              </div>
+                <div key={p.id} className={`card card-pad plan${p.highlight ? ' plan-hot' : ''}${isCurrent(p) ? ' plan-current' : ''}`}>
+                  {p.highlight && <span className="chip chip-brand">Most popular</span>}
+                  <h3>{p.name}</h3>
+                  <div className="plan-price">{pp ? <>{money(pp.per_month, p.currency)}<small> / month</small></> : 'Free'}</div>
+                  {pp && pp.months > 1 && <p className="xsmall muted">{money(pp.total, p.currency)} every {pp.months} months · you save {money(pp.saving, p.currency)}</p>}
+                  <p className="small muted">{p.tagline}</p>
+                  {isCurrent(p)
+                    ? <button className="btn btn-block" disabled>Your current plan</button>
+                    : <button className={`btn btn-block ${p.price > current.price ? 'btn-primary' : ''}`} onClick={() => choose(p)}>{p.price > current.price ? 'Upgrade' : 'Switch'} to {p.name}</button>}
+                  <ul className="plan-features">{p.features.map((f: string) => <li key={f}><Icon name="check" />{f}</li>)}</ul>
+                </div>
               );
             })}
+          </div>
+
+          <div className="card">
+            <div className="card-pad"><h3>Compare plans</h3></div>
+            <div className="table-wrap">
+              <table className="table plan-compare">
+                <thead>
+                  <tr><th />{plans.map((p) => <th key={p.id} className={p.id === current.id ? 'is-current' : undefined}>{p.name}{p.id === current.id ? ' (yours)' : ''}</th>)}</tr>
+                </thead>
+                <tbody>
+                  <tr><td>Price per month</td>{plans.map((p) => <td key={p.id}>{pay(p) ? money(pay(p).per_month, p.currency) : 'Free'}</td>)}</tr>
+                  {limitRows.map((k) => <tr key={k}><td>Active {LIMIT_LABEL[k]}</td>{plans.map((p) => <td key={p.id}>{limitCell(p, k)}</td>)}</tr>)}
+                  <tr><td>Placement in marketplace, jobs &amp; search</td>{plans.map((p) => <td key={p.id}>{PLACEMENT[p.boost] ?? PLACEMENT[0]}</td>)}</tr>
+                  <tr><td>“Featured” badge on products</td>{plans.map((p) => <td key={p.id}>{p.boost >= 2 ? <Yes /> : <No />}</td>)}</tr>
+                  <tr><td>Discount on the verified-badge fee</td>{plans.map((p) => <td key={p.id}>{p.perks.verification_discount > 0 ? `${p.perks.verification_discount}% off` : <No />}</td>)}</tr>
+                  <tr><td>Analytics</td>{plans.map((p) => <td key={p.id}>{p.perks.analytics ? <Yes /> : <No />}</td>)}</tr>
+                  <tr><td>Support</td>{plans.map((p) => <td key={p.id}>{p.perks.support === 'priority' ? 'Priority' : 'Standard'}</td>)}</tr>
+                  {periods.filter((pp) => pp.months > 1).map((pp) => (
+                    <tr key={pp.period}>
+                      <td>Pay {pp.label.toLowerCase()} upfront<div className="xsmall muted">save {saving(pp)}%</div></td>
+                      {plans.map((p) => <td key={p.id}>{pay(p, pp.period) ? money(pay(p, pp.period).total, p.currency) : <No />}</td>)}
+                    </tr>
+                  ))}
+                  <tr><td /> {plans.map((p) => (
+                    <td key={p.id}>
+                      {isCurrent(p) ? <span className="chip chip-success">Current</span> : <button className="btn btn-sm btn-outline" onClick={() => choose(p)}>Choose</button>}
+                    </td>
+                  ))}</tr>
+                </tbody>
+              </table>
+            </div>
           </div>
           {data.billing === 'test' && <p className="small muted">Payments are not connected yet, so choosing a paid plan switches it on without charging you.</p>}
         </>

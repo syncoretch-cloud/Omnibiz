@@ -1,3 +1,4 @@
+import { boostSort, planBoosts, visibilityLevels } from '../services/visibility.ts';
 import { sellerRatingMap } from '../services/payouts.ts';
 import { Router } from 'express';
 import { all, get, parseJson, qs, run } from '../db/index.ts';
@@ -29,6 +30,8 @@ export function hydrateProducts(rows: Row[], viewerId?: number, origin?: { lat: 
     for (const r of all(`SELECT target_id FROM saves WHERE user_id = ? AND target_type = 'product' AND target_id IN (${qs(ids.length)})`, viewerId, ...ids)) saved.add(r.target_id);
   }
   const sellerRatings = sellerRatingMap(rows.map((r) => r.seller_id));
+  const levels = visibilityLevels(rows.map((r) => r.seller_id));
+  const boosts = planBoosts(rows.map((r) => r.seller_id));
   const ratings = new Map(
     all(`SELECT product_id, AVG(rating) AS avg, COUNT(*) AS count FROM reviews WHERE product_id IN (${qs(ids.length)}) GROUP BY product_id`, ...ids).map((r) => [r.product_id, r]),
   );
@@ -58,7 +61,7 @@ export function hydrateProducts(rows: Row[], viewerId?: number, origin?: { lat: 
       view_count: r.view_count,
       created_at: r.created_at,
       updated_at: r.updated_at,
-      seller: cards.get(r.seller_id) ? { ...cards.get(r.seller_id)!, rating: sellerRatings.get(r.seller_id) ?? null } : null,
+      seller: cards.get(r.seller_id) ? { ...cards.get(r.seller_id)!, rating: sellerRatings.get(r.seller_id) ?? null, visibility: levels.get(r.seller_id) ?? 0, featured: boosts.get(r.seller_id) === 2 } : null,
       saved: saved.has(r.id),
       rating: rating ? { avg: Math.round(rating.avg * 10) / 10, count: rating.count } : null,
       distance_km: origin && loc ? Math.round(distanceKm(origin, loc) * 10) / 10 : undefined,
@@ -147,6 +150,8 @@ productsRouter.get('/', (req, res) => {
   const lng = qNum(req, 'lng');
   const origin = lat != null && lng != null ? { lat, lng } : null;
   if (sort === 'relevance' && rankOrder) rows.sort((a, b) => rankOrder!.get(a.id)! - rankOrder!.get(b.id)!);
+  // Sellers on higher plans, and verified sellers, come first unless the buyer chose a price or distance order.
+  if (['newest', 'relevance', 'popular'].includes(sort)) rows = boostSort(rows, (r) => r.seller_id);
   if (sort === 'nearest' && origin) {
     const d = (r: Row) => { const c = r.lat != null ? r : cityCoords(r.city); return c ? distanceKm(origin, c) : 1e9; };
     rows = rows.sort((a, b) => d(a) - d(b));

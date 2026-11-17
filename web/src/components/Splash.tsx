@@ -1,38 +1,26 @@
 import { useEffect, useState } from 'react';
 
-const SEEN_KEY = 'omnibiz-splash-seen';
-
-function alreadySeen(): boolean {
-  try {
-    return sessionStorage.getItem(SEEN_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
+/** How long the logo stays on screen before the app appears (people who ask for reduced motion get a short one). */
+const SPLASH_MS = 4500;
 
 /**
- * Start-up splash: the logo glows in on black, then fades to reveal the app.
- * Shown once per browser tab session, and only for as long as it takes to start (plus a short beat).
+ * Start-up splash: the logo glows in on black, stays for SPLASH_MS, then fades to reveal the app.
+ * Shown every time the app is opened, and never before the app has finished starting.
  */
 export function useSplash(ready: boolean) {
-  const [phase, setPhase] = useState<'show' | 'leaving' | 'done'>(() => (alreadySeen() ? 'done' : 'show'));
+  const [phase, setPhase] = useState<'show' | 'leaving' | 'done'>('show');
   const [minElapsed, setMinElapsed] = useState(false);
 
   useEffect(() => {
     if (phase !== 'show') return;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const t = setTimeout(() => setMinElapsed(true), reduced ? 500 : 2100);
+    const t = setTimeout(() => setMinElapsed(true), reduced ? 500 : SPLASH_MS);
     return () => clearTimeout(t);
   }, [phase]);
 
   useEffect(() => {
     if (phase === 'show' && minElapsed && ready) {
       setPhase('leaving');
-      try {
-        sessionStorage.setItem(SEEN_KEY, '1');
-      } catch {
-        /* storage unavailable — the splash simply shows again next load */
-      }
     }
   }, [phase, minElapsed, ready]);
 

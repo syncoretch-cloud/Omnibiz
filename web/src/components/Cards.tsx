@@ -35,6 +35,7 @@ export function ProductCard({ p, compare }: { p: Json; compare?: { selected: boo
     <Link to={`/marketplace/${p.id}`} className="card card-link product-card">
       <div className="thumb">
         {p.media?.[0] ? <img src={p.media[0]} alt="" loading="lazy" /> : <Artwork variant="thumb" seed={`product-${p.id}-${p.category}`} icon={productIcon(p.category)} />}
+        {p.seller?.featured && <span className="chip chip-brand" style={{ top: 'auto', bottom: 10 }}>Featured</span>}
         {p.sale_type === 'wholesale' && <span className="chip chip-accent">Wholesale</span>}
         {p.sale_type === 'service' && <span className="chip chip-info">Service</span>}
         <SaveButton type="product" id={p.id} saved={p.saved} />

@@ -1428,7 +1428,7 @@ a.widget-row:hover .bold { color: var(--brand); }
   -webkit-mask: url('/brand/omnibiz-logo.png') center / contain no-repeat; mask: url('/brand/omnibiz-logo.png') center / contain no-repeat;
   animation: splash-shine 1.3s 1.05s var(--ease) both; mix-blend-mode: soft-light; }
 .splash-bar { width: 140px; height: 3px; border-radius: 3px; background: rgba(190, 215, 255, 0.14); overflow: hidden; animation: fade 0.6s 0.6s both; }
-.splash-bar i { display: block; height: 100%; width: 100%; border-radius: 3px; background: var(--grad-blue); transform-origin: left; animation: splash-bar 1.7s 0.4s var(--ease-out) both; }
+.splash-bar i { display: block; height: 100%; width: 100%; border-radius: 3px; background: var(--grad-blue); transform-origin: left; animation: splash-bar 4.1s 0.4s var(--ease-out) both; }
 .splash.out { opacity: 0; visibility: hidden; }
 .splash.out .splash-logo { transform: scale(1.04); transition: transform 0.8s var(--ease); }
 @keyframes splash-logo { from { opacity: 0; transform: translateY(14px) scale(0.94); } }
@@ -1723,3 +1723,9 @@ article.post.kb-focus { box-shadow: 0 0 0 2px var(--brand); }
 .topbar-cart { position: relative; }
 .icon-count { position: absolute; top: 2px; right: 0; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px; background: var(--pink); color: #fff; font-size: 0.66rem; font-weight: 800; line-height: 17px; text-align: center; }
 @media (max-width: 359.98px) { .topbar-orders { display: none; } }
+
+/* ───────── plan comparison chart ───────── */
+.plan-compare th, .plan-compare td { text-align: center; white-space: nowrap; }
+.plan-compare th:first-child, .plan-compare td:first-child { text-align: left; white-space: normal; min-width: 190px; position: sticky; left: 0; background: var(--surface); }
+.plan-compare th.is-current { color: var(--brand); }
+.plan-compare td svg { color: var(--success, #2e9d6a); }

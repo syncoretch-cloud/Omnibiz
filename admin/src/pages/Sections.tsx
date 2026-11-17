@@ -81,7 +81,7 @@ function UserDetail({ id, onClose, onChanged }: { id: number; onClose: () => voi
           <div className="card card-pad stack-sm">
             <h3>Account status</h3>
             {u.status === 'suspended' ? (
-              <><div className="small">Banned: {u.suspended_reason}{u.suspended_until ? <> · until {u.suspended_until.slice(0, 10)}</> : ' · until restored'}</div><button className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-start' }} onClick={async () => { if (await act(() => post(`/admin/users/${u.id}/unsuspend`), 'Account restored')) done(); }}>Restore account</button></>
+              <><div className="small">Banned: {u.suspended_reason}{u.suspended_until ? <> · until {u.suspended_until.slice(0, 10)}</> : ' · until restored'}</div><button className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-start' }} onClick={async () => { if (await act(() => post(`/admin/users/${u.id}/unsuspend`), 'Ban lifted, the account can be used again')) done(); }}>Lift ban now</button></>
             ) : (
               <div className="row"><Input placeholder="Reason for suspension" value={reason} onChange={(e) => setReason(e.target.value)} /><Input type="number" min={1} max={3650} placeholder="Days (blank = until restored)" value={days} onChange={(e) => setDays(e.target.value)} style={{ maxWidth: 120 }} aria-label="Days" /><button className="btn btn-danger btn-sm" disabled={!reason} onClick={async () => { if (await act(() => post(`/admin/users/${u.id}/suspend`, { reason, ...(days ? { days: Number(days) } : {}) }), days ? `Account suspended for ${days} day${days === '1' ? '' : 's'}` : 'Account suspended')) done(); }}>Suspend</button></div>
             )}
@@ -149,7 +149,7 @@ export function Users() {
                   <td className="small">{u.email_verified ? 'Email ' : ''}{u.phone_verified ? 'Phone ' : ''}{u.verified ? '· Business ✓' : ''}</td>
                   <td className="num">{u.reports || ''}</td>
                   <td className="small">{timeAgo(u.created_at)}</td>
-                  <td onClick={(e) => e.stopPropagation()}>{u.status === 'suspended' && staffCan('users.suspend') && <button className="btn btn-primary btn-sm" onClick={async () => { if (await act(() => post(`/admin/users/${u.id}/unsuspend`), `@${u.username} restored`)) reload(); }}>Restore</button>}</td>
+                  <td onClick={(e) => e.stopPropagation()}>{u.status === 'suspended' && staffCan('users.suspend') && <button className="btn btn-primary btn-sm" onClick={async () => { if (await act(() => post(`/admin/users/${u.id}/unsuspend`), `@${u.username} can use OmniBiz again`)) reload(); }}>Lift ban</button>}</td>
                 </tr>
               ))}
             </tbody>

@@ -7,6 +7,7 @@ import { deliveryConfigured } from './lib/outbox.ts';
 import { settle } from './lib/queue.ts';
 import { closeLiveClients } from './lib/live.ts';
 import { releaseDuePayouts } from './services/payouts.ts';
+import { expireVerifications } from './services/verification.ts';
 import { startDemoStories } from './services/demoStories.ts';
 
 const app = createApp();
@@ -15,7 +16,10 @@ const server = app.listen(config.port, () => {
 });
 startDemoStories();
 // Pay out delivered orders whose hold has ended, even when nobody is looking at them.
-setInterval(() => { try { releaseDuePayouts(); } catch (e) { console.error('[payouts]', e); } }, 60 * 60 * 1000).unref();
+// The same sweep ends verified badges whose term has run out.
+const sweep = () => { try { releaseDuePayouts(); expireVerifications(); } catch (e) { console.error('[sweep]', e); } };
+sweep();
+setInterval(sweep, 60 * 60 * 1000).unref();
 {
   const d = deliveryConfigured();
   console.log(`Messages: email ${d.email ? 'is delivered over SMTP' : 'is only saved to the outbox (set SMTP_HOST to send it)'}; SMS ${d.sms ? 'is delivered' : 'is only saved to the outbox (set SMS_PROVIDER to send it)'}`);

@@ -253,21 +253,37 @@ function BusinessSettings() {
   );
 }
 
+/** 1 month, 6 months or a year of verification, with what each costs and saves. */
+function TermPicker({ info, value, onChange }: { info: Json; value: string; onChange: (p: string) => void }) {
+  return (
+    <div className="stack-sm">
+      {info.options.map((o: Json) => (
+        <button key={o.period} type="button" className={`card card-pad row-between${value === o.period ? ' plan-current' : ''}`} style={{ textAlign: 'left', cursor: 'pointer' }} onClick={() => onChange(o.period)} aria-pressed={value === o.period}>
+          <span><b>{o.label}</b>{o.term_discount > 0 && <span className="chip chip-accent" style={{ marginLeft: 8 }}>save {o.term_discount}%</span>}<div className="xsmall muted">{money(o.per_month, info.currency)} / month{o.saving > 0 ? ` · you save ${money(o.saving, info.currency)}` : ''}</div></span>
+          <b>{o.total > 0 ? money(o.total, info.currency) : 'Free'}</b>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function VerificationDialog({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
   const toast = useToast();
   const { me } = useSession();
   const biz = isBusinessType(me?.user.account_type);
   const { data: info } = useApi('/verification');
   const [files, setFiles] = useState<Json[]>([]);
+  const [period, setPeriod] = useState('yearly');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLInputElement>(null);
+  const pick = info?.options.find((o: Json) => o.period === period);
   const submit = async () => {
     setBusy(true);
     setError(null);
     try {
-      await post('/verification', { document_ids: files.map((f) => f.id), notes });
+      await post('/verification', { document_ids: files.map((f) => f.id), notes, period });
       toast('Verification request sent', 'success');
       onDone();
     } catch (e) {
@@ -277,11 +293,12 @@ function VerificationDialog({ onClose, onDone }: { onClose: () => void; onDone: 
     }
   };
   return (
-    <Modal title={biz ? 'Get your business verified' : 'Get verified'} onClose={onClose} footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={busy || !files.length || !info} onClick={submit}>{info?.fee > 0 ? `Pay ${money(info.fee, info.currency)} and submit` : 'Submit for review'}</button></>}>
+    <Modal title={biz ? 'Get your business verified' : 'Get verified'} onClose={onClose} footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={busy || !files.length || !info} onClick={submit}>{pick && pick.total > 0 ? `Pay ${money(pick.total, info.currency)} and submit` : 'Submit for review'}</button></>}>
       <div className="stack">
         <ErrorBox error={error} />
         <p className="small">{biz ? 'Upload your business registration certificate and any licences.' : 'Upload a photo of your national ID or passport.'} Documents are private and only seen by the OmniBiz verification team.</p>
-        {info?.billing === 'test' && info?.fee > 0 && <p className="xsmall muted">Payments are not connected yet, so nothing is charged for now.</p>}
+        {info && <TermPicker info={info} value={period} onChange={setPeriod} />}
+        {info?.billing === 'test' && pick?.total > 0 && <p className="xsmall muted">Payments are not connected yet, so nothing is charged for now.</p>}
         {files.map((f) => <div key={f.id} className="row small"><Icon name="file" size={16} />{f.name}</div>)}
         <button className="btn btn-outline btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => ref.current?.click()}><Icon name="upload" />Add document</button>
         <input ref={ref} type="file" hidden accept=".pdf,image/*,.doc,.docx" onChange={async (e) => {
@@ -298,27 +315,45 @@ function VerificationDialog({ onClose, onDone }: { onClose: () => void; onDone: 
 /** Settings → Verification: pay the fee, send ID or registration documents, and get the badge once staff approve. */
 function VerificationSettings() {
   const { setMe } = useSession();
+  const act = useAction();
   const { data, loading, reload } = useApi('/verification');
   const [open, setOpen] = useState(false);
+  const [renewing, setRenewing] = useState(false);
+  const [term, setTerm] = useState('yearly');
   if (loading || !data) return <Spinner block />;
   const last = data.requests[0];
+  const monthly = data.options[0];
+  const refreshMe = () => get('/auth/me').then(setMe);
+  const renew = async () => {
+    if (await act(() => post('/verification/renew', { period: term }), 'Verification renewed')) { setRenewing(false); reload(); refreshMe(); }
+  };
   return (
     <div className="stack">
       <div className="card card-pad stack">
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <div className="row"><Icon name={data.verified ? 'shieldCheck' : 'shield'} /><h3>Verification</h3></div>
-          <span className={`chip ${data.verified ? 'chip-success' : data.status === 'pending' ? 'chip-accent' : data.status === 'rejected' ? 'chip-danger' : ''}`}>{data.verified ? 'Verified' : data.status === 'none' ? 'Not verified' : label(data.status)}</span>
+          <span className={`chip ${data.verified ? 'chip-success' : data.status === 'pending' ? 'chip-accent' : data.status === 'rejected' || data.lapsed ? 'chip-danger' : ''}`}>{data.verified ? 'Verified' : data.lapsed ? 'Expired' : data.status === 'none' ? 'Not verified' : label(data.status)}</span>
         </div>
-        <p className="small muted">A verified badge shows people your account is genuine. Verified accounts are also shown first in the marketplace, jobs and search, and rank higher in feeds, so more people see you.{data.discount > 0 && <> Your plan takes <b>{data.discount}% off</b> the fee ({money(data.base_fee, data.currency)} → {money(data.fee, data.currency)}).</>}</p>
+        <p className="small muted">A verified badge shows people your account is genuine. Verified accounts are also shown first in the marketplace, jobs and search, and rank higher in feeds, so more people see you. Choose 1 month, 6 months or a year; longer terms cost less per month.{data.discount > 0 && <> Your plan takes <b>{data.discount}% off</b>.</>}</p>
+        {data.verified && <p className="small">{data.verified_until ? <>Your badge is active until <b>{parseTime(data.verified_until).toLocaleDateString()}</b>.</> : 'Your badge does not expire.'}</p>}
+        {data.lapsed && <p className="small">Your verified badge has expired. You can renew it without sending documents again.</p>}
         {data.status === 'rejected' && last?.review_notes && <p className="small">Last review: {last.review_notes}</p>}
         {data.status === 'pending' && <p className="small">Your request is with the verification team. We will tell you as soon as it has been reviewed.</p>}
-        {!data.verified && data.status !== 'pending' && (
-          <div className="form-actions" style={{ justifyContent: 'flex-start', alignItems: 'center', gap: 12 }}>
-            <button className="btn btn-primary" onClick={() => setOpen(true)}><Icon name="shieldCheck" />{data.fee > 0 ? `Get verified · ${money(data.fee, data.currency)}` : 'Get verified'}</button>
+        {renewing && (
+          <div className="stack-sm">
+            <TermPicker info={data} value={term} onChange={setTerm} />
+            <div className="row-wrap"><button className="btn btn-primary btn-sm" onClick={renew}>{data.options.find((o: Json) => o.period === term)?.total > 0 ? `Pay ${money(data.options.find((o: Json) => o.period === term).total, data.currency)} and renew` : 'Renew'}</button><button className="btn btn-ghost btn-sm" onClick={() => setRenewing(false)}>Cancel</button></div>
+            {data.billing === 'test' && <p className="xsmall muted">Payments are not connected yet, so nothing is charged for now.</p>}
           </div>
         )}
+        <div className="form-actions" style={{ justifyContent: 'flex-start', alignItems: 'center', gap: 12 }}>
+          {!data.verified && data.status !== 'pending' && !data.lapsed && (
+            <button className="btn btn-primary" onClick={() => setOpen(true)}><Icon name="shieldCheck" />{monthly.total > 0 ? `Get verified · from ${money(data.options[2].per_month, data.currency)} / month` : 'Get verified'}</button>
+          )}
+          {data.can_renew && !renewing && <button className="btn btn-primary" onClick={() => setRenewing(true)}><Icon name="shieldCheck" />{data.verified ? 'Renew early' : 'Renew verification'}</button>}
+        </div>
       </div>
-      {open && <VerificationDialog onClose={() => setOpen(false)} onDone={() => { setOpen(false); reload(); get('/auth/me').then(setMe); }} />}
+      {open && <VerificationDialog onClose={() => setOpen(false)} onDone={() => { setOpen(false); reload(); refreshMe(); }} />}
     </div>
   );
 }

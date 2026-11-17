@@ -261,6 +261,7 @@ export function Verification() {
           </div>
           <div className="row-wrap small">
             <span className={`chip ${v.paid_amount > 0 ? 'chip-success' : ''}`}>{v.paid_amount > 0 ? `Paid ${money(v.paid_amount)}` : 'No fee'}</span>
+            {v.months ? <span className="chip">{v.months === 1 ? '1 month' : v.months === 12 ? '1 year' : `${v.months} months`}</span> : <span className="chip">No expiry</span>}
             <span className={`chip ${v.checks?.email_verified ? 'chip-success' : 'chip-danger'}`}>Email {v.checks?.email_verified ? '✓' : '✗'}</span>
             <span className={`chip ${v.checks?.phone_verified ? 'chip-success' : 'chip-danger'}`}>Phone {v.checks?.phone_verified ? '✓' : '✗'}</span>
             <span className={`chip ${v.business?.has_registration_number ? 'chip-success' : ''}`}>Registration no. {v.business?.has_registration_number ? 'on file' : 'missing'}</span>

@@ -15,6 +15,7 @@ import { sendEmail } from '../lib/outbox.ts';
 import { invalidateTerms, termCounts } from '../services/moderation.ts';
 import { deleteAccount } from '../services/accounts.ts';
 import { suspendUser } from '../services/safety.ts';
+import { grantVerification } from '../services/verification.ts';
 
 export const adminRouter = Router();
 export const reportsRouter = Router();
@@ -313,14 +314,17 @@ adminRouter.post('/verifications/:id', requireStaff('verification'), (req, res) 
   const approved = d.decision === 'approve';
   tx(() => {
     run("UPDATE verification_requests SET status = ?, reviewer_id = ?, review_notes = ?, reviewed_at = datetime('now') WHERE id = ?", approved ? 'approved' : 'rejected', req.user!.id, d.notes ?? null, v.id);
-    run('UPDATE businesses SET verified = ?, verification_status = ? WHERE user_id = ?', approved, approved ? 'verified' : 'rejected', v.user_id);
-    run('UPDATE users SET verified = ? WHERE id = ?', approved ? 1 : 0, v.user_id);
+    if (approved) grantVerification(v.user_id, v.months ?? null);
+    else {
+      run("UPDATE businesses SET verified = 0, verification_status = 'rejected' WHERE user_id = ?", v.user_id);
+      run('UPDATE users SET verified = 0, verified_until = NULL WHERE id = ?', v.user_id);
+    }
   });
   audit(req.user!.id, `verification.${d.decision}`, 'user', v.user_id, { notes: d.notes });
   notify([v.user_id], {
     type: 'verification',
     title: approved ? 'Your account is now verified ✓' : 'Verification was not approved',
-    body: approved ? 'The verified badge now appears on your profile and your posts get a boost in feeds.' : (d.notes ?? 'Please check your documents and try again.'),
+    body: approved ? `The verified badge now appears on your profile${v.months ? ` for ${v.months} month${v.months === 1 ? '' : 's'}` : ''}, and you are shown ahead of unverified accounts.` : (d.notes ?? 'Please check your documents and try again.'),
     link: '/settings/verification',
   });
   res.json({ ok: true });

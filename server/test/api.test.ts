@@ -599,13 +599,14 @@ test('verification: paid request, staff approval, badge and feed boost; staff ca
   const { c: shop, me: shopMe } = await register('company');
   const st = await shop.get('/api/verification');
   assert.equal(st.status, 200);
-  assert.equal(st.body.fee, 25000);
+  assert.equal(st.body.base, 25000);
+  assert.deepEqual(st.body.options.map((o: Json) => [o.period, o.total]), [['monthly', 25000], ['semiannual', 135000], ['yearly', 240000]]);
   assert.equal(st.body.status, 'none');
   // Admin changes the fee.
   const { me: adminMe, c: admin } = await register('personal');
   db.prepare("UPDATE users SET role = 'admin' WHERE id = ?").run(adminMe.id);
   assert.equal((await admin.put('/api/admin/billing/settings', { verification_fee: 40000 })).body.verification_fee, 40000);
-  assert.equal((await shop.get('/api/verification')).body.fee, 40000);
+  assert.equal((await shop.get('/api/verification')).body.options[0].total, 40000);
   // Request with an uploaded document.
   const form = new FormData();
   form.append('kind', 'business_registration'); form.append('visibility', 'private');
@@ -944,7 +945,57 @@ test('visibility: paid plans and verified accounts are listed first, and the pla
   // Verification costs less on a paid plan.
   const v = await top.get('/api/verification');
   assert.equal(v.body.discount, 25);
-  assert.equal(v.body.fee, Math.round(v.body.base_fee * 0.75));
+  assert.equal(v.body.options[0].total, Math.round((v.body.base * 0.75) / 100) * 100);
+  assert.equal(v.body.options[2].total, Math.round((v.body.base * 12 * 0.8 * 0.75) / 100) * 100, 'term and plan discounts stack');
   assert.equal((await free.get('/api/verification')).body.discount, 0);
   void freeMe; void proMe; void topMe;
+});
+
+test('verification terms: 6 months and yearly cost less per month, badges expire, renewal brings them back', async () => {
+  const { c: shop, me } = await register('retailer', { category: 'retail' });
+  const { me: adminMe, c: admin } = await register('personal');
+  db.prepare("UPDATE users SET role = 'admin' WHERE id = ?").run(adminMe.id);
+  await admin.put('/api/admin/billing/settings', { verification_fee: 10000 });
+  const doc = async () => {
+    const form = new FormData();
+    form.append('kind', 'business_registration'); form.append('visibility', 'private');
+    form.append('file', new Blob(['%PDF-1.4 test'], { type: 'application/pdf' }), 'cert.pdf');
+    return (await shop.req('POST', '/api/documents', undefined, { form })).body.document.id as number;
+  };
+  const opts = (await shop.get('/api/verification')).body.options;
+  assert.deepEqual(opts.map((o: Json) => [o.period, o.months, o.total]), [['monthly', 1, 10000], ['semiannual', 6, 54000], ['yearly', 12, 96000]]);
+  assert.ok(opts[2].per_month < opts[1].per_month && opts[1].per_month < opts[0].per_month);
+
+  assert.equal((await shop.post('/api/verification', { document_ids: [await doc()], period: 'weekly' })).status, 400);
+  const sent = await shop.post('/api/verification', { document_ids: [await doc()], period: 'semiannual' });
+  assert.equal(sent.status, 201, JSON.stringify(sent.body));
+  const req = db.prepare('SELECT paid_amount, period, months FROM verification_requests WHERE id = ?').get(sent.body.id) as Json;
+  assert.deepEqual({ ...req }, { paid_amount: 54000, period: 'semiannual', months: 6 });
+  assert.equal((await shop.post('/api/verification/renew', { period: 'monthly' })).status, 400, 'nothing to renew before approval');
+  assert.equal((await admin.post(`/api/admin/verifications/${sent.body.id}`, { decision: 'approve' })).status, 200);
+
+  const st = (await shop.get('/api/verification')).body;
+  assert.equal(st.verified, true);
+  const days = (Date.parse(st.verified_until.replace(' ', 'T') + 'Z') - Date.now()) / 86_400_000;
+  assert.ok(days > 179 && days < 181, `six months, got ${days}`);
+
+  // Renewing extends from the end of the current term.
+  assert.equal((await shop.post('/api/verification/renew', { period: 'yearly' })).status, 200);
+  const after = (await shop.get('/api/verification')).body;
+  const more = (Date.parse(after.verified_until.replace(' ', 'T') + 'Z') - Date.parse(st.verified_until.replace(' ', 'T') + 'Z')) / 86_400_000;
+  assert.ok(more > 359 && more < 361, `a year more, got ${more}`);
+
+  // When the term ends the badge goes, and a renewal needs no new documents.
+  const { expireVerifications } = await import('../src/services/verification.ts');
+  db.prepare("UPDATE users SET verified_until = datetime('now', '-1 minute') WHERE id = ?").run(me.id);
+  const card = async () => (await new Client().get(`/api/shops/${me.username}`)).body.seller.verified;
+  assert.equal(await card(), false, 'an ended term is not shown as verified even before the sweep');
+  assert.equal(expireVerifications() >= 1, true);
+  const lapsed = (await shop.get('/api/verification')).body;
+  assert.equal(lapsed.verified, false);
+  assert.equal(lapsed.lapsed, true);
+  assert.equal((await shop.post('/api/verification/renew', { period: 'monthly' })).status, 200);
+  assert.equal((await shop.get('/api/verification')).body.verified, true);
+  assert.equal(await card(), true);
+  assert.ok((await shop.get('/api/notifications')).body.items.some((n: Json) => n.title === 'Your verified badge has expired'));
 });

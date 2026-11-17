@@ -2,7 +2,7 @@ import { all, get, parseJson, qs } from '../db/index.ts';
 import type { Row } from '../db/index.ts';
 
 const CARD_SQL = `SELECT u.id, u.username, u.display_name, u.avatar_url, u.account_type, u.city, u.country, u.role,
-  (COALESCE(b.verified, 0) OR u.verified) AS verified, b.category, b.kind AS business_kind, p.headline
+  ((COALESCE(b.verified, 0) OR u.verified) AND (u.verified_until IS NULL OR u.verified_until > datetime('now'))) AS verified, b.category, b.kind AS business_kind, p.headline
   FROM users u LEFT JOIN businesses b ON b.user_id = u.id LEFT JOIN profiles p ON p.user_id = u.id`;
 
 export interface UserCard {

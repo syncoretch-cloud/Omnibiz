@@ -24,7 +24,7 @@ export function visibilityLevels(userIds: (number | null | undefined)[]): Map<nu
   const ids = [...new Set(userIds.filter((x): x is number => typeof x === 'number'))];
   const out = new Map<number, number>();
   if (!ids.length) return out;
-  for (const r of all(`SELECT u.id, (COALESCE(b.verified, 0) OR u.verified) AS verified FROM users u LEFT JOIN businesses b ON b.user_id = u.id WHERE u.id IN (${qs(ids.length)})`, ...ids)) {
+  for (const r of all(`SELECT u.id, ((COALESCE(b.verified, 0) OR u.verified) AND (u.verified_until IS NULL OR u.verified_until > datetime('now'))) AS verified FROM users u LEFT JOIN businesses b ON b.user_id = u.id WHERE u.id IN (${qs(ids.length)})`, ...ids)) {
     out.set(r.id, r.verified ? 1 : 0);
   }
   for (const [id, b] of planBoosts(ids)) out.set(id, (out.get(id) ?? 0) + b);

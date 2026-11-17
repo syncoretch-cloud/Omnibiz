@@ -69,7 +69,7 @@ function VerificationFee() {
   const save = async () => { if (await act(() => put('/admin/billing/settings', { verification_fee: Number(value) || 0 }), 'Verification fee saved')) { setFee(null); reload(); } };
   return (
     <div className="card card-pad stack">
-      <div><h3>Verification fee</h3><p className="small muted">What an account pays to request the verified badge. Verified accounts rank higher in feeds. Set 0 to make it free.</p></div>
+      <div><h3>Verification fee per month</h3><p className="small muted">The price of one month of the verified badge. Six months takes 10% off and a year takes 20% off, and a paid plan can take a further discount. Set 0 to make it free.</p></div>
       <div className="row"><Input inputMode="numeric" value={value} onChange={(e) => setFee(e.target.value)} style={{ maxWidth: 200 }} /><span className="small muted">{data.currency}</span><button className="btn btn-primary btn-sm" onClick={save} disabled={fee === null}>Save</button></div>
     </div>
   );

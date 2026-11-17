@@ -80,6 +80,7 @@ export function selfView(u: Row) {
     role: u.role,
     status: u.status,
     suspended_reason: u.suspended_reason,
+    suspended_until: u.suspended_until ?? null,
     onboarded: !!u.onboarded,
     created_at: u.created_at,
   };

@@ -14,6 +14,7 @@ import { reindexJob, reindexPost, reindexProduct, reindexUser, unindex } from '.
 import { sendEmail } from '../lib/outbox.ts';
 import { invalidateTerms, termCounts } from '../services/moderation.ts';
 import { deleteAccount } from '../services/accounts.ts';
+import { suspendUser } from '../services/safety.ts';
 
 export const adminRouter = Router();
 export const reportsRouter = Router();
@@ -106,17 +107,13 @@ function assertOutranks(actorRole: string, targetRole: string) {
 }
 
 adminRouter.post('/users/:id/suspend', requireStaff('users.suspend'), (req, res) => {
-  const { reason } = validate(req.body, { reason: { type: 'text', required: true, max: 500 } });
+  const { reason, days } = validate(req.body, { reason: { type: 'text', required: true, max: 500 }, days: { type: 'int', min: 1, max: 3650 } });
   const u = get('SELECT * FROM users WHERE id = ?', intParam(req));
   if (!u) throw notFound('User');
+  if (u.id === req.user!.id) throw badRequest('You cannot suspend your own account');
   assertOutranks(req.user!.role, u.role);
-  tx(() => {
-    run("UPDATE users SET status = 'suspended', suspended_reason = ? WHERE id = ?", reason, u.id);
-    run('DELETE FROM sessions WHERE user_id = ?', u.id);
-  });
-  reindexUser(u.id);
-  audit(req.user!.id, 'user.suspend', 'user', u.id, { reason });
-  sendEmail(u.email, 'Your OmniBiz account has been suspended', `Reason: ${reason}. Contact support if you believe this is a mistake.`);
+  // `days` bans for that long and the account comes back by itself; without it the suspension lasts until staff lift it.
+  suspendUser(req.user!.id, u, reason, days);
   res.json({ ok: true });
 });
 
@@ -135,7 +132,7 @@ adminRouter.post('/users/:id/delete', requireStaff('users.delete'), (req, res) =
 adminRouter.post('/users/:id/unsuspend', requireStaff('users.suspend'), (req, res) => {
   const u = get('SELECT * FROM users WHERE id = ?', intParam(req));
   if (!u) throw notFound('User');
-  run("UPDATE users SET status = 'active', suspended_reason = NULL WHERE id = ?", u.id);
+  run("UPDATE users SET status = 'active', suspended_reason = NULL, suspended_until = NULL WHERE id = ?", u.id);
   reindexUser(u.id);
   audit(req.user!.id, 'user.unsuspend', 'user', u.id);
   res.json({ ok: true });

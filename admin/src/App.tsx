@@ -6,6 +6,7 @@ import { useSession } from '@web/lib/session.tsx';
 import { label } from '@web/lib/format.ts';
 import { Audit, Broadcast, Categories, Content, Overview, Reports, Users, Verification } from './pages/Sections.tsx';
 import { Billing } from './pages/Billing.tsx';
+import { Appeals, Disputes } from './pages/Safety.tsx';
 import { BlockedWords } from './pages/BlockedWords.tsx';
 import { Login } from './pages/Login.tsx';
 
@@ -15,6 +16,8 @@ const LINKS: [string, string, string, string][] = [
   ['users', 'Users', 'users', 'users.view'],
   ['content', 'Content', 'layers', 'content'],
   ['reports', 'Reports', 'flag', 'reports'],
+  ['appeals', 'Appeals', 'alert', 'users.suspend'],
+  ['disputes', 'Disputes', 'package', 'disputes'],
   ['words', 'Blocked words', 'shield', 'content'],
   ['verification', 'Verification', 'verified', 'verification'],
   ['billing', 'Plans & billing', 'cash', 'billing'],
@@ -68,6 +71,8 @@ export function App() {
           {staffCan('content') && <Route path="content" element={<Content />} />}
           {staffCan('content') && <Route path="words" element={<BlockedWords />} />}
           {staffCan('reports') && <Route path="reports" element={<Reports />} />}
+          {staffCan('users.suspend') && <Route path="appeals" element={<Appeals />} />}
+          {staffCan('disputes') && <Route path="disputes" element={<Disputes />} />}
           {staffCan('verification') && <Route path="verification" element={<Verification />} />}
           {staffCan('billing') && <Route path="billing" element={<Billing />} />}
           {staffCan('categories') && <Route path="categories" element={<Categories />} />}

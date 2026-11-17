@@ -1,3 +1,4 @@
+import { useLiveConnection } from './live.ts';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { get, post } from './api.ts';
@@ -12,7 +13,7 @@ export interface Me {
   permissions: string[];
   staff_permissions: string[];
   counts: { notifications: number; messages: number; cart: number };
-  features?: { contact_verification: boolean };
+  features?: { contact_verification: boolean; contact_phone: boolean };
 }
 
 export interface Meta {
@@ -65,10 +66,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     Promise.all([get('/auth/me').then(setMe).catch(() => setMe(null)), get('/meta').then(setMeta)]).finally(() => setReady(true));
   }, [setMe]);
 
-  // Keep badge counts fresh.
+  // Badge counts update the moment something arrives; the slow poll is only a safety net if the stream is down.
+  useLiveConnection(!!me && me.user.status !== 'suspended', () => { refresh(); });
   useInterval(() => {
     if (me) refresh();
-  }, me ? 30_000 : null);
+  }, me ? 120_000 : null);
 
   const logout = useCallback(async () => {
     await post('/auth/logout').catch(() => {});

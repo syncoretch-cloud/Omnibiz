@@ -1,3 +1,4 @@
+import { useLive } from '../lib/live.ts';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { Icon } from '../components/Icon.tsx';
@@ -29,7 +30,13 @@ function Thread({ id, onSent }: { id: number; onSent: () => void }) {
   useInterval(() => {
     if (!conv) return;
     get(`/messages/conversations/${id}/messages?after=${lastId}`).then((r) => r.messages.length && setMessages((m) => [...m, ...r.messages])).catch(() => {});
-  }, 5000);
+  }, 30000);
+
+  const pull = () => {
+    if (!conv) return;
+    get(`/messages/conversations/${id}/messages?after=${lastId}`).then((r) => r.messages.length && setMessages((m) => [...m, ...r.messages])).catch(() => {});
+  };
+  useLive(pull, 'message');
 
   useEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight });
@@ -107,7 +114,8 @@ export default function Messages() {
   const [convs, setConvs] = useState<Json[] | null>(null);
   const load = () => get('/messages/conversations').then((r) => setConvs(r.conversations)).catch(() => setConvs([]));
   useEffect(() => { load(); }, [id]);
-  useInterval(load, 15000);
+  useInterval(load, 60000);
+  useLive(load, 'message');
   const active = id ? Number(id) : null;
 
   return (

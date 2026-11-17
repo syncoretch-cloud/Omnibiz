@@ -1,3 +1,4 @@
+import { sellerRatingMap } from '../services/payouts.ts';
 import { Router } from 'express';
 import { all, get, parseJson, qs, run } from '../db/index.ts';
 import type { Row } from '../db/index.ts';
@@ -27,6 +28,7 @@ export function hydrateProducts(rows: Row[], viewerId?: number, origin?: { lat: 
   if (viewerId) {
     for (const r of all(`SELECT target_id FROM saves WHERE user_id = ? AND target_type = 'product' AND target_id IN (${qs(ids.length)})`, viewerId, ...ids)) saved.add(r.target_id);
   }
+  const sellerRatings = sellerRatingMap(rows.map((r) => r.seller_id));
   const ratings = new Map(
     all(`SELECT product_id, AVG(rating) AS avg, COUNT(*) AS count FROM reviews WHERE product_id IN (${qs(ids.length)}) GROUP BY product_id`, ...ids).map((r) => [r.product_id, r]),
   );
@@ -56,7 +58,7 @@ export function hydrateProducts(rows: Row[], viewerId?: number, origin?: { lat: 
       view_count: r.view_count,
       created_at: r.created_at,
       updated_at: r.updated_at,
-      seller: cards.get(r.seller_id) ?? null,
+      seller: cards.get(r.seller_id) ? { ...cards.get(r.seller_id)!, rating: sellerRatings.get(r.seller_id) ?? null } : null,
       saved: saved.has(r.id),
       rating: rating ? { avg: Math.round(rating.avg * 10) / 10, count: rating.count } : null,
       distance_km: origin && loc ? Math.round(distanceKm(origin, loc) * 10) / 10 : undefined,

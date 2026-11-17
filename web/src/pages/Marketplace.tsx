@@ -3,6 +3,7 @@ import { Link, useNavigate, useOutletContext, useSearchParams } from 'react-rout
 import { Icon } from '../components/Icon.tsx';
 import { AdCard, ProductCard } from '../components/Cards.tsx';
 import { Empty, Input, LoadMore, PageTitle, Portal, Select } from '../components/ui.tsx';
+import { SaveSearchButton } from '../components/SaveSearch.tsx';
 import type { ShellContext } from '../components/Layout.tsx';
 import { useApi, usePaged } from '../lib/hooks.ts';
 import { qs } from '../lib/api.ts';
@@ -98,7 +99,7 @@ export default function Marketplace() {
             </div>
           )}
           <div className="row-between">
-            <span className="small muted">{list.extra?.total ?? 0} results</span>
+            <div className="row-wrap"><span className="small muted">{list.extra?.total ?? 0} results</span><SaveSearchButton kind="product" params={f} /></div>
             <Select value={f.sort ?? ''} onChange={(e) => set('sort', e.target.value)} placeholder={f.q ? 'Most relevant' : 'Newest'} options={[
               { value: 'newest', label: 'Newest' }, { value: 'price_asc', label: 'Price: low to high' }, { value: 'price_desc', label: 'Price: high to low' },
               { value: 'popular', label: 'Most viewed' }, { value: 'nearest', label: 'Nearest to me' },

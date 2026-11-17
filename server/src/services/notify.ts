@@ -1,4 +1,6 @@
 import { run, tx } from '../db/index.ts';
+import { pushLive } from '../lib/live.ts';
+import { sendPush } from './push.ts';
 
 export interface NotificationInput {
   type: string;
@@ -20,5 +22,7 @@ export function notify(userIds: number[], n: NotificationInput): number {
       );
     }
   });
+  pushLive(ids, 'notification', { type: n.type, title: n.title });
+  sendPush(ids, { title: n.title, body: n.body, link: n.link });
   return ids.length;
 }

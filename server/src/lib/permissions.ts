@@ -25,8 +25,8 @@ export const ACCOUNT_PERMISSIONS: Record<string, readonly string[]> = {
 // Super Admin → Admin → Moderator → Support → Verification Team
 export const STAFF_PERMISSIONS: Record<string, readonly string[]> = {
   super_admin: ['*'],
-  admin: ['stats', 'users.view', 'users.suspend', 'users.delete', 'content', 'reports', 'verification', 'categories', 'broadcast', 'audit', 'billing'],
-  moderator: ['stats', 'users.view', 'users.suspend', 'content', 'reports'],
+  admin: ['stats', 'users.view', 'users.suspend', 'users.delete', 'content', 'reports', 'verification', 'categories', 'broadcast', 'audit', 'billing', 'disputes'],
+  moderator: ['stats', 'users.view', 'users.suspend', 'content', 'reports', 'disputes'],
   support: ['stats', 'users.view', 'reports'],
   verification: ['users.view', 'verification'],
   user: [],

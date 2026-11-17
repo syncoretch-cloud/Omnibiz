@@ -57,6 +57,9 @@ function UserDetail({ id, onClose, onChanged }: { id: number; onClose: () => voi
   const { data, loading, reload } = useApi(`/admin/users/${id}`);
   const [reason, setReason] = useState('');
   const [removeReason, setRemoveReason] = useState('');
+  const [days, setDays] = useState('');
+  const [warning, setWarning] = useState('');
+  const strikes = useApi(`/admin/users/${id}/strikes`);
   if (loading || !data) return <Modal title="User" onClose={onClose}><Spinner /></Modal>;
   const u = data.user;
   const done = () => { reload(); onChanged(); };
@@ -78,10 +81,18 @@ function UserDetail({ id, onClose, onChanged }: { id: number; onClose: () => voi
           <div className="card card-pad stack-sm">
             <h3>Account status</h3>
             {u.status === 'suspended' ? (
-              <><div className="small">Suspended: {u.suspended_reason}</div><button className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-start' }} onClick={async () => { if (await act(() => post(`/admin/users/${u.id}/unsuspend`), 'Account restored')) done(); }}>Restore account</button></>
+              <><div className="small">Suspended: {u.suspended_reason}{u.suspended_until ? <> · until {u.suspended_until.slice(0, 10)}</> : ' · until restored'}</div><button className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-start' }} onClick={async () => { if (await act(() => post(`/admin/users/${u.id}/unsuspend`), 'Account restored')) done(); }}>Restore account</button></>
             ) : (
-              <div className="row"><Input placeholder="Reason for suspension" value={reason} onChange={(e) => setReason(e.target.value)} /><button className="btn btn-danger btn-sm" disabled={!reason} onClick={async () => { if (await act(() => post(`/admin/users/${u.id}/suspend`, { reason }), 'Account suspended')) done(); }}>Suspend</button></div>
+              <div className="row"><Input placeholder="Reason for suspension" value={reason} onChange={(e) => setReason(e.target.value)} /><Input type="number" min={1} max={3650} placeholder="Days (blank = until restored)" value={days} onChange={(e) => setDays(e.target.value)} style={{ maxWidth: 120 }} aria-label="Days" /><button className="btn btn-danger btn-sm" disabled={!reason} onClick={async () => { if (await act(() => post(`/admin/users/${u.id}/suspend`, { reason, ...(days ? { days: Number(days) } : {}) }), days ? `Account suspended for ${days} day${days === '1' ? '' : 's'}` : 'Account suspended')) done(); }}>Suspend</button></div>
             )}
+          </div>
+        )}
+        {staffCan('users.suspend') && u.id !== me?.user.id && u.status !== 'deleted' && (
+          <div className="card card-pad stack-sm">
+            <div className="row-between"><h3>Warnings</h3><span className="chip chip-accent">{strikes.data?.active ?? 0} of {strikes.data?.ban_at ?? 3} before a ban</span></div>
+            <p className="xsmall muted">A warning is emailed to the person. At {strikes.data?.ban_at ?? 3} warnings within {strikes.data?.window_days ?? 90} days they get a 7-day ban automatically; at 5 the account is suspended until you restore it.</p>
+            <div className="row"><Input placeholder="What did they do?" value={warning} onChange={(e) => setWarning(e.target.value)} /><button className="btn btn-outline btn-sm" disabled={warning.trim().length < 3} onClick={async () => { const r = await act(() => post(`/admin/users/${u.id}/warn`, { reason: warning }), 'Warning sent'); if (r) { setWarning(''); strikes.reload(); done(); } }}>Warn</button></div>
+            {strikes.data?.items.map((s: Json) => <div key={s.id} className="xsmall muted">{timeAgo(s.created_at)} · {s.reason}{s.issued_by ? ` — ${s.issued_by}` : ''}</div>)}
           </div>
         )}
         {staffCan('users.delete') && u.id !== me?.user.id && u.status !== 'deleted' && (

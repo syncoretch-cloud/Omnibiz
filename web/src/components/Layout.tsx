@@ -160,18 +160,11 @@ function CreateSheet({ onPost, onStory, onClose }: { onPost: () => void; onStory
 }
 
 export function MoreMenuItems({ onDone }: { onDone?: () => void }) {
-  const { me, can, logout } = useSession();
+  const { logout } = useSession();
   const nav = useNavigate();
-  const biz = isBusinessType(me?.user.account_type);
-  const counts = me?.counts ?? { notifications: 0, messages: 0, cart: 0 };
   return (
     <>
-      {biz && <Link to="/dashboard" onClick={onDone}><Icon name="dashboard" />Business dashboard</Link>}
-      {can('manage_cv') && <Link to={`/u/${me?.user.username}?tab=about`} onClick={onDone}><Icon name="file" />My CV & documents</Link>}
-      <Link to="/businesses" onClick={onDone}><Icon name="building" />Businesses & map</Link>
-      <Link to="/saved" onClick={onDone}><Icon name="bookmark" />Saved</Link>
-      {can('purchase') && <Link to="/cart" onClick={onDone}><Icon name="cart" />Cart{counts.cart > 0 && <span className="chip chip-brand" style={{ marginLeft: 'auto', height: 22 }}>{counts.cart}</span>}</Link>}
-      {can('purchase') && <Link to="/orders" onClick={onDone}><Icon name="package" />My orders</Link>}
+      <Link to="/settings/plan" onClick={onDone}><Icon name="award" />Billing & subscription</Link>
       <Link to="/settings" onClick={onDone}><Icon name="settings" />Settings</Link>
       <hr />
       <button onClick={async () => { onDone?.(); await logout(); nav('/'); }}><Icon name="logout" />Log out</button>
@@ -208,7 +201,7 @@ export function AppLayout() {
   const [sheet, setSheet] = useState(false);
   const [composer, setComposer] = useState(false);
   const [storying, setStorying] = useState(false);
-  // The "More" menu at the bottom of the rail (settings, saved, orders, log out).
+  // The "More" menu at the bottom of the rail (billing & subscription, settings, log out).
   const [meMenu, setMeMenu] = useState(false);
   const meRef = useRef<HTMLDivElement>(null);
   const [help, setHelp] = useState(false);

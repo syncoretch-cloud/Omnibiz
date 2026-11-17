@@ -37,8 +37,10 @@ export const config = {
   /** Minimum job-match score (0-100) before a user is notified about a new vacancy. */
   jobNotifyThreshold: 55,
   maxUploadBytes: 25 * 1024 * 1024,
-  /** Email/phone code verification at sign-up. Off for now; set CONTACT_VERIFICATION=on to bring it back. */
-  contactVerification: process.env.CONTACT_VERIFICATION === 'on',
+  /** Email/phone code verification at sign-up. Email only by default; CONTACT_VERIFICATION=on adds the phone, =off turns it off. */
+  contactVerification: (process.env.CONTACT_VERIFICATION ?? 'email') !== 'off',
+  /** Whether the phone number is verified too (CONTACT_VERIFICATION=on); by default only the email is, so no SMS account is needed. */
+  contactPhone: process.env.CONTACT_VERIFICATION === 'on',
   /** Email delivery over SMTP (Gmail, Zoho, Brevo, SES…). Unset = messages are only saved to the outbox. */
   mail: {
     host: process.env.SMTP_HOST ?? '',

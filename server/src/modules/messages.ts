@@ -1,11 +1,13 @@
 // Direct messaging between users and businesses (Customer → Retailer, Job seeker → Company,
-// Retailer → Wholesaler…). Clients poll; a WebSocket/SSE gateway can push the same payloads later.
+// Retailer → Wholesaler…). New messages are pushed to open browsers over /api/live (SSE) and to opted-in devices by web push; clients still poll slowly as a fallback.
 import { Router } from 'express';
 import type { Request } from 'express';
 import { all, get, parseJson, qs, run, tx, HOUR } from '../db/index.ts';
 import { badRequest, HttpError, intParam, notFound, validate } from '../lib/http.ts';
 import { requireAuth, requirePerm } from '../lib/auth.ts';
 import { hit } from '../lib/ratelimit.ts';
+import { pushLive } from '../lib/live.ts';
+import { sendPush } from '../services/push.ts';
 import { isBusiness } from '../lib/constants.ts';
 import { userCards } from '../services/users.ts';
 import { track } from '../services/analytics.ts';
@@ -22,12 +24,17 @@ function membership(req: Request) {
 
 function sendMessage(conversationId: number, senderId: number, body: string) {
   if (!hit(`msg:${senderId}`, 120, HOUR)) throw new HttpError(429, 'You are sending messages too quickly');
-  return tx(() => {
+  const id = tx(() => {
     const { id } = run('INSERT INTO messages (conversation_id, sender_id, body) VALUES (?,?,?)', conversationId, senderId, body);
     run("UPDATE conversations SET last_message = ?, updated_at = datetime('now') WHERE id = ?", body.slice(0, 200), conversationId);
     run("UPDATE conversation_members SET last_read_at = datetime('now') WHERE conversation_id = ? AND user_id = ?", conversationId, senderId);
     return id;
   });
+  const others = all('SELECT user_id FROM conversation_members WHERE conversation_id = ? AND user_id != ?', conversationId, senderId).map((r) => r.user_id as number);
+  pushLive(others, 'message', { conversation_id: conversationId });
+  const sender = get('SELECT display_name FROM users WHERE id = ?', senderId);
+  sendPush(others, { title: sender?.display_name ?? 'New message', body: body.slice(0, 120), link: `/messages/${conversationId}` });
+  return id;
 }
 
 messagesRouter.get('/conversations', (req, res) => {

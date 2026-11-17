@@ -140,9 +140,10 @@ export default function ProductDetail() {
               <div className="grow">
                 <div className="bold row" style={{ gap: 4 }}>{p.seller?.display_name}<Verified show={p.seller?.verified} /></div>
                 <div className="xsmall muted">{label(p.seller?.account_type)} · {p.seller?.city}</div>
+                {p.seller?.rating && <div className="xsmall"><Stars value={p.seller.rating.avg} /> <span className="muted">{p.seller.rating.avg} seller rating ({p.seller.rating.count})</span></div>}
               </div>
             </Link>
-            <Link to={`/u/${p.seller?.username}`} className="btn btn-outline btn-sm">Visit store</Link>
+            <Link to={`/shop/${p.seller?.username}`} className="btn btn-outline btn-sm">Visit store</Link>
           </div>
           {p.location && <MapView className="map map-sm" center={[p.location.lat, p.location.lng]} zoom={13} pins={[{ id: p.id, lat: p.location.lat, lng: p.location.lng, title: p.seller?.display_name ?? '', color: '#6d324f', letter: '•' }]} />}
           <div className="banner banner-info small"><Icon name="shield" />Pay only after confirming with the seller. Report anything suspicious.</div>

@@ -11,6 +11,7 @@ import { randomToken } from '../lib/crypto.ts';
 import { emit } from '../lib/queue.ts';
 import { userCards } from '../services/users.ts';
 import { hydrateProducts } from './products.ts';
+import { onDelivered, releaseDuePayouts } from '../services/payouts.ts';
 
 export const cartRouter = Router();
 export const ordersRouter = Router();
@@ -120,6 +121,7 @@ function hydrateOrders(rows: Row[]) {
 }
 
 ordersRouter.get('/', (req, res) => {
+  releaseDuePayouts();
   const role = req.query.role === 'seller' ? 'seller_id' : 'buyer_id';
   const status = typeof req.query.status === 'string' ? req.query.status : null;
   const rows = all(`SELECT * FROM orders WHERE ${role} = ? ${status ? 'AND status = ?' : ''} ORDER BY id DESC LIMIT 200`, req.user!.id, ...(status ? [status] : []));
@@ -133,6 +135,7 @@ function loadOrder(id: number, userId: number) {
 }
 
 ordersRouter.get('/:id', (req, res) => {
+  releaseDuePayouts();
   const o = loadOrder(intParam(req), req.user!.id);
   const [order] = hydrateOrders([o]);
   res.json({
@@ -140,6 +143,8 @@ ordersRouter.get('/:id', (req, res) => {
     events: all('SELECT status, note, created_at, actor_id FROM order_events WHERE order_id = ? ORDER BY id', o.id),
     transactions: all('SELECT method, amount, currency, status, reference, created_at FROM transactions WHERE order_id = ?', o.id),
     reviewed: all('SELECT product_id FROM reviews WHERE order_id = ?', o.id).map((r) => r.product_id),
+    seller_review: get('SELECT rating, body FROM seller_reviews WHERE order_id = ?', o.id) ?? null,
+    dispute: get('SELECT * FROM disputes WHERE order_id = ? ORDER BY id DESC LIMIT 1', o.id) ?? null,
     role: o.seller_id === req.user!.id ? 'seller' : 'buyer',
   });
 });
@@ -161,7 +166,9 @@ ordersRouter.post('/:id/status', (req, res) => {
       }
       run("UPDATE transactions SET status = CASE WHEN status = 'succeeded' THEN 'refunded' ELSE 'failed' END WHERE order_id = ?", o.id);
       if (o.payment_status === 'paid') run("UPDATE orders SET payment_status = 'refunded' WHERE id = ?", o.id);
+      run("UPDATE orders SET payout_status = 'refunded' WHERE id = ?", o.id);
     }
+    if (status === 'delivered') onDelivered(o.id, o.buyer_id === req.user!.id);
     if (status === 'delivered' && o.payment_method === 'cash_on_delivery') {
       run("UPDATE orders SET payment_status = 'paid' WHERE id = ?", o.id);
       run("UPDATE transactions SET status = 'succeeded' WHERE order_id = ?", o.id);

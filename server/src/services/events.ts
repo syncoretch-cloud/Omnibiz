@@ -8,6 +8,7 @@ import { notify } from './notify.ts';
 import { track } from './analytics.ts';
 import { loadCandidates, scoreMatch } from './matching.ts';
 import { staffCan } from '../lib/permissions.ts';
+import { alertSavedSearches } from './savedSearches.ts';
 
 const LOCAL_KINDS = new Set(['store_opening', 'service_interruption', 'event', 'promotion']);
 
@@ -34,6 +35,7 @@ export function registerEventHandlers() {
       link: `/jobs/${job.id}`,
       actorId: job.company_id,
     });
+    alertSavedSearches('job', job, job.company_id, `/jobs/${job.id}`);
     // Followers who were not already matched hear that the company is hiring.
     const matched = new Set(matches.map((m) => m.id));
     const followers = all("SELECT f.follower_id FROM follows f JOIN users u ON u.id = f.follower_id WHERE f.followee_id = ? AND u.account_type = 'personal'", job.company_id)
@@ -75,6 +77,7 @@ export function registerEventHandlers() {
     if (!p) return;
     const followers = all('SELECT follower_id FROM follows WHERE followee_id = ?', p.seller_id).map((r) => r.follower_id as number);
     notify(followers, { type: 'new_product', title: `New from ${p.seller_name}`, body: p.name, link: `/marketplace/${p.id}`, actorId: p.seller_id });
+    if (p.status === 'active') alertSavedSearches('product', p, p.seller_id, `/marketplace/${p.id}`, !!get('SELECT verified FROM businesses WHERE user_id = ?', p.seller_id)?.verified);
   });
 
   on('post.created', ({ postId, mentions }: { postId: number; mentions: number[] }) => {

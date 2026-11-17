@@ -53,6 +53,11 @@ export function loadUser(req: Request, _res: Response, next: NextFunction) {
      WHERE s.id = ? AND s.expires_at > datetime('now') AND u.status != 'deleted'`,
     sid,
   );
+  if (row && row.status === 'suspended' && row.suspended_until && row.suspended_until <= sqlTime()) {
+    run("UPDATE users SET status = 'active', suspended_reason = NULL, suspended_until = NULL WHERE id = ?", row.id);
+    row.status = 'active';
+    row.suspended_until = null;
+  }
   if (row) {
     const { sid: _sid, last_seen_at, password_hash: _ph, totp_secret_enc: _ts, ...user } = row;
     req.user = user as Request['user'];
@@ -66,7 +71,7 @@ export function loadUser(req: Request, _res: Response, next: NextFunction) {
 
 export function requireAuth(req: Request, _res: Response, next: NextFunction) {
   if (!req.user) return next(unauthorized());
-  if (req.user.status === 'suspended') return next(forbidden('Your account is suspended. Contact support for help.'));
+  if (req.user.status === 'suspended') return next(forbidden(req.user.suspended_until ? `Your account is suspended until ${req.user.suspended_until.slice(0, 10)}. Contact support for help.` : 'Your account is suspended. Contact support for help.'));
   next();
 }
 

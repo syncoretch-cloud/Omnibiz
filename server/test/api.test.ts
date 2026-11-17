@@ -11,6 +11,9 @@ process.env.NODE_ENV = 'test';
 process.env.DATA_DIR = dir;
 process.env.DB_PATH = path.join(dir, 'test.db');
 process.env.OMNIBIZ_DISABLE_RATE_LIMIT = '1';
+// Real mail and SMS credentials (server/.env) must never be used by tests; they use injected senders instead.
+process.env.SMTP_HOST = '';
+process.env.SMS_PROVIDER = '';
 
 const { createApp } = await import('../src/app.ts');
 const { settle } = await import('../src/lib/queue.ts');
@@ -513,10 +516,15 @@ test('subscriptions: plans per account type, plan limits and admin edits', async
   assert.equal(view.body.plan.code, 'retailer_free');
   assert.ok(view.body.plans.every((p: Json) => p.audience === 'retailer' && p.active));
 
-  // Personal accounts only see the free plan until the paid one is switched on.
+  // Personal accounts get Free and Plus; every paid plan comes with monthly, 3-month and yearly payment plans.
   const { c: person } = await register('personal');
   const pv = await person.get('/api/subscriptions');
-  assert.deepEqual(pv.body.plans.map((p: Json) => p.code), ['personal_free']);
+  assert.deepEqual(pv.body.plans.map((p: Json) => p.code), ['personal_free', 'personal_plus']);
+  const plus = pv.body.plans.find((p: Json) => p.code === 'personal_plus');
+  assert.deepEqual(plus.payment_plans.map((x: Json) => x.period), ['monthly', 'quarterly', 'yearly']);
+  assert.ok(plus.payment_plans[2].total < plus.price * 12);
+  assert.equal((await person.post('/api/subscriptions/subscribe', { plan_id: plus.id, period: 'yearly' })).status, 200);
+  assert.equal((await person.get('/api/subscriptions')).body.subscription.period, 'yearly');
 
   // Free retailers are capped at 10 active products.
   const product = (i: number) => shop.post('/api/products', { name: `Item ${i}`, category: 'electronics', price: 1000, currency: 'TZS', description: 'A fine item', images: [] });
@@ -614,6 +622,17 @@ test('verification: paid request, staff approval, badge and feed boost; staff ca
   const prof = await shop.get(`/api/users/${shopMe.username}`);
   assert.equal(prof.body.user.verified, true);
 
+  // A timed ban locks the account for that many days and lifts itself when they pass.
+  const { me: banned, c: b } = await register('personal');
+  assert.equal((await admin.post(`/api/admin/users/${banned.id}/suspend`, { reason: 'Spam', days: 3 })).status, 200);
+  const until = db.prepare('SELECT suspended_until AS u FROM users WHERE id = ?').get(banned.id)!.u as string;
+  assert.ok(until > new Date().toISOString().slice(0, 10));
+  assert.equal((await b.get('/api/subscriptions')).status, 401, 'sessions are cleared on suspension');
+  db.prepare("UPDATE users SET suspended_until = datetime('now', '-1 minute') WHERE id = ?").run(banned.id);
+  const back = await b.post('/api/auth/login', { identifier: banned.username, password: 'Secret123' });
+  assert.equal(back.status, 200, JSON.stringify(back.body));
+  assert.equal((await b.get('/api/subscriptions')).status, 200, 'the ban lifted by itself');
+
   // An admin can remove a user; they can no longer sign in.
   const { me: victim, c: v } = await register('personal');
   assert.equal((await shop.post(`/api/admin/users/${victim.id}/delete`, { reason: 'spam' })).status, 403);
@@ -645,7 +664,7 @@ test('location: countries and regions are offered, and missing ones are filled f
   assert.equal(upd.body.user.region, 'Mbeya');
 });
 
-test('password recovery: the code goes by email or text message, only to the account\'s own contacts', async () => {
+test('password recovery: the code goes by email, only to the account\'s own address', async () => {
   const { setSenders } = await import('../src/lib/outbox.ts');
   const emails: { to: string; body: string }[] = [];
   const texts: { to: string; body: string }[] = [];
@@ -663,19 +682,19 @@ test('password recovery: the code goes by email or text message, only to the acc
     assert.equal(emails.at(-1)!.to, me.email);
     assert.equal(texts.length, 0);
 
-    // By text message: sent to the phone on the account, even when the person typed their username.
-    const bySms = await new Client().post('/api/auth/recover/request', { identifier: me.username, channel: 'sms' });
-    assert.equal(bySms.body.channel, 'sms');
+    // A username or a phone number finds the account too, but the code always goes to its email, never by text.
+    const byName = await new Client().post('/api/auth/recover/request', { identifier: me.username, channel: 'sms' });
+    assert.equal(byName.body.channel, 'email');
     await wait();
-    assert.equal(texts.at(-1)!.to, me.phone);
-    assert.match(texts.at(-1)!.body, /\d{6}/);
-
-    // A phone number as the identifier defaults to a text message.
+    assert.equal(emails.at(-1)!.to, me.email);
     const phoneOnly = await new Client().post('/api/auth/recover/request', { identifier: me.phone });
-    assert.equal(phoneOnly.body.channel, 'sms');
+    assert.equal(phoneOnly.body.channel, 'email');
+    await wait();
+    assert.equal(emails.at(-1)!.to, me.email);
+    assert.equal(texts.length, 0);
 
-    // The SMS code resets the password, and the old password stops working.
-    const newest = code(texts.at(-1)!.body);
+    // The emailed code resets the password, and the old password stops working.
+    const newest = code(emails.at(-1)!.body);
     const reset = await new Client().post('/api/auth/recover/reset', { identifier: me.username, code: newest, password: 'Fresh2026pw' });
     assert.equal(reset.status, 200, JSON.stringify(reset.body));
     assert.equal((await new Client().post('/api/auth/login', { identifier: me.username, password: 'Secret123' })).status, 401);
@@ -733,4 +752,155 @@ test('business dashboard: orders received and the customers dealt with', async (
   assert.ok(o.recentOrders[0].buyer.display_name);
   assert.equal(o.followers, undefined, 'follower counts are no longer part of the dashboard');
   void chatMe;
+});
+
+async function staffClient(role = 'admin') {
+  const { me, c } = await register('personal');
+  db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, me.id);
+  return { me, c };
+}
+
+test('account safety: warnings escalate to a timed ban, and a suspended person can appeal once', async () => {
+  const { c: staff } = await staffClient();
+  const { me: u, c: user } = await register('personal');
+  const w1 = await staff.post(`/api/admin/users/${u.id}/warn`, { reason: 'Spam in comments' });
+  assert.equal(w1.body.action, 'warned');
+  assert.equal((await staff.post(`/api/admin/users/${u.id}/warn`, { reason: 'More spam' })).body.action, 'warned');
+  const w3 = await staff.post(`/api/admin/users/${u.id}/warn`, { reason: 'Spam again' });
+  assert.equal(w3.body.action, 'banned');
+  assert.equal(w3.body.days, 7);
+  const row = db.prepare('SELECT status, suspended_until FROM users WHERE id = ?').get(u.id) as { status: string; suspended_until: string };
+  assert.equal(row.status, 'suspended');
+  assert.ok(row.suspended_until);
+
+  // Back in, the person can see why and appeal; everything else stays closed.
+  assert.equal((await user.post('/api/auth/login', { identifier: u.username, password: 'Secret123' })).status, 200);
+  const me = await user.get('/api/auth/me');
+  assert.equal(me.body.user.status, 'suspended');
+  assert.ok(me.body.user.suspended_until);
+  assert.equal((await user.get('/api/subscriptions')).status, 403);
+  assert.equal((await user.post('/api/appeals', { message: 'short' })).status, 400);
+  assert.equal((await user.post('/api/appeals', { message: 'I was replying to a friend and did not mean to spam anyone.' })).status, 201);
+  assert.equal((await user.post('/api/appeals', { message: 'I was replying to a friend and did not mean to spam anyone.' })).status, 400, 'one appeal at a time');
+
+  const queue = await staff.get('/api/admin/appeals');
+  const appeal = queue.body.items.find((a: Json) => a.user.id === u.id);
+  assert.ok(appeal);
+  assert.equal((await user.post(`/api/admin/appeals/${appeal.id}`, { decision: 'approve', response: 'ok' })).status, 403, 'only staff decide');
+  assert.equal((await staff.post(`/api/admin/appeals/${appeal.id}`, { decision: 'approve', response: 'Restored after review.' })).status, 200);
+  assert.equal((await user.get('/api/subscriptions')).status, 200);
+  assert.equal((await user.post('/api/appeals', { message: 'I am not suspended any more at all.' })).status, 400);
+});
+
+test('marketplace trust: held payouts, disputes and refunds, seller reviews and the storefront', async () => {
+  const { c: seller, me: sellerMe } = await register('retailer', { category: 'retail' });
+  const { c: buyer } = await register('customer');
+  const { c: staff } = await staffClient('moderator');
+  const p = await seller.post('/api/products', { name: 'Trust Kettle', category: 'electronics', price: 30000, quantity: 20 });
+  const pid = p.body.product.id;
+  const buy = async () => {
+    assert.equal((await buyer.post('/api/cart', { product_id: pid, qty: 1 })).status, 200);
+    const r = await buyer.post('/api/orders/checkout', { payment_method: 'cash_on_delivery', delivery_address: 'Arusha', delivery_phone: '+255711111111' });
+    return r.body.order_ids[0] as number;
+  };
+  const payout = (id: number) => (db.prepare('SELECT payout_status AS s FROM orders WHERE id = ?').get(id) as { s: string }).s;
+
+  // The buyer's own confirmation releases the payout at once.
+  const a = await buy();
+  for (const s of ['confirmed', 'shipped']) assert.equal((await seller.post(`/api/orders/${a}/status`, { status: s })).status, 200);
+  assert.equal(payout(a), 'held');
+  assert.equal((await buyer.post(`/api/orders/${a}/status`, { status: 'delivered' })).status, 200);
+  assert.equal(payout(a), 'released');
+  assert.equal((await buyer.post(`/api/orders/${a}/seller-review`, { rating: 4, body: 'Quick and honest' })).status, 201);
+  assert.equal((await seller.post(`/api/orders/${a}/seller-review`, { rating: 5 })).status, 403);
+
+  // When the seller marks it delivered the payout waits, and an open dispute keeps it from releasing.
+  const b = await buy();
+  for (const s of ['confirmed', 'shipped', 'delivered']) assert.equal((await seller.post(`/api/orders/${b}/status`, { status: s })).status, 200);
+  assert.equal(payout(b), 'held');
+  assert.equal((await seller.post(`/api/orders/${b}/dispute`, { reason: 'other', details: 'I am the seller, not the buyer.' })).status, 403);
+  assert.equal((await buyer.post(`/api/orders/${b}/dispute`, { reason: 'not_received', details: 'Nothing arrived at my address.' })).status, 201);
+  assert.equal((await buyer.post(`/api/orders/${b}/dispute`, { reason: 'not_received', details: 'Nothing arrived at my address.' })).status, 400);
+  db.prepare("UPDATE orders SET payout_release_at = datetime('now', '-1 day') WHERE id = ?").run(b);
+  await buyer.get('/api/orders');
+  assert.equal(payout(b), 'held', 'a dispute blocks the automatic release');
+  assert.equal((await seller.post(`/api/orders/${b}/dispute/reply`, { reply: 'It was handed to a neighbour.' })).status, 200);
+
+  const queue = await staff.get('/api/admin/disputes');
+  const dispute = queue.body.items.find((d: Json) => d.order_id === b);
+  assert.ok(dispute);
+  assert.equal(dispute.seller_reply, 'It was handed to a neighbour.');
+  assert.equal((await buyer.post(`/api/admin/disputes/${dispute.id}/resolve`, { decision: 'refund', note: 'x y' })).status, 403);
+  assert.equal((await staff.post(`/api/admin/disputes/${dispute.id}/resolve`, { decision: 'refund', note: 'Courier confirmed no delivery.' })).status, 200);
+  assert.equal(payout(b), 'refunded');
+  assert.equal((await staff.post(`/api/admin/disputes/${dispute.id}/resolve`, { decision: 'reject', note: 'again' })).status, 400);
+
+  // A rejected dispute lets the payout go through.
+  const c2 = await buy();
+  for (const s of ['confirmed', 'shipped', 'delivered']) assert.equal((await seller.post(`/api/orders/${c2}/status`, { status: s })).status, 200);
+  const d2 = await buyer.post(`/api/orders/${c2}/dispute`, { reason: 'damaged', details: 'The lid was cracked on arrival.' });
+  assert.equal((await staff.post(`/api/admin/disputes/${d2.body.id}/resolve`, { decision: 'reject', note: 'Photos show no damage.' })).status, 200);
+  assert.equal(payout(c2), 'released');
+
+  const summary = await seller.get('/api/orders/payouts/summary');
+  assert.ok(summary.body.items.some((r: Json) => r.status === 'released'));
+
+  // The storefront shows the rating, the review and the products with "sold by" details.
+  const shop = await new Client().get(`/api/shops/${sellerMe.username}`);
+  assert.equal(shop.status, 200);
+  assert.deepEqual(shop.body.seller.rating, { avg: 4, count: 1 });
+  assert.equal(shop.body.reviews[0].body, 'Quick and honest');
+  assert.equal(shop.body.products[0].name, 'Trust Kettle');
+  assert.deepEqual(shop.body.products[0].seller.rating, { avg: 4, count: 1 });
+});
+
+test('saved searches alert on new matches; live events reach open streams', async () => {
+  const { c: shopper, me: shopperMe } = await register('customer');
+  const { c: seller } = await register('retailer', { category: 'retail' });
+  assert.equal((await shopper.post('/api/saved-searches', { kind: 'product', params: {} })).status, 400);
+  const saved = await shopper.post('/api/saved-searches', { kind: 'product', label: 'Cheap phones', params: { q: 'smartphone', city: 'Arusha', max_price: '50000', bogus: 'x' } });
+  assert.equal(saved.status, 201);
+  assert.equal((await shopper.post('/api/saved-searches', { kind: 'product', params: { q: 'smartphone', city: 'Arusha', max_price: '50000' } })).status, 400, 'no duplicates');
+
+  const make = (name: string, price: number, city = 'Arusha') => seller.post('/api/products', { name, category: 'electronics', price, quantity: 5, city });
+  await make('Budget Smartphone X', 45000);
+  await make('Premium Smartphone Z', 900000);
+  await make('Phone Case', 3000);
+  await new Promise((r) => setTimeout(r, 100));
+  await settle();
+  const alerts = (await shopper.get('/api/notifications')).body.items.filter((x: Json) => x.type === 'saved_search');
+  assert.equal(alerts.length, 1, 'only the product that fits the search');
+  assert.equal(alerts[0].body, 'Budget Smartphone X');
+  const list = await shopper.get('/api/saved-searches');
+  assert.equal(list.body.items.length, 1);
+  assert.equal((await shopper.del(`/api/saved-searches/${list.body.items[0].id}`)).status, 200);
+
+  // An open stream is told about new notifications.
+  const { addLiveClient } = await import('../src/lib/live.ts');
+  const { notify } = await import('../src/services/notify.ts');
+  const frames: string[] = [];
+  const stop = addLiveClient(shopperMe.id, { write: (s: string) => frames.push(s) } as never);
+  notify([shopperMe.id], { type: 'system', title: 'Hello live' });
+  stop();
+  notify([shopperMe.id], { type: 'system', title: 'After close' });
+  assert.equal(frames.length, 1);
+  assert.match(frames[0], /^event: notification\n.*Hello live/);
+
+  // The stream endpoint itself requires a session and stays open.
+  assert.equal((await new Client().get('/api/live')).status, 401);
+  const res = await fetch(`${base}/api/live`, { headers: { cookie: shopper.cookie } });
+  assert.match(res.headers.get('content-type') ?? '', /^text\/event-stream/);
+  const reader = res.body!.getReader();
+  const first = await reader.read();
+  assert.match(new TextDecoder().decode(first.value), /event: ready/);
+  await reader.cancel();
+
+  // Push: a key is served and a device can subscribe and leave.
+  const key = await new Client().get('/api/push/key');
+  assert.ok(key.body.key.length > 20);
+  const sub = { endpoint: 'https://push.example.test/abc', keys: { p256dh: 'p', auth: 'a' } };
+  assert.equal((await shopper.post('/api/push/subscribe', sub)).status, 201);
+  assert.equal((await shopper.get('/api/push/status')).body.devices, 1);
+  assert.equal((await shopper.post('/api/push/unsubscribe', { endpoint: sub.endpoint })).status, 200);
+  assert.equal((await shopper.get('/api/push/status')).body.devices, 0);
 });

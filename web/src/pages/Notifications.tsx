@@ -6,12 +6,13 @@ import { post } from '../lib/api.ts';
 import type { Json } from '../lib/api.ts';
 import { usePaged } from '../lib/hooks.ts';
 import { useSession } from '../lib/session.tsx';
+import { useLive } from '../lib/live.ts';
 import { parseTime, timeAgo } from '../lib/format.ts';
 
 const ICONS: Record<string, string> = {
   job_match: 'target', hiring: 'briefcase', application: 'file', application_update: 'briefcase', announcement: 'megaphone',
   new_product: 'bag', order: 'package', follow: 'users', like: 'heart', comment: 'comment', mention: 'hash', repost: 'repeat',
-  security: 'shield', verification: 'shieldCheck', moderation: 'flag', system: 'info',
+  security: 'shield', verification: 'shieldCheck', moderation: 'flag', system: 'info', saved_search: 'bell',
 };
 const GROUPS = ['', 'jobs', 'business', 'social', 'system'];
 
@@ -29,6 +30,7 @@ export default function Notifications() {
   const [params, setParams] = useSearchParams();
   const group = params.get('group') ?? '';
   const list = usePaged(`/notifications${group ? `?group=${group}` : ''}`);
+  useLive(list.reload, 'notification');
 
   // Opening the page marks visible notifications read (after a beat, so they still render as new).
   useEffect(() => {

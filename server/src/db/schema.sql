@@ -606,3 +606,75 @@ CREATE TABLE IF NOT EXISTS app_settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+
+-- ───────────── Account safety: appeals and strikes ─────────────
+CREATE TABLE IF NOT EXISTS appeals (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  message TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
+  response TEXT,
+  handled_by INTEGER REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  handled_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_appeals_status ON appeals(status, created_at);
+
+CREATE TABLE IF NOT EXISTS strikes (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  reason TEXT NOT NULL,
+  issued_by INTEGER REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_strikes_user ON strikes(user_id, created_at);
+
+-- ───────────── Marketplace trust: disputes and seller reviews ─────────────
+CREATE TABLE IF NOT EXISTS disputes (
+  id INTEGER PRIMARY KEY,
+  order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  opened_by INTEGER NOT NULL REFERENCES users(id),
+  reason TEXT NOT NULL,
+  details TEXT,
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','refunded','rejected')),
+  seller_reply TEXT,
+  resolution TEXT,
+  handled_by INTEGER REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  handled_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_disputes_status ON disputes(status, created_at);
+CREATE INDEX IF NOT EXISTS idx_disputes_order ON disputes(order_id);
+
+CREATE TABLE IF NOT EXISTS seller_reviews (
+  id INTEGER PRIMARY KEY,
+  order_id INTEGER NOT NULL UNIQUE REFERENCES orders(id) ON DELETE CASCADE,
+  seller_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  body TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_seller_reviews_seller ON seller_reviews(seller_id, created_at);
+
+-- ───────────── Engagement: saved searches and web push ─────────────
+CREATE TABLE IF NOT EXISTS saved_searches (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('product','job')),
+  label TEXT NOT NULL,
+  params TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_saved_searches_user ON saved_searches(user_id);
+CREATE INDEX IF NOT EXISTS idx_saved_searches_kind ON saved_searches(kind);
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  endpoint TEXT NOT NULL UNIQUE,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(user_id);

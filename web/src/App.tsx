@@ -13,6 +13,8 @@ import { NotFound } from './pages/NotFound.tsx';
 
 // Larger areas load on demand to keep the first screen fast on mobile networks.
 const Explore = lazy(() => import('./pages/Explore.tsx'));
+const Shop = lazy(() => import('./pages/Shop.tsx'));
+const Suspended = lazy(() => import('./pages/Suspended.tsx'));
 const Jobs = lazy(() => import('./pages/Jobs.tsx'));
 const JobDetail = lazy(() => import('./pages/JobDetail.tsx'));
 const Businesses = lazy(() => import('./pages/Businesses.tsx'));
@@ -76,6 +78,7 @@ function RequireAuth({ children }: { children: ReactNode }) {
   const { me } = useSession();
   const loc = useLocation();
   if (!me) return <Navigate to={`/login?next=${encodeURIComponent(loc.pathname + loc.search)}`} replace />;
+  if (me.user.status === 'suspended') return <Suspended />;
   if (!me.user.onboarded && loc.pathname !== '/welcome') return <Navigate to="/welcome" replace />;
   return <>{children}</>;
 }
@@ -112,6 +115,7 @@ export function App() {
               <Route path="/marketplace" element={<Marketplace />} />
               <Route path="/marketplace/compare" element={<Compare />} />
               <Route path="/marketplace/:id" element={<ProductDetail />} />
+              <Route path="/shop/:username" element={<Shop />} />
               <Route path="/cart" element={<Cart />} />
               <Route path="/orders" element={<Orders />} />
               <Route path="/orders/:id" element={<OrderDetail />} />

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { Icon } from './Icon.tsx';
 import { Avatar, Stars, Verified } from './ui.tsx';
 import { Artwork, postArt, productIcon } from './Artwork.tsx';
@@ -30,6 +30,7 @@ export function SaveButton({ type, id, saved: initial, className = 'save-btn' }:
 
 export function ProductCard({ p, compare }: { p: Json; compare?: { selected: boolean; toggle: () => void } }) {
   const { productCategoryName } = useSession();
+  const nav = useNavigate();
   return (
     <Link to={`/marketplace/${p.id}`} className="card card-link product-card">
       <div className="thumb">
@@ -44,11 +45,12 @@ export function ProductCard({ p, compare }: { p: Json; compare?: { selected: boo
         {p.sale_type === 'wholesale' && <div className="xsmall muted">Min. order {p.min_order_qty} · {p.quantity != null ? `${p.quantity} available` : 'stock on request'}</div>}
         <div className="xsmall muted truncate">{productCategoryName(p.category)}</div>
         <div className="row xsmall muted" style={{ gap: 4, marginTop: 'auto' }}>
-          <span className="truncate">{p.seller?.display_name}</span>
+          <span className="truncate">Sold by <span role="link" tabIndex={0} className="bold" style={{ cursor: 'pointer' }} onClick={(e) => { e.preventDefault(); e.stopPropagation(); nav(`/shop/${p.seller?.username}`); }} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); nav(`/shop/${p.seller?.username}`); } }}>{p.seller?.display_name}</span></span>
           <Verified show={p.seller?.verified} />
           {p.city && <span className="truncate">· {p.city}</span>}
         </div>
         {p.rating && <div className="xsmall"><Stars value={p.rating.avg} /> <span className="muted">({p.rating.count})</span></div>}
+        {p.seller?.rating && <div className="xsmall muted">Seller ★ {p.seller.rating.avg} ({p.seller.rating.count})</div>}
         {p.distance_km != null && <div className="xsmall muted">{p.distance_km} km away</div>}
         {p.availability === 'out_of_stock' && <span className="chip chip-danger" style={{ alignSelf: 'flex-start' }}>Out of stock</span>}
         {p.availability === 'low_stock' && <span className="chip chip-accent" style={{ alignSelf: 'flex-start' }}>Low stock</span>}

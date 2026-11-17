@@ -33,6 +33,10 @@ import { ensureBlockedTerms } from './services/moderation.ts';
 import { ensurePlans } from './services/subscriptions.ts';
 import { verificationRouter } from './modules/verification.ts';
 import { storiesRouter } from './modules/stories.ts';
+import { liveRouter, pushRouter } from './modules/live.ts';
+import { savedSearchesRouter } from './modules/savedSearches.ts';
+import { appealsRouter, safetyAdminRouter } from './modules/safety.ts';
+import { disputesAdminRouter, orderTrustRouter, shopsRouter } from './modules/trust.ts';
 
 export function backfillUserPlaces() {
   tx(() => backfillPlaces(run));
@@ -101,7 +105,13 @@ export function createApp(opts: { dist?: string } = {}) {
   app.use('/api/notifications', notificationsRouter);
   app.use('/api/messages', messagesRouter);
   app.use('/api/cart', cartRouter);
+  app.use('/api/orders', orderTrustRouter);
   app.use('/api/orders', ordersRouter);
+  app.use('/api/shops', shopsRouter);
+  app.use('/api/appeals', appealsRouter);
+  app.use('/api/live', liveRouter);
+  app.use('/api/push', pushRouter);
+  app.use('/api/saved-searches', savedSearchesRouter);
   app.use('/api/search', searchRouter);
   app.use('/api/explore', exploreRouter);
   app.use('/api/stories', storiesRouter);
@@ -110,6 +120,8 @@ export function createApp(opts: { dist?: string } = {}) {
   app.use('/api/subscriptions', subscriptionsRouter);
   app.use('/api/verification', verificationRouter);
   app.use('/api/admin/billing', billingAdminRouter);
+  app.use('/api/admin', safetyAdminRouter);
+  app.use('/api/admin', disputesAdminRouter);
   app.use('/api/admin', adminRouter);
   app.use('/api', (_req, _res, next) => next(new HttpError(404, 'Not found')));
 

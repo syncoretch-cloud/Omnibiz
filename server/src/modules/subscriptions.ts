@@ -4,7 +4,7 @@ import { badRequest, intParam, notFound, paging, validate } from '../lib/http.ts
 import type { Spec } from '../lib/http.ts';
 import { audit, requireAuth, requireStaff } from '../lib/auth.ts';
 import { userCards } from '../services/users.ts';
-import { allPlans, currentPlan, hydratePlan, subscribe, usage } from '../services/subscriptions.ts';
+import { PERIODS, allPlans, currentPlan, hydratePlan, paymentPlans, subscribe, usage } from '../services/subscriptions.ts';
 import { notify } from '../services/notify.ts';
 import { setSetting } from '../services/settings.ts';
 import { VERIFICATION_CURRENCY, verificationFee } from '../services/verification.ts';
@@ -20,7 +20,7 @@ subscriptionsRouter.get('/', requireAuth, (req, res) => {
     plan,
     subscription,
     usage: usage(me.id),
-    plans: allPlans(me.account_type),
+    plans: allPlans(me.account_type).map((p) => ({ ...p, payment_plans: p.price > 0 ? paymentPlans(p.price) : [] })),
     // Billing runs in test mode until a payment provider is connected: choosing a plan switches it on straight away.
     billing: 'test',
   });
@@ -28,13 +28,13 @@ subscriptionsRouter.get('/', requireAuth, (req, res) => {
 
 subscriptionsRouter.post('/subscribe', requireAuth, (req, res) => {
   const me = req.user!;
-  const { plan_id } = validate(req.body, { plan_id: { type: 'int', required: true } });
+  const { plan_id, period } = validate(req.body, { plan_id: { type: 'int', required: true }, period: { type: 'enum', values: Object.keys(PERIODS) } });
   const plan = get('SELECT * FROM plans WHERE id = ? AND active = 1', plan_id);
   if (!plan || plan.audience !== me.account_type) throw notFound('Plan');
-  const current = currentPlan(me).plan;
-  if (current.id === plan.id) throw badRequest('You are already on this plan');
+  const { plan: current, subscription } = currentPlan(me);
+  if (current.id === plan.id && (!plan.price || (subscription?.period ?? 'monthly') === (period ?? 'monthly'))) throw badRequest('You are already on this plan');
   const ref = plan.price > 0 ? `test-${Date.now().toString(36)}` : null;
-  subscribe(me, plan, ref);
+  subscribe(me, plan, ref, period ?? 'monthly');
   notify([me.id], { type: 'system', title: plan.price > 0 ? `You are now on the ${plan.name} plan` : `You moved to the ${plan.name} plan`, link: '/settings/plan' });
   res.json({ plan: hydratePlan(plan) });
 });

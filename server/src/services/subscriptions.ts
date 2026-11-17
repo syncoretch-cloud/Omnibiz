@@ -10,8 +10,9 @@ export type LimitKey = 'products' | 'jobs';
 // Personal and customer paid plans start switched off until their pricing is decided.
 const SEED: { code: string; audience: string; name: string; tagline: string; price: number; features: string[]; limits: Record<string, number | null>; active?: number; highlight?: number }[] = [
   { code: 'personal_free', audience: 'personal', name: 'Free', tagline: 'Everything you need to build your profile and apply.', price: 0, features: ['Profile and CV', 'Apply to jobs', 'Posts, messages and saves'], limits: {} },
-  { code: 'personal_plus', audience: 'personal', name: 'Plus', tagline: 'Pricing to be announced.', price: 0, features: ['Priority in recruiter search', 'Profile insights'], limits: {}, active: 0 },
+  { code: 'personal_plus', audience: 'personal', name: 'Plus', tagline: 'Stand out to recruiters.', price: 9000, features: ['Priority in recruiter search', 'Profile insights', 'Everything in Free'], limits: {}, highlight: 1 },
   { code: 'customer_free', audience: 'customer', name: 'Free', tagline: 'Browse, follow and buy.', price: 0, features: ['Browse the market', 'Orders and messages', 'Saved items'], limits: {} },
+  { code: 'customer_plus', audience: 'customer', name: 'Plus', tagline: 'Shop with extra perks.', price: 5000, features: ['Order tracking alerts', 'Price-drop alerts on saved items', 'Everything in Free'], limits: {}, highlight: 1 },
   { code: 'company_free', audience: 'company', name: 'Starter', tagline: 'Get your company on OmniBiz.', price: 0, features: ['Company page', '2 open jobs', '5 products'], limits: { jobs: 2, products: 5 } },
   { code: 'company_business', audience: 'company', name: 'Business', tagline: 'Hire and sell at a steady pace.', price: 49000, features: ['15 open jobs', '100 products', 'Applicant pipeline and analytics'], limits: { jobs: 15, products: 100 }, highlight: 1 },
   { code: 'company_enterprise', audience: 'company', name: 'Enterprise', tagline: 'No limits for large teams.', price: 149000, features: ['Unlimited jobs and products', 'Priority support'], limits: { jobs: null, products: null } },
@@ -25,6 +26,8 @@ const SEED: { code: string; audience: string; name: string; tagline: string; pri
 
 export function ensurePlans() {
   tx(() => {
+    // Plus used to ship switched off with no price; give it one now, but only while it is still untouched.
+    run("DELETE FROM plans WHERE code = 'personal_plus' AND price = 0 AND active = 0 AND tagline = 'Pricing to be announced.' AND NOT EXISTS (SELECT 1 FROM subscriptions WHERE plan_id = plans.id)");
     SEED.forEach((p, i) =>
       run(
         'INSERT OR IGNORE INTO plans (code, audience, name, tagline, price, features, limits, active, highlight, sort) VALUES (?,?,?,?,?,?,?,?,?,?)',
@@ -74,13 +77,29 @@ export function assertWithinLimit(user: { id: number; account_type: string }, ke
   }
 }
 
-export function subscribe(user: { id: number; account_type: string }, plan: Row, paymentRef: string | null) {
+// Paying for longer costs less per month. Prices are the plan's monthly price times the months, less the discount.
+export const PERIODS = {
+  monthly: { label: 'Monthly', months: 1, discount: 0 },
+  quarterly: { label: '3 months', months: 3, discount: 0.05 },
+  yearly: { label: 'Yearly', months: 12, discount: 0.15 },
+} as const;
+export type Period = keyof typeof PERIODS;
+
+export function paymentPlans(monthly: number) {
+  return (Object.entries(PERIODS) as [Period, (typeof PERIODS)[Period]][]).map(([period, p]) => {
+    const total = Math.round((monthly * p.months * (1 - p.discount)) / 100) * 100;
+    return { period, label: p.label, months: p.months, total, per_month: Math.round(total / p.months), saving: monthly * p.months - total };
+  });
+}
+
+export function subscribe(user: { id: number; account_type: string }, plan: Row, paymentRef: string | null, period: Period = 'monthly') {
   return tx(() => {
     run("UPDATE subscriptions SET status = 'cancelled', ended_at = datetime('now') WHERE user_id = ? AND status = 'active'", user.id);
     if (plan.price <= 0) return null;
+    const pay = paymentPlans(plan.price).find((x) => x.period === period)!;
     return run(
-      'INSERT INTO subscriptions (user_id, plan_id, price, payment_ref, renews_at) VALUES (?,?,?,?,?)',
-      user.id, plan.id, plan.price, paymentRef, sqlTime(30 * DAY),
+      'INSERT INTO subscriptions (user_id, plan_id, price, payment_ref, renews_at, period) VALUES (?,?,?,?,?,?)',
+      user.id, plan.id, pay.total, paymentRef, sqlTime(pay.months * 30 * DAY), period,
     ).id;
   });
 }

@@ -5,6 +5,7 @@ import type { IconName } from '../components/Icon.tsx';
 import { JobCard } from '../components/Cards.tsx';
 import { ApplicationsOverview } from '../components/Applications.tsx';
 import { Empty, Input, LoadMore, PageTitle, Select, Tabs } from '../components/ui.tsx';
+import { SaveSearchButton } from '../components/SaveSearch.tsx';
 import { usePaged } from '../lib/hooks.ts';
 import { qs } from '../lib/api.ts';
 import type { Json } from '../lib/api.ts';
@@ -83,6 +84,7 @@ export default function Jobs() {
         )}
         <Tabs tabs={tabs} value={tab} onChange={setTab} />
         {tab === 'recommended' && <JobList path="/jobs/recommended" emptyTitle="No recommendations yet" emptyText="Add skills, education and preferred locations to your CV to get matched." />}
+        {tab === 'latest' && hasFilters && <div><SaveSearchButton kind="job" params={filters} /></div>}
         {tab === 'latest' && <JobList path={`/jobs${qs(filters)}`} emptyTitle="No jobs found" emptyText="Try removing some filters." />}
         {tab === 'nearby' && <JobList path="/jobs/nearby" emptyTitle="No jobs near you yet" />}
         {tab === 'saved' && <JobList path="/jobs/saved" emptyTitle="No saved jobs" emptyText="Tap the bookmark on any job to save it for later." />}

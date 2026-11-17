@@ -5,6 +5,8 @@ import { config } from './config.ts';
 import { db } from './db/index.ts';
 import { deliveryConfigured } from './lib/outbox.ts';
 import { settle } from './lib/queue.ts';
+import { closeLiveClients } from './lib/live.ts';
+import { releaseDuePayouts } from './services/payouts.ts';
 import { startDemoStories } from './services/demoStories.ts';
 
 const app = createApp();
@@ -12,6 +14,8 @@ const server = app.listen(config.port, () => {
   console.log(`OmniBiz API listening on http://localhost:${config.port} (${config.env})`);
 });
 startDemoStories();
+// Pay out delivered orders whose hold has ended, even when nobody is looking at them.
+setInterval(() => { try { releaseDuePayouts(); } catch (e) { console.error('[payouts]', e); } }, 60 * 60 * 1000).unref();
 {
   const d = deliveryConfigured();
   console.log(`Messages: email ${d.email ? 'is delivered over SMTP' : 'is only saved to the outbox (set SMTP_HOST to send it)'}; SMS ${d.sms ? 'is delivered' : 'is only saved to the outbox (set SMS_PROVIDER to send it)'}`);
@@ -32,6 +36,7 @@ async function shutdown(signal: string) {
   stopping = true;
   // Logged so an unexpected stop (e.g. its console window being closed) is visible in server.log.
   console.log(`[${new Date().toISOString()}] received ${signal}, shutting down`);
+  closeLiveClients();
   server.close();
   manager?.close();
   await settle();

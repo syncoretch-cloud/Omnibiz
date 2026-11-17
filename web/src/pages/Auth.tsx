@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { LocationFields } from '../components/LocationFields.tsx';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Icon } from '../components/Icon.tsx';
-import { ErrorBox, Input, Select, Swap, Tabs } from '../components/ui.tsx';
+import { ErrorBox, Input, Select, Swap } from '../components/ui.tsx';
 import { Wordmark } from '../components/Layout.tsx';
 import { ApiError, get, post } from '../lib/api.ts';
 import { isBusinessType, useSession, useToast } from '../lib/session.tsx';
@@ -205,15 +205,12 @@ function RecoverPanel() {
   const nav = useNavigate();
   const toast = useToast();
   const [step, setStep] = useState<1 | 2>(1);
-  const [channel, setChannel] = useState<'email' | 'sms'>('email');
   const [identifier, setIdentifier] = useState('');
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [wait, setWait] = useState(0);
-  const looksLikePhone = (v: string) => /^\+?[\d\s\-()]{7,}$/.test(v.trim());
-  const where = channel === 'sms' ? 'text message' : 'email';
 
   useEffect(() => {
     if (wait <= 0) return;
@@ -222,7 +219,7 @@ function RecoverPanel() {
   }, [wait]);
 
   const send = async () => {
-    await post('/auth/recover/request', { identifier, channel });
+    await post('/auth/recover/request', { identifier });
     setWait(30);
   };
   const submit = async (e: React.FormEvent) => {
@@ -248,7 +245,7 @@ function RecoverPanel() {
     setError(null);
     try {
       await send();
-      toast(`New code sent by ${where}`, 'success');
+      toast('New code sent to your email', 'success');
     } catch (err) {
       setError((err as Error).message);
     }
@@ -259,17 +256,15 @@ function RecoverPanel() {
         <div className="center" style={{ display: 'grid', placeItems: 'center', gap: 10, marginBottom: 6 }}>
           <span className="notif-icon" style={{ width: 76, height: 76 }}><Icon name="lock" size={32} /></span>
           <h2>Trouble logging in?</h2>
-          <p className="small muted">{step === 1 ? 'Choose where to send your reset code.' : `We sent a 6-digit code by ${where} to the contact details on that account. It expires in 15 minutes.`}</p>
+          <p className="small muted">{step === 1 ? 'Enter your email address or username and we will email you a reset code.' : 'We sent a 6-digit code to the email address on that account. It expires in 15 minutes.'}</p>
         </div>
         <form className="stack-sm" onSubmit={submit}>
           {step === 1 ? (
             <>
-              <Tabs tabs={[{ id: 'email', label: 'Email' }, { id: 'sms', label: 'Text message' }]} value={channel} onChange={setChannel} />
               <Input
-                placeholder={channel === 'sms' ? 'Phone number (+255…) or username' : 'Email address or username'}
-                type={channel === 'sms' ? 'tel' : 'text'}
+                placeholder="Email address or username"
                 value={identifier}
-                onChange={(e) => { setIdentifier(e.target.value); if (looksLikePhone(e.target.value)) setChannel('sms'); else if (e.target.value.includes('@')) setChannel('email'); }}
+                onChange={(e) => setIdentifier(e.target.value)}
                 required
                 autoFocus
               />
@@ -281,11 +276,11 @@ function RecoverPanel() {
             </>
           )}
           <ErrorBox error={error} />
-          <button className="btn btn-primary btn-lg btn-block" disabled={busy}>{step === 1 ? `Send code by ${where}` : 'Reset password'}</button>
+          <button className="btn btn-primary btn-lg btn-block" disabled={busy}>{step === 1 ? 'Send code to my email' : 'Reset password'}</button>
           {step === 2 && (
             <div className="row-between small">
               <button type="button" className="auth-link" onClick={resend} disabled={wait > 0}>{wait > 0 ? `Resend in ${wait}s` : 'Resend code'}</button>
-              <button type="button" className="auth-link" onClick={() => { setStep(1); setChannel(channel === 'sms' ? 'email' : 'sms'); setCode(''); setError(null); }}>Use {channel === 'sms' ? 'email' : 'text message'} instead</button>
+              <button type="button" className="auth-link" onClick={() => { setStep(1); setCode(''); setError(null); }}>Use a different account</button>
             </div>
           )}
           <DevOutboxHint />

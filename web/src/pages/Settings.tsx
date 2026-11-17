@@ -6,6 +6,7 @@ import { Avatar, Empty, ErrorBox, Field, Input, Modal, PageTitle, Select, Spinne
 import { useAvatarUpload } from '../components/AvatarUpload.tsx';
 import { LocationFields } from '../components/LocationFields.tsx';
 import { PlanSettings } from './PlanSettings.tsx';
+import { Alerts } from './Alerts.tsx';
 import { ProfileForm } from './CvEditor.tsx';
 import { MapView } from '../components/MapView.tsx';
 import { DevOutboxHint } from './Auth.tsx';
@@ -100,7 +101,7 @@ function Account() {
           <Field label="Username"><Input value={u.username} disabled /></Field>
           <Field label="Bio" className="span-2"><Textarea value={f.bio} onChange={(e) => setF({ ...f, bio: e.target.value })} maxLength={1000} style={{ minHeight: 70 }} /></Field>
           <Field label="Sign-in email" hint={me?.features?.contact_verification ? (u.email_verified ? '✓ Verified' : 'Not verified') : undefined}><Input type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
-          <Field label="Sign-in phone" hint={me?.features?.contact_verification ? (u.phone_verified ? '✓ Verified' : 'Not verified') : undefined}><Input value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
+          <Field label="Sign-in phone" hint={me?.features?.contact_phone ? (u.phone_verified ? '✓ Verified' : 'Not verified') : undefined}><Input value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
         </div>
       </div>
       {biz ? (
@@ -375,8 +376,8 @@ function VerifyContact() {
   const act = useAction();
   const u = me!.user;
   const [codes, setCodes] = useState({ email: '', phone: '' });
-  const rows: ['email' | 'phone', string, boolean][] = [['email', u.email, u.email_verified], ['phone', u.phone, u.phone_verified]];
-  if (u.email_verified && u.phone_verified) return null;
+  const rows: ['email' | 'phone', string, boolean][] = [['email', u.email, u.email_verified], ...(me?.features?.contact_phone ? [['phone', u.phone, u.phone_verified] as ['phone', string, boolean]] : [])];
+  if (rows.every(([, , v]) => v)) return null;
   return (
     <div className="card card-pad stack-sm">
       <h3>Verify your contact details</h3>
@@ -473,6 +474,7 @@ export default function Settings() {
             <NavLink to="/settings/plan"><Icon name="award" />Plan</NavLink>
             {can('create_posts') && <NavLink to="/settings/verification"><Icon name="shieldCheck" />Verification</NavLink>}
             <NavLink to="/settings/delivery"><Icon name="package" />Delivery</NavLink>
+            <NavLink to="/settings/alerts"><Icon name="bell" />Alerts</NavLink>
             <NavLink to="/settings/interests"><Icon name="sparkles" />Interests</NavLink>
             <NavLink to="/settings/security"><Icon name="shield" />Security</NavLink>
           </nav>
@@ -486,6 +488,7 @@ export default function Settings() {
             <Route path="verification" element={can('create_posts') ? <VerificationSettings /> : <Empty title="Verification is for accounts that post" />} />
             <Route path="delivery" element={<Delivery />} />
             <Route path="business" element={biz ? <BusinessSettings /> : <Empty title="Not a business account" />} />
+            <Route path="alerts" element={<Alerts />} />
             <Route path="interests" element={<Interests />} />
             <Route path="security" element={<Security />} />
           </Routes></SectionSwap>
